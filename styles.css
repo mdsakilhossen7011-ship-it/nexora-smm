@@ -21,3 +21,67 @@ body.light-theme{--bg:#f4f5ff;--text:#17182c;--muted:#626783;--panel:#fff;--pane
 .light-theme .footer-bottom{color:#646985}
 .light-theme .nav-links a:hover,.light-theme .nav-links a.active{color:#6e22c5}
 @media(max-width:600px){.light-theme .nav-links{background:#f7f7ff}}
+
+
+/* Mobile horizontal-overflow safeguards */
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+img, picture, video, canvas, svg, iframe {
+  display: block;
+  max-width: 100%;
+}
+
+main, header, footer, section, .section-wrap, .auth-page, .auth-card,
+.hero, .hero-copy, .hero-art, .service-grid, .service-card,
+.benefits, .steps, .footer-main {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+    gap: 6px;
+  }
+
+  .brand {
+    min-width: 0;
+    font-size: 16px;
+    gap: 7px;
+  }
+
+  .nav-actions {
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .nav-actions .btn {
+    white-space: nowrap;
+  }
+
+  .section-wrap {
+    width: calc(100% - 28px);
+  }
+
+  .hero h1,
+  .section-heading h2,
+  .how-section h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .hero-art {
+    overflow: hidden;
+  }
+}
