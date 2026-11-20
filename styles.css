@@ -1105,3 +1105,46 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 @media(prefers-reduced-motion:reduce){
   #homePage > .activity-ticker .activity-track-group{animation:none}
 }
+
+
+/* Mobile full-height off-canvas navigation drawer */
+@media (max-width:600px){
+  .topbar{position:sticky;top:0;z-index:1002}
+  .menu-toggle{position:relative;z-index:1004}
+  .nav-backdrop{
+    position:fixed;inset:0;z-index:1000;background:rgba(2,4,15,.72);
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .28s ease,visibility .28s ease;
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  }
+  .nav-backdrop.open{opacity:1;visibility:visible;pointer-events:auto}
+  .nav-links{
+    display:flex!important;position:fixed!important;top:0!important;left:0!important;
+    right:auto!important;bottom:0!important;width:min(86vw,340px)!important;
+    height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;
+    box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;
+    padding:86px 22px 28px!important;gap:0!important;align-items:stretch!important;
+    flex-direction:column!important;background:linear-gradient(160deg,#151832 0%,#0b0e22 100%)!important;
+    border:0!important;border-right:1px solid rgba(172,125,255,.28)!important;
+    box-shadow:18px 0 50px rgba(0,0,0,.42);
+    transform:translateX(-105%);visibility:hidden;pointer-events:none;
+    transition:transform .32s cubic-bezier(.22,.75,.25,1),visibility .32s ease;
+    z-index:1003;
+  }
+  .nav-links.open{transform:translateX(0);visibility:visible;pointer-events:auto}
+  .nav-links .nav-public,.nav-links .nav-account{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:0}
+  .nav-links .nav-public.hidden,.nav-links .nav-account.hidden{display:none!important}
+  .nav-links a,.nav-links .nav-account button{
+    display:flex;align-items:center;width:100%;min-height:48px;box-sizing:border-box;
+    padding:12px 10px!important;border-bottom:1px solid rgba(255,255,255,.07);
+    font-size:15px;text-align:left;
+  }
+  .nav-links a:hover,.nav-links a.active{border-bottom:1px solid rgba(177,60,255,.55)}
+  .nav-links .nav-actions{display:flex;flex-direction:column;gap:10px;padding-top:18px}
+  .nav-links .nav-actions .btn{width:100%;min-height:44px}
+  .nav-links .nav-account button{background:transparent;border:0;color:#f2eaff;cursor:pointer}
+  body.nav-drawer-open{overflow:hidden;touch-action:pan-y}
+}
+@media(prefers-reduced-motion:reduce){
+  .nav-links,.nav-backdrop{transition:none!important}
+}
