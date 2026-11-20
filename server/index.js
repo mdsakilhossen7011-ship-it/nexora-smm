@@ -131,6 +131,13 @@ app.get("/api/me",requireAuth,asyncRoute(async(req,res)=>{
   const result=await pool.query("SELECT u.id,u.full_name,u.username,u.email,u.phone,u.role,u.created_at,w.balance_minor,w.total_spent_minor,(SELECT COUNT(*) FROM orders o WHERE o.user_id=u.id AND o.status='completed') AS completed_orders FROM users u JOIN wallet_accounts w ON w.user_id=u.id WHERE u.id=$1",[req.user.id]);
   res.json({user:result.rows[0]});
 }));
+app.patch("/api/me",requireAuth,asyncRoute(async(req,res)=>{
+ const parsed=z.object({fullName:z.string().trim().min(2).max(120),phone:z.string().trim().max(32).optional().default("")}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Enter a valid name and phone number."});
+ const phone=parsed.data.phone||null;
+ const updated=await pool.query("UPDATE users SET full_name=$1,phone=$2 WHERE id=$3 RETURNING id,full_name,username,email,phone,role,created_at",[parsed.data.fullName,phone,req.user.id]);
+ res.json({user:updated.rows[0]});
+}));
 app.get("/api/services",asyncRoute(async(_req,res)=>{
   const result=await pool.query("SELECT id,category,name,description,price_per_1000_minor,min_quantity,max_quantity FROM services WHERE enabled=true ORDER BY category,name");
   res.json({services:result.rows});
