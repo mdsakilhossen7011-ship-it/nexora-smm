@@ -119,3 +119,7 @@
  .ff-character img{object-position:center bottom}
 }
 @media(max-width:390px){.ff-character{left:-8px;width:145px;height:158px}}
+
+.ff-banner-gem{width:clamp(48px,7vw,78px);height:clamp(48px,7vw,78px);display:grid;place-items:center}
+.ff-banner-gem svg{display:block;width:100%;height:100%;filter:drop-shadow(0 0 10px #48dfff) drop-shadow(0 0 24px #315cff)}
+@media(max-width:600px){.ff-banner-gem{width:38px;height:38px;right:8px;top:8px}}
