@@ -393,6 +393,48 @@ app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(re
 
 
 
+
+// Admin content and audit APIs.
+app.get("/api/public/announcements",asyncRoute(async(_req,res)=>{
+ const r=await pool.query("SELECT id,title,body,created_at FROM announcements WHERE active=TRUE ORDER BY created_at DESC LIMIT 5");
+ res.set("Cache-Control","public, max-age=30").json({announcements:r.rows});
+}));
+app.get("/api/admin/announcements",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
+ const r=await pool.query("SELECT a.id,a.title,a.body,a.active,a.created_at,u.username AS created_by FROM announcements a JOIN users u ON u.id=a.created_by ORDER BY a.created_at DESC LIMIT 100");
+ res.json({announcements:r.rows});
+}));
+app.post("/api/admin/announcements",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({title:z.string().trim().min(3).max(180),body:z.string().trim().min(2).max(3000),active:z.boolean().default(true)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Enter a valid announcement title and message."});
+ const r=await pool.query("INSERT INTO announcements(title,body,active,created_by) VALUES($1,$2,$3,$4) RETURNING id,title,body,active,created_at",[parsed.data.title,parsed.data.body,parsed.data.active,req.user.id]);
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'announcement_created','announcement',$2,$3::jsonb)",[req.user.id,r.rows[0].id,JSON.stringify({title:parsed.data.title,active:parsed.data.active})]);
+ res.status(201).json({announcement:r.rows[0]});
+}));
+app.patch("/api/admin/announcements/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({active:z.boolean()}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Choose a valid announcement status."});
+ const r=await pool.query("UPDATE announcements SET active=$1 WHERE id=$2 RETURNING id,active,title",[parsed.data.active,req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Announcement not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'announcement_status_changed','announcement',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({active:parsed.data.active})]);
+ res.json({announcement:r.rows[0]});
+}));
+app.delete("/api/admin/announcements/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const r=await pool.query("DELETE FROM announcements WHERE id=$1 RETURNING id,title",[req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Announcement not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'announcement_deleted','announcement',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({title:r.rows[0].title})]);
+ res.json({ok:true});
+}));
+app.get("/api/admin/activity",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const q=String(req.query.search||"").trim().slice(0,100),term=q?"%"+q+"%":null;
+ const a=String(req.query.action||"").trim().slice(0,100),actionTerm=a?"%"+a+"%":null;
+ const r=await pool.query("SELECT l.id,l.action,l.entity_type,l.entity_id,l.details,l.created_at,u.full_name,u.username,u.email FROM audit_logs l LEFT JOIN users u ON u.id=l.actor_id WHERE ($1::text IS NULL OR l.action ILIKE $1 OR l.entity_type ILIKE $1 OR COALESCE(u.username,'') ILIKE $1 OR COALESCE(u.email,'') ILIKE $1 OR COALESCE(l.entity_id::text,'') ILIKE $1) AND ($2::text IS NULL OR l.action ILIKE $2) ORDER BY l.created_at DESC LIMIT 200",[term,actionTerm]);
+ res.json({logs:r.rows});
+}));
+app.get("/api/admin/system",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
+ const counts=await pool.query("SELECT (SELECT COUNT(*)::int FROM users WHERE role='user') AS users,(SELECT COUNT(*)::int FROM orders) AS orders,(SELECT COUNT(*)::int FROM services) AS services,(SELECT COUNT(*)::int FROM money_requests WHERE status='pending') AS pending_money,(SELECT COUNT(*)::int FROM support_tickets WHERE status IN ('open','in_progress')) AS open_tickets");
+ res.set("Cache-Control","no-store").json({database:true,environment:process.env.NODE_ENV||"development",orderFulfilmentEnabled:process.env.ORDER_FULFILMENT_ENABLED==="true",counts:counts.rows[0],paymentMode:"Manual review (bKash, Nagad, Rocket, upay)",secretsEditable:false});
+}));
+
 /* Support Center: private user tickets and separate administrator inbox. */
 app.get("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
  const r=await pool.query("SELECT t.id,t.subject,t.status,t.created_at,t.updated_at,(SELECT COUNT(*)::int FROM ticket_messages m WHERE m.ticket_id=t.id) AS message_count,(SELECT message FROM ticket_messages m WHERE m.ticket_id=t.id ORDER BY m.created_at DESC LIMIT 1) AS last_message FROM support_tickets t WHERE t.user_id=$1 ORDER BY t.updated_at DESC LIMIT 100",[req.user.id]);
