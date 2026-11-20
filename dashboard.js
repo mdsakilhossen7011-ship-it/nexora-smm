@@ -94,7 +94,16 @@ function applyDashboardView(){
 window.addEventListener("hashchange",applyDashboardView);
 applyDashboardView();
 const menuToggle=document.getElementById("accountMenuToggle");const accountMenu=document.getElementById("accountMenu");
-menuToggle.addEventListener("click",()=>{const open=accountMenu.classList.toggle("open");menuToggle.setAttribute("aria-expanded",String(open));menuToggle.setAttribute("aria-label",open?"Close account menu":"Open account menu");});
-accountMenu.addEventListener("click",event=>{if(event.target.closest("a")){accountMenu.classList.remove("open");menuToggle.setAttribute("aria-expanded","false");}});
-document.addEventListener("click",event=>{if(!event.target.closest(".account-menu-wrap")){accountMenu.classList.remove("open");menuToggle.setAttribute("aria-expanded","false");}});
-document.getElementById("logoutBtn").addEventListener("click",async()=>{try{await request("/auth/logout",{method:"POST"});}finally{location.href="/#login";}});init();
+const isMobileMenu=()=>window.matchMedia("(max-width: 700px)").matches;
+function setAccountMenuOpen(open){
+ accountMenu.classList.toggle("open",open);
+ document.body.classList.toggle("account-menu-open",open&&isMobileMenu());
+ menuToggle.setAttribute("aria-expanded",String(open));
+ menuToggle.setAttribute("aria-label",open?"Close account menu":"Open account menu");
+}
+menuToggle.addEventListener("click",()=>setAccountMenuOpen(!accountMenu.classList.contains("open")));
+accountMenu.addEventListener("click",event=>{if(event.target.closest("a"))setAccountMenuOpen(false);});
+document.addEventListener("click",event=>{if(!event.target.closest(".account-menu-wrap"))setAccountMenuOpen(false);});
+document.addEventListener("keydown",event=>{if(event.key==="Escape")setAccountMenuOpen(false);});
+window.addEventListener("resize",()=>{if(!isMobileMenu())document.body.classList.remove("account-menu-open");else if(accountMenu.classList.contains("open"))document.body.classList.add("account-menu-open");});
+document.getElementById("logoutBtn").addEventListener("click",async()=>{setAccountMenuOpen(false);try{await request("/auth/logout",{method:"POST"});}finally{location.href="/#login";}});init();
