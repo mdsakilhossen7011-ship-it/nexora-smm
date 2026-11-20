@@ -88,3 +88,24 @@
  .ff-character{width:140px;height:135px}
  .ff-banner-copy{left:29%;max-width:57%}
 }
+
+
+/* Final override: compact, balanced two-column diamond cards */
+@media(max-width:760px){
+ .ff-packages{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:7px;row-gap:7px}
+ .ff-package{min-height:58px;height:58px;padding:6px 7px;gap:5px;border-radius:9px;align-items:center}
+ .ff-diamond-art{font-size:17px;flex:0 0 18px;line-height:1}
+ .ff-package-copy{display:flex;flex-direction:column;justify-content:center;gap:1px;min-width:0}
+ .ff-package-copy strong{font-size:10px;line-height:1.15;margin:0;padding:0}
+ .ff-package-copy small{font-size:7px;line-height:1.1;margin:0}
+ .ff-package-copy b{font-size:12px;line-height:1.15;margin:2px 0 0}
+ .ff-cart{width:20px;height:20px;min-width:20px;flex:0 0 20px;font-size:10px;border-radius:6px}
+ .ff-popular{top:-6px;left:6px;padding:2px 5px;font-size:6px;line-height:1.1}
+ .ff-selected-check{top:4px;right:4px;width:13px;height:13px;font-size:8px}
+}
+@media(max-width:390px){
+ .ff-package{height:56px;min-height:56px;padding:5px 6px;gap:4px}
+ .ff-package-copy strong{font-size:9px}
+ .ff-package-copy b{font-size:11px}
+ .ff-cart{width:18px;height:18px;min-width:18px;flex-basis:18px}
+}
