@@ -3,7 +3,7 @@ async function request(path,options={}){const r=await fetch(api+path,{credential
 const money=v=>"৳"+(Number(v||0)/100).toFixed(2);
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
 const titles={overview:["Overview","Your panel at a glance."],users:["Users","Manage customer accounts and wallet access."],orders:["Orders","Review and manage customer orders."],services:["Services","Manage gaming and social media services."],finance:["Finance","Review deposits, withdrawals and payment requests."],growth:["Growth & Referrals","Referral performance and commission controls."],support:["Support","Customer tickets and live support."],website:["Website Content","Manage banners, notices and announcements."],settings:["Settings","Payment, security and panel configuration."],activity:["Activity Logs","Review administrative actions."]};
-function showPage(page){if(!titles[page])return;document.querySelectorAll(".admin-page").forEach(x=>x.classList.toggle("active",x.id==="page-"+page));document.querySelectorAll(".admin-nav").forEach(x=>x.classList.toggle("active",x.dataset.page===page));document.getElementById("pageTitle").textContent=titles[page][0];document.getElementById("pageSubtitle").textContent=titles[page][1];document.getElementById("adminSidebar").classList.remove("open");document.getElementById("sidebarScrim").classList.remove("show");document.getElementById("sidebarToggle").setAttribute("aria-expanded","false");document.getElementById("searchResults").hidden=true;if(page==="users")loadUsers();if(page==="finance")loadFinance()}
+function showPage(page){if(!titles[page])return;document.querySelectorAll(".admin-page").forEach(x=>x.classList.toggle("active",x.id==="page-"+page));document.querySelectorAll(".admin-nav").forEach(x=>x.classList.toggle("active",x.dataset.page===page));document.getElementById("pageTitle").textContent=titles[page][0];document.getElementById("pageSubtitle").textContent=titles[page][1];document.getElementById("adminSidebar").classList.remove("open");document.getElementById("sidebarScrim").classList.remove("show");document.getElementById("sidebarToggle").setAttribute("aria-expanded","false");document.getElementById("searchResults").hidden=true;if(page==="users")loadUsers();if(page==="orders")loadOrders();if(page==="finance")loadFinance()}
 async function loadFinance(){const status=document.getElementById("adminStatus"),list=document.getElementById("requestsList");status.textContent="Loading…";list.textContent="";try{const data=await request("/admin/money-requests");const requests=data.requests||[],pending=requests.filter(x=>x.status==="pending");document.getElementById("pendingCount").textContent=pending.length;document.getElementById("totalCount").textContent=requests.length;document.getElementById("financeBadge").title=pending.length+" pending";document.getElementById("financeBadge").style.display=pending.length?"block":"none";status.textContent="Admin access verified";if(!requests.length){list.append(el("div","empty-admin","No money requests found."));return}requests.forEach(m=>{const card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","",String(m.request_type||"").toUpperCase()+" · "+String(m.method||"").toUpperCase()),el("span","request-status",String(m.status||"").toUpperCase()));card.append(head);const meta=el("div","request-meta");[[ "Amount",money(m.amount_minor)],["User",String(m.username||"—")+" ("+String(m.email||"—")+")"],["Account",m.account_number||"—"],["TrxID",m.trx_id||"—"],["Submitted",m.created_at?new Date(m.created_at).toLocaleString():"—"],["Review note",m.review_note||"—"]].forEach(([k,v])=>meta.append(el("span","",k+": "+v)));card.append(meta);if(m.status==="pending"){const actions=el("div","request-actions"),note=el("input");note.placeholder="Optional review note";note.maxLength=500;const yes=el("button","approve","Approve"),no=el("button","reject","Reject");const review=async decision=>{if(!confirm(decision==="approved"?"Verify the payment/TrxID before approving. Continue?":"Reject this request?"))return;yes.disabled=no.disabled=true;try{await request("/admin/money-requests/"+encodeURIComponent(m.id)+"/review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({decision,note:note.value})});await loadFinance()}catch(e){alert(e.message);yes.disabled=no.disabled=false}};yes.addEventListener("click",()=>review("approved"));no.addEventListener("click",()=>review("rejected"));actions.append(note,yes,no);card.append(actions)}list.append(card)})}catch(e){status.textContent="Could not load requests";list.append(el("div","empty-admin admin-error",e.message))}}
 async function loadUsers(){
  const status=document.getElementById("usersStatus"),list=document.getElementById("usersList");
@@ -31,9 +31,42 @@ async function loadUsers(){
   });
  }catch(e){status.textContent="Could not load users";list.append(el("div","empty-admin admin-error",e.message))}
 }
+async function loadOrders(){
+ const status=document.getElementById("ordersStatus"),list=document.getElementById("ordersList");
+ if(!status||!list)return;
+ status.textContent="Loading orders…";list.textContent="";
+ try{
+  const params=new URLSearchParams(),search=document.getElementById("orderSearch").value.trim(),filter=document.getElementById("orderStatusFilter").value;
+  if(search)params.set("search",search);if(filter)params.set("status",filter);
+  const data=await request("/admin/orders?"+params.toString()),orders=data.orders||[];
+  status.textContent=orders.length+" order"+(orders.length===1?"":"s")+" loaded";
+  if(!orders.length){list.append(el("div","empty-admin","No matching orders found."));return}
+  orders.forEach(o=>{
+   const card=el("article","request-card order-card"),head=el("div","request-head");
+   const identity=el("div","user-identity");
+   identity.append(el("strong","",(o.service_name||"Service")+" · "+money(o.charge_minor)),el("span","user-subline","@"+(o.username||"—")+" · "+(o.email||"—")));
+   const state=el("span","request-status user-state",String(o.status||"").toUpperCase());head.append(identity,state);card.append(head);
+   const meta=el("div","request-meta");
+   [["Order ID",o.id],["Category",o.category||"—"],["Target",o.target||"—"],["Quantity",String(o.quantity)],["Created",o.created_at?new Date(o.created_at).toLocaleString():"—"],["Provider ref",o.provider_order_id||"Not assigned"]].forEach(([k,v])=>meta.append(el("span","",k+": "+String(v??"—"))));
+   card.append(meta);
+   const actions=el("div","user-actions"),details=el("button","user-action","Full order details");
+   details.addEventListener("click",async()=>{details.disabled=true;try{const d=await request("/admin/orders/"+encodeURIComponent(o.id));const p=d.order;const info=el("div","user-detail-grid");[["Order ID",p.id],["Customer",p.full_name+" (@"+p.username+")"],["Email",p.email],["Phone",p.phone||"Not provided"],["Service",p.service_name],["Target",p.target],["Quantity",p.quantity],["Amount",money(p.charge_minor)],["Status",p.status],["Supplier order ID",p.provider_order_id||"Not assigned"],["Created",new Date(p.created_at).toLocaleString()],["Last updated",new Date(p.updated_at).toLocaleString()]].forEach(([k,v])=>info.append(el("span","",k+": "+String(v??"—"))));const box=card.querySelector(".order-detail");box.textContent="";box.append(info);box.hidden=!box.hidden;details.textContent=box.hidden?"Full order details":"Hide order details"}catch(e){alert(e.message)}finally{details.disabled=false}});
+   actions.append(details);
+   if(o.status==="pending"){
+    const cancel=el("button","user-action danger","Cancel & refund");
+    cancel.addEventListener("click",async()=>{const reason=prompt("Cancellation reason (5–250 characters):");if(reason===null)return;if(reason.trim().length<5||reason.trim().length>250){alert("Reason must be 5–250 characters.");return}if(!confirm("Cancel this pending order and return "+money(o.charge_minor)+" to the customer's wallet?"))return;cancel.disabled=true;try{const result=await request("/admin/orders/"+encodeURIComponent(o.id)+"/cancel-refund",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:reason.trim()})});alert(result.status==="refunded"?"Order canceled and wallet refund recorded.":"Order canceled. No charge was present to refund.");await loadOrders()}catch(e){alert(e.message);cancel.disabled=false}});
+    actions.append(cancel);
+   }
+   const detailBox=el("div","user-detail order-detail");detailBox.hidden=true;card.append(actions,detailBox);list.append(card);
+  });
+ }catch(e){status.textContent="Could not load orders";list.append(el("div","empty-admin admin-error",e.message))}
+}
 document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.page)));
-document.getElementById("refreshAdmin").addEventListener("click",()=>{const active=document.querySelector(".admin-page.active");if(active?.id==="page-users")loadUsers();else loadFinance()});
+document.getElementById("refreshAdmin").addEventListener("click",()=>{const active=document.querySelector(".admin-page.active");if(active?.id==="page-users")loadUsers();else if(active?.id==="page-orders")loadOrders();else loadFinance()});
 document.getElementById("refreshUsers").addEventListener("click",loadUsers);
+document.getElementById("refreshOrders").addEventListener("click",loadOrders);
+document.getElementById("orderSearch").addEventListener("input",loadOrders);
+document.getElementById("orderStatusFilter").addEventListener("change",loadOrders);
 document.getElementById("userSearch").addEventListener("input",loadUsers);
 document.getElementById("userStatusFilter").addEventListener("change",loadUsers);
 document.getElementById("sidebarToggle").addEventListener("click",()=>{const open=document.getElementById("adminSidebar").classList.toggle("open");document.getElementById("sidebarScrim").classList.toggle("show",open);document.getElementById("sidebarToggle").setAttribute("aria-expanded",String(open));});
