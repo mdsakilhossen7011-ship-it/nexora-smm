@@ -59,6 +59,8 @@ function showHome() {
 }
 
 document.addEventListener("click", (event) => {
+  const goButton = event.target.closest("[data-go]");
+  if (goButton) { event.preventDefault(); window.location.href = goButton.dataset.go; return; }
   const pageButton = event.target.closest("[data-page]");
   if (pageButton) {
     event.preventDefault();
