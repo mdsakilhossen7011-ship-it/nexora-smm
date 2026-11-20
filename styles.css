@@ -1068,3 +1068,10 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   #homePage > .services-section .service-card-cta span { font-size: 11px; }
   #homePage > .services-section .service-card-art { opacity: .62; }
 }
+
+/* Homepage announcements controlled by NEXORA administrators */
+.site-announcements{width:min(1180px,calc(100% - 36px));margin:18px auto 0;display:grid;gap:10px}
+.site-announcements:empty{display:none}
+.site-announcement{padding:14px 17px;border:1px solid #6c52ad66;border-left:3px solid #a879ff;border-radius:13px;background:linear-gradient(110deg,#191a3a,#11142a);color:#f3efff;box-shadow:0 10px 28px #0002}
+.site-announcement strong{display:block;font-size:14px;color:#d8c2ff}
+.site-announcement p{margin:5px 0 0;color:#c4c8df;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
