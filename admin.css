@@ -103,3 +103,6 @@ html:has(.admin-body),body.admin-body{width:100%;min-width:0;max-width:100%;marg
 .service-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .service-card .user-actions{margin-top:12px}
 @media(max-width:600px){.service-form-grid{grid-template-columns:1fr}.service-card .user-actions{display:grid;grid-template-columns:1fr}.service-card .user-action{width:100%;min-height:42px}}
+
+/* Growth and referral settings */
+.referral-switch{display:flex!important;align-items:center;gap:10px;grid-template-columns:20px 1fr!important}.referral-switch input{width:18px!important;height:18px;accent-color:#a56cff}.admin-page#page-growth .admin-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-page#page-growth .service-form{max-width:100%}@media(max-width:600px){.admin-page#page-growth .admin-stats{grid-template-columns:1fr 1fr}.admin-page#page-growth .admin-stats article:last-child{grid-column:1/-1}}
