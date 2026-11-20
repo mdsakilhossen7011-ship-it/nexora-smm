@@ -1075,3 +1075,33 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 .site-announcement{padding:14px 17px;border:1px solid #6c52ad66;border-left:3px solid #a879ff;border-radius:13px;background:linear-gradient(110deg,#191a3a,#11142a);color:#f3efff;box-shadow:0 10px 28px #0002}
 .site-announcement strong{display:block;font-size:14px;color:#d8c2ff}
 .site-announcement p{margin:5px 0 0;color:#c4c8df;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+
+
+/* Unified responsive SERVICE PULSE ticker — directly below the homepage header */
+#homePage > .activity-ticker{
+  width:100%;height:42px;margin:0 auto 18px;padding:0 0 0 max(4vw,22px);
+  display:flex;align-items:center;gap:12px;overflow:hidden;white-space:nowrap;
+  background:linear-gradient(100deg,rgba(17,19,42,.96),rgba(19,17,48,.92),rgba(12,20,43,.96));
+  border-block:1px solid rgba(163,133,255,.34);
+  box-shadow:0 0 18px rgba(125,63,255,.12),inset 0 0 18px rgba(110,77,255,.06);
+  color:#d8d9f1;position:relative;isolation:isolate;
+}
+#homePage > .activity-ticker:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,#48caff,#b44cff);box-shadow:0 0 12px #9b50ff;z-index:2}
+#homePage > .activity-ticker .activity-live-dot{display:block;flex:0 0 7px;width:7px;height:7px;margin-left:0;border-radius:50%;background:#8dffb5;box-shadow:0 0 10px #8dffb5}
+#homePage > .activity-ticker > strong{display:block;flex:0 0 auto;color:#c89aff;font-size:9px;letter-spacing:1px;font-weight:850}
+#homePage > .activity-ticker .activity-track{display:flex;flex:1 1 auto;min-width:0;align-items:center;overflow:hidden;gap:0;padding:0;font-size:10px;color:#e1def7}
+#homePage > .activity-ticker .activity-track-group{display:flex;flex:0 0 auto;align-items:center;gap:18px;padding-right:18px;white-space:nowrap;animation:nexoraPulseScroll 28s linear infinite}
+#homePage > .activity-ticker .activity-track-group span,
+#homePage > .activity-ticker .activity-track-group i{display:inline-block;flex:0 0 auto;white-space:nowrap}
+#homePage > .activity-ticker .activity-track-group i{color:#a66aff;font-style:normal}
+@keyframes nexoraPulseScroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+@media(max-width:600px){
+  #homePage > .activity-ticker{height:38px;margin:0 auto 10px;padding:0 10px;gap:8px}
+  #homePage > .activity-ticker .activity-live-dot{flex-basis:6px;width:6px;height:6px}
+  #homePage > .activity-ticker > strong{font-size:8px;letter-spacing:.7px}
+  #homePage > .activity-ticker .activity-track{font-size:9px}
+  #homePage > .activity-ticker .activity-track-group{gap:13px;padding-right:13px;animation-duration:24s}
+}
+@media(prefers-reduced-motion:reduce){
+  #homePage > .activity-ticker .activity-track-group{animation:none}
+}
