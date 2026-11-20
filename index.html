@@ -17,9 +17,20 @@
     <a class="brand" href="#home" aria-label="NEXORA SMM home"><span class="brand-mark">N</span><span>NEXORA <b>SMM</b></span></a>
     <button class="menu-toggle" id="menuToggle" aria-label="Open navigation menu" aria-expanded="false" aria-controls="navLinks"><span aria-hidden="true">☰</span></button>
     <nav class="nav-links" id="navLinks">
-      <a class="active" href="#home">⌂ &nbsp;Home</a>
-      <a href="#services">Services⌄</a><a href="#how">How it works</a><a href="#support">Support</a>
-      <div class="nav-actions"><button class="btn btn-ghost" data-page="login">Login</button><button class="btn btn-primary" data-page="register">Register</button></div>
+      <div class="nav-public" id="publicNav">
+        <a class="active" href="#home">⌂ &nbsp;Home</a>
+        <a href="#services">Services⌄</a><a href="#how">How it works</a><a href="#support">Support</a>
+        <div class="nav-actions"><button class="btn btn-ghost" data-page="login">Login</button><button class="btn btn-primary" data-page="register">Register</button></div>
+      </div>
+      <div class="nav-account hidden" id="accountNav" aria-label="Account menu">
+        <a href="dashboard.html#profile">♙ Profile</a>
+        <a href="dashboard.html#dashboard">⌂ Dashboard</a>
+        <a href="dashboard.html#referral">↗ Referral</a>
+        <a href="dashboard.html#top-leaders">🏆 Top Leaders</a>
+        <a href="dashboard.html#orders">◷ Order History</a>
+        <a href="dashboard.html#live-chat">▣ Live Chat</a>
+        <button type="button" id="homeLogoutBtn">↪ Logout</button>
+      </div>
     </nav>
   </header>
 
