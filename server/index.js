@@ -84,7 +84,7 @@ app.post("/api/auth/register", asyncRoute(async (req,res) => {
     password:z.string().min(10).max(72)
   });
   const parsed=schema.safeParse(req.body);
-  if(!parsed.success) return res.status(400).json({error:"Invalid registration details.",details:parsed.error.flatten()});
+  if(!parsed.success) { const fields=parsed.error.flatten().fieldErrors; const messages=[]; if(fields.fullName) messages.push("Full name: enter 2–120 characters."); if(fields.username) messages.push("Username: use 3–32 characters (letters, numbers, dot or underscore only)."); if(fields.email) messages.push("Enter a valid email address (maximum 254 characters)."); if(fields.phone) messages.push("Phone number must be 24 characters or fewer."); if(fields.referralCode) messages.push("Referral code must be 32 characters or fewer."); if(fields.password) messages.push("Password must be 10–72 characters."); return res.status(400).json({error:messages.join(" ")||"Please check your registration details."}); }
   const {fullName,username,email,phone,password,referralCode}=parsed.data;
   const referrer=referralCode?await pool.query("SELECT id FROM users WHERE upper(referral_code)=upper($1) AND status='active' LIMIT 1",[referralCode]):{rowCount:0,rows:[]};
   if(referralCode&&!referrer.rowCount)return res.status(400).json({error:"This referral code is invalid or inactive."});
