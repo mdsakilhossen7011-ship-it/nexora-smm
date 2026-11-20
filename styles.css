@@ -1148,3 +1148,46 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 @media(prefers-reduced-motion:reduce){
   .nav-links,.nav-backdrop{transition:none!important}
 }
+
+/* NEXORA homepage premium service cards + seamless ticker, 2026-11-21 */
+#homePage > .activity-ticker .activity-track{display:flex!important;flex:0 0 auto!important;width:max-content!important;min-width:max-content!important;max-width:none!important;overflow:visible!important;gap:0!important;padding:0!important;animation:nexoraPulseLoop 30s linear infinite!important;will-change:transform}
+#homePage > .activity-ticker .activity-track-group{display:flex!important;flex:0 0 auto!important;width:max-content!important;align-items:center!important;gap:18px!important;padding:0 22px 0 0!important;white-space:nowrap!important;animation:none!important;transform:none!important}
+#homePage > .activity-ticker .activity-track-group span,#homePage > .activity-ticker .activity-track-group i{flex:0 0 auto!important;white-space:nowrap!important}
+#homePage > .activity-ticker:hover .activity-track{animation-play-state:paused!important}
+@keyframes nexoraPulseLoop{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+#homePage > .services-section .service-card{min-height:220px!important;height:auto!important;padding:22px!important;border:1px solid rgba(153,132,255,.34)!important;border-radius:21px!important;background:rgba(15,19,45,.72)!important;backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px);box-shadow:inset 0 1px rgba(255,255,255,.10),0 12px 32px rgba(0,0,0,.22),0 0 18px rgba(91,91,255,.08)}
+#homePage > .services-section .service-card:before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;z-index:3;background:linear-gradient(135deg,rgba(90,196,255,.72),rgba(167,91,255,.28) 48%,rgba(97,127,255,.68));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+#homePage > .services-section .service-card:after{background:linear-gradient(105deg,rgba(5,8,24,.94) 0%,rgba(9,11,31,.72) 50%,rgba(8,12,34,.25) 100%),linear-gradient(0deg,rgba(6,8,24,.72),transparent 82%)!important}
+#homePage > .services-section .service-card-art{opacity:.66!important;filter:saturate(1.18) contrast(1.05)}
+#homePage > .services-section .service-card .service-symbol{width:58px!important;height:58px!important;display:grid!important;place-items:center!important;padding:8px!important;border-radius:18px!important;overflow:visible!important;background:linear-gradient(145deg,rgba(255,255,255,.19),rgba(17,22,54,.82))!important;border:1px solid rgba(255,255,255,.32)!important;box-shadow:inset 0 2px 4px rgba(255,255,255,.2),0 8px 20px rgba(0,0,0,.34),0 0 22px rgba(126,91,255,.28)!important;backdrop-filter:blur(10px)!important}
+#homePage > .services-section .service-card .service-symbol svg{display:block!important;width:100%!important;height:100%!important;overflow:visible;filter:drop-shadow(0 4px 5px rgba(0,0,0,.45)) drop-shadow(0 0 8px rgba(121,157,255,.42))}
+#homePage > .services-section .facebook-card .service-symbol{box-shadow:inset 0 2px 4px #ffffff33,0 8px 20px #0006,0 0 24px #238dff55!important}
+#homePage > .services-section .instagram-card .service-symbol{box-shadow:inset 0 2px 4px #ffffff33,0 8px 20px #0006,0 0 24px #ff4caa55!important}
+#homePage > .services-section .gaming-card .service-symbol{box-shadow:inset 0 2px 4px #ffffff33,0 8px 20px #0006,0 0 24px #39caff66!important}
+#homePage > .services-section .tiktok-card .service-symbol{box-shadow:inset 0 2px 4px #ffffff33,0 8px 20px #0006,0 0 24px #24d9e855!important}
+#homePage > .services-section .youtube-card .service-symbol{box-shadow:inset 0 2px 4px #ffffff33,0 8px 20px #0006,0 0 24px #ff334c55!important}
+#homePage > .services-section .telegram-card .service-symbol{box-shadow:inset 0 2px 4px #ffffff33,0 8px 20px #0006,0 0 24px #269de855!important}
+#homePage > .services-section .service-card h3{font-size:18px!important;line-height:1.25!important;margin:13px 0 6px!important}
+#homePage > .services-section .service-card p{font-size:11px!important;line-height:1.55!important;min-height:34px!important;margin:0 0 12px!important}
+#homePage > .services-section .service-card-cta{width:max-content;max-width:100%;min-height:32px;padding:7px 12px!important;border-radius:10px!important;font-size:10px!important;letter-spacing:.1px;background:linear-gradient(105deg,rgba(126,64,255,.82),rgba(45,119,255,.76))!important;border:1px solid rgba(209,188,255,.6)!important;box-shadow:0 4px 16px rgba(65,70,220,.22),inset 0 1px rgba(255,255,255,.25)!important}
+#homePage > .services-section .service-card:hover{transform:translateY(-4px)!important;border-color:rgba(185,157,255,.85)!important;box-shadow:inset 0 1px rgba(255,255,255,.13),0 16px 34px rgba(0,0,0,.34),0 0 28px rgba(116,91,255,.24)!important}
+#homePage > .services-section .facebook-card{--card-glow:rgba(38,139,255,.22)}
+#homePage > .services-section .instagram-card{--card-glow:rgba(255,72,164,.2)}
+#homePage > .services-section .gaming-card{--card-glow:rgba(255,184,58,.2)}
+#homePage > .services-section .tiktok-card{--card-glow:rgba(32,218,220,.18)}
+#homePage > .services-section .youtube-card{--card-glow:rgba(255,54,75,.2)}
+#homePage > .services-section .telegram-card{--card-glow:rgba(41,169,241,.2)}
+#homePage > .services-section .service-card:after{box-shadow:inset 0 0 42px var(--card-glow,rgba(130,100,255,.18))}
+@media(max-width:600px){
+#homePage > .activity-ticker{padding:0 10px!important;gap:8px!important}
+#homePage > .activity-ticker .activity-track-group{gap:13px!important;padding-right:15px!important}
+#homePage > .activity-ticker .activity-track{animation-duration:24s!important}
+#homePage > .services-section .service-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+#homePage > .services-section .service-card{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;gap:0!important;height:184px!important;min-height:184px!important;padding:13px 12px!important;border-radius:16px!important;overflow:hidden!important}
+#homePage > .services-section .service-card .service-symbol{width:43px!important;height:43px!important;padding:6px!important;border-radius:14px!important;flex:0 0 43px!important}
+#homePage > .services-section .service-card h3{font-size:13px!important;margin:9px 0 3px!important;line-height:1.2!important}
+#homePage > .services-section .service-card p{font-size:9px!important;line-height:1.4!important;min-height:25px!important;margin:0 0 8px!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important}
+#homePage > .services-section .service-card-cta{display:inline-flex!important;width:100%!important;max-width:100%!important;min-height:27px!important;height:27px!important;margin-top:auto!important;justify-content:center!important;padding:5px 6px!important;font-size:8px!important;white-space:nowrap!important;overflow:hidden!important}
+}
+@media(max-width:360px){#homePage > .services-section .service-card{height:174px!important;min-height:174px!important;padding:11px 10px!important}#homePage > .services-section .service-card h3{font-size:12px!important}#homePage > .services-section .service-card p{font-size:8px!important}#homePage > .services-section .service-card-cta{font-size:7.5px!important}}
+@media(prefers-reduced-motion:reduce){#homePage > .activity-ticker .activity-track{animation:none!important}#homePage > .services-section .service-card{transition:none!important}}
