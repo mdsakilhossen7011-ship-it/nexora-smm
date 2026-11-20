@@ -83,6 +83,8 @@ function applyDashboardView(){
  const topGroups=Array.from(document.querySelectorAll(".dash-wrap > .dash-columns"));
  const topPanels=Array.from(document.querySelectorAll(".dash-wrap > .dash-panel,.dash-wrap > .ledger-panel"));
  const recentOrders=document.getElementById("recentOrders");
+ const quickActions=document.querySelector(".quick-actions");
+ quickActions?.classList.toggle("dash-view-hidden",view!=="dashboard"&&view!=="deposit");
  heading?.classList.add("dash-view-hidden");
  stats?.classList.add("dash-view-hidden");
  topGroups.forEach(el=>el.classList.add("dash-view-hidden"));
