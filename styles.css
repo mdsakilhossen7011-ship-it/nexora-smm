@@ -733,3 +733,89 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   .how-section { padding-top: 25px; }
 }
 .mobile-trust-strip { display: none; }
+
+
+/* Homepage layout correction: services first, followed by the hero. */
+#homePage > .services-section { position: relative; }
+#homePage > .hero { position: relative; }
+@media (max-width: 600px) {
+  #homePage > .services-section {
+    padding-top: 18px !important;
+    padding-bottom: 26px !important;
+  }
+  #homePage > .hero {
+    padding-top: 22px !important;
+    padding-bottom: 24px !important;
+    margin-top: 0 !important;
+  }
+  #homePage > .hero .hero-art .float-icon,
+  #homePage > .hero .float-icon {
+    display: none !important;
+  }
+  #homePage > .services-section .service-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  #homePage > .services-section .service-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 174px !important;
+    height: 174px !important;
+    padding: 12px 11px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    overflow: hidden !important;
+  }
+  #homePage > .services-section .service-card h3 {
+    margin: 8px 0 3px !important;
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+  }
+  #homePage > .services-section .service-card p {
+    min-height: 30px !important;
+    margin: 0 0 8px !important;
+    font-size: 9px !important;
+    line-height: 1.4 !important;
+    overflow-wrap: anywhere;
+  }
+  #homePage > .services-section .service-card button {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 34px !important;
+    margin-top: auto !important;
+    padding: 7px 5px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: clamp(8px, 2.45vw, 10px) !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+    border-radius: 10px !important;
+    background: linear-gradient(100deg,#7131e8,#3d70ef) !important;
+    border: 1px solid rgba(202,174,255,.62) !important;
+    color: #fff !important;
+    box-shadow: 0 0 9px rgba(133,66,255,.42), 0 0 18px rgba(75,107,255,.18), inset 0 1px rgba(255,255,255,.22) !important;
+  }
+  #homePage > .services-section .service-card button:active {
+    transform: translateY(1px);
+    filter: brightness(1.12);
+  }
+}
+@media (max-width: 360px) {
+  #homePage > .services-section .service-grid { gap: 8px !important; }
+  #homePage > .services-section .service-card {
+    height: 170px !important;
+    min-height: 170px !important;
+    padding: 10px 9px !important;
+  }
+  #homePage > .services-section .service-card button {
+    font-size: 8px !important;
+    padding-inline: 3px !important;
+  }
+}
