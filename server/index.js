@@ -354,6 +354,18 @@ app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(re
 }));
 
 
+
+app.post("/api/support/uploads/sign",requireAuth,asyncRoute(async(req,res)=>{
+ const cloud=process.env.CLOUDINARY_CLOUD_NAME,key=process.env.CLOUDINARY_API_KEY,secret=process.env.CLOUDINARY_API_SECRET;
+ if(!cloud||!key||!secret)return res.status(503).json({error:"Support image storage is not configured yet."});
+ const timestamp=Math.floor(Date.now()/1000),folder="nexora-support/"+req.user.id,publicId=crypto.randomUUID();
+ const params={folder,public_id:publicId,timestamp};
+ const toSign=Object.keys(params).sort().map(k=>k+"="+params[k]).join("&");
+ const signature=crypto.createHash("sha1").update(toSign+secret).digest("hex");
+ await pool.query("INSERT INTO support_upload_intents(user_id,public_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '15 minutes')",[req.user.id,publicId]);
+ res.json({cloud_name:cloud,api_key:key,timestamp,signature,folder,public_id:publicId});
+}));
+
 /* Support Center: private user tickets and separate administrator inbox. */
 app.get("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
  const r=await pool.query("SELECT t.id,t.subject,t.status,t.created_at,t.updated_at,(SELECT COUNT(*)::int FROM ticket_messages m WHERE m.ticket_id=t.id) AS message_count,(SELECT message FROM ticket_messages m WHERE m.ticket_id=t.id ORDER BY m.created_at DESC LIMIT 1) AS last_message FROM support_tickets t WHERE t.user_id=$1 ORDER BY t.updated_at DESC LIMIT 100",[req.user.id]);
@@ -434,6 +446,10 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("ALTER TABLE support_tickets ADD CONSTRAINT support_tickets_status_check CHECK(status IN ('open','in_progress','answered','resolved','closed'))"))
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS support_tickets_user_updated_idx ON support_tickets(user_id,updated_at DESC)"))
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS ticket_messages_ticket_date_idx ON ticket_messages(ticket_id,created_at)"))
+  
+  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_upload_intents (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,public_id VARCHAR(255) NOT NULL UNIQUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),expires_at TIMESTAMPTZ NOT NULL)"))
+  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_attachments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),message_id UUID NOT NULL REFERENCES ticket_messages(id) ON DELETE CASCADE,public_id VARCHAR(255) NOT NULL UNIQUE,secure_url TEXT NOT NULL,format VARCHAR(20) NOT NULL,bytes BIGINT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS support_upload_intents_user_expiry_idx ON support_upload_intents(user_id,expires_at)"))
   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)")).then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
   .then(()=>app.listen(port,()=>console.log("NEXORA API listening on port "+port)))
