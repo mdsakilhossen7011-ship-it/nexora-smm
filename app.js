@@ -8,11 +8,6 @@ const authSwitch = document.getElementById("authSwitch");
 const authNotice = document.getElementById("authNotice");
 const menuToggle = document.getElementById("menuToggle");
 const navLinks = document.getElementById("navLinks");
-const navActions = document.querySelector(".nav-actions");
-
-// Keep mobile navigation in one collapsible panel so the brand never competes
-// with Login/Register controls for the same narrow row.
-navLinks.append(navActions);
 
 function setAuthPage(page) {
   const registering = page === "register";
