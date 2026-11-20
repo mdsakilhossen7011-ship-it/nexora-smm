@@ -16,6 +16,8 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
   throw new Error("SESSION_SECRET must be configured with at least 32 characters.");
 }
 app.disable("x-powered-by");
+// Render terminates HTTPS at its proxy; trust the proxy so secure cookies and client IP handling work correctly.
+app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors({ origin: (process.env.APP_ORIGIN || "").split(",").filter(Boolean), credentials: true }));
 app.use(express.json({ limit: "1.2mb" }));
