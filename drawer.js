@@ -20,7 +20,6 @@
    document.body.classList.remove("nexora-drawer-lock");
    toggle.setAttribute("aria-expanded","false");toggle.setAttribute("aria-label","Open navigation menu");
    const icon=toggle.querySelector("span");if(icon)icon.textContent="☰";else if(toggle.id==="menuToggle")toggle.textContent="☰";
-   if(menu.id==="mobileMenu")menu.hidden=true;
  }
  // Capture the toggle before older page-specific click handlers can run.
  document.addEventListener("click",event=>{
