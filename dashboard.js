@@ -6,6 +6,13 @@ function row(title,sub,right){const el=document.createElement("div");el.classNam
 function setupMoneyForms(){
  const dep=document.getElementById("depositForm"),wd=document.getElementById("withdrawForm");
  const methodSelect=document.getElementById("depositMethodSelect");
+ const withdrawMethodSelect=document.getElementById("withdrawMethodSelect");
+ const withdrawMethodLogo=document.getElementById("withdrawMethodLogo");
+ const gatewayStyles={bkash:"money-bkash-logo",nagad:"money-nagad-logo",rocket:"money-rocket-logo",upay:"money-upay-logo"};
+ const gatewayNames={bkash:"bKash",nagad:"Nagad",rocket:"Rocket",upay:"upay"};
+ const syncWithdrawGateway=()=>{const method=withdrawMethodSelect?.value||"bkash";if(withdrawMethodLogo){withdrawMethodLogo.textContent=gatewayNames[method]||"bKash";withdrawMethodLogo.className="money-method-logo "+(gatewayStyles[method]||gatewayStyles.bkash);}};
+ withdrawMethodSelect?.addEventListener("change",syncWithdrawGateway);
+ syncWithdrawGateway();
  const methodLogo=document.getElementById("depositMethodLogo");
  const gatewayStyles={bkash:"money-bkash-logo",nagad:"money-nagad-logo",rocket:"money-rocket-logo",upay:"money-upay-logo"};
  const gatewayNames={bkash:"bKash",nagad:"Nagad",rocket:"Rocket",upay:"upay"};
@@ -91,7 +98,10 @@ function applyDashboardView(){
  const topPanels=Array.from(document.querySelectorAll(".dash-wrap > .dash-panel,.dash-wrap > .ledger-panel"));
  const recentOrders=document.getElementById("recentOrders");
  const quickActions=document.querySelector(".quick-actions");
- quickActions?.classList.toggle("dash-view-hidden",view!=="dashboard"&&view!=="deposit");
+ quickActions?.classList.toggle("dash-view-hidden",view!=="dashboard"&&view!=="deposit"&&view!=="withdraw");
+ quickActions?.querySelectorAll("a").forEach(a=>a.classList.remove("quick-active"));
+ const activeQuick=view==="deposit"?"quick-deposit":view==="withdraw"?"quick-withdraw":view==="orders"?"quick-primary":"";
+ if(activeQuick)quickActions?.querySelector("."+activeQuick)?.classList.add("quick-active");
  heading?.classList.add("dash-view-hidden");
  stats?.classList.add("dash-view-hidden");
  topGroups.forEach(el=>el.classList.add("dash-view-hidden"));
