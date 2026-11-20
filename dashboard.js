@@ -81,11 +81,13 @@ function applyDashboardView(){
  const heading=document.querySelector(".dash-heading");
  const stats=document.querySelector(".stats-grid");
  const topGroups=Array.from(document.querySelectorAll(".dash-wrap > .dash-columns"));
- const topPanels=Array.from(document.querySelectorAll(".dash-wrap > .dash-panel,.dash-wrap > .ledger-panel"));\n const recentOrders=document.getElementById("recentOrders");
+ const topPanels=Array.from(document.querySelectorAll(".dash-wrap > .dash-panel,.dash-wrap > .ledger-panel"));
+ const recentOrders=document.getElementById("recentOrders");
  heading?.classList.add("dash-view-hidden");
  stats?.classList.add("dash-view-hidden");
  topGroups.forEach(el=>el.classList.add("dash-view-hidden"));
- topPanels.forEach(el=>el.classList.add("dash-view-hidden"));\n recentOrders?.classList.add("dash-view-hidden");
+ topPanels.forEach(el=>el.classList.add("dash-view-hidden"));
+ recentOrders?.classList.add("dash-view-hidden");
  const showGroup=(index,id)=>{
   const group=topGroups[index];
   const panel=document.getElementById(id);
