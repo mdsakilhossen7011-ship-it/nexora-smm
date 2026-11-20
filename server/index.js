@@ -5,6 +5,7 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
 const crypto = require("node:crypto");
+const path = require("node:path");
 const { Pool } = require("pg");
 const { z } = require("zod");
 
@@ -108,6 +109,7 @@ app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   res.json({orders:result.rows});
 }));
 app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
+  if (process.env.ORDER_FULFILMENT_ENABLED !== "true") return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});
   const parsed=z.object({serviceId:z.string().uuid(),target:z.string().trim().min(2).max(500),quantity:z.number().int().positive()}).safeParse(req.body);
   if(!parsed.success) return res.status(400).json({error:"Invalid order details."});
   const client=await pool.connect();
@@ -139,6 +141,14 @@ app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(re
   const r=await pool.query("SELECT m.*,u.username,u.email FROM money_requests m JOIN users u ON u.id=m.user_id ORDER BY m.created_at DESC LIMIT 200");
   res.json({requests:r.rows});
 }));
+
+// Serve only the public website files from the same origin as the API.
+const publicFiles = new Set(["styles.css","app.js","dashboard.html","dashboard.css","dashboard.js"]);
+app.get("/", (_req,res) => res.sendFile(path.join(__dirname,"..","index.html")));
+app.get("/:asset", (req,res,next) => {
+  if (!publicFiles.has(req.params.asset)) return next();
+  res.sendFile(path.join(__dirname,"..",req.params.asset));
+});
 
 app.use((err,_req,res,_next)=>{
   console.error(err);
