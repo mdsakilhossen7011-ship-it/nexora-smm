@@ -41,7 +41,7 @@ const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
 svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("aria-hidden","true");svg.setAttribute("focusable","false");svg.setAttribute("fill","none");svg.setAttribute("stroke","currentColor");svg.setAttribute("stroke-width","1.8");svg.setAttribute("stroke-linecap","round");svg.setAttribute("stroke-linejoin","round");svg.innerHTML=P[key]||P.zap;
 const wrap=document.createElement("span");wrap.className="nexora-btn-icon";wrap.setAttribute("aria-hidden","true");wrap.append(svg);el.insertBefore(wrap,el.firstChild);el.dataset.nexoraIconized="1";
 }
-function scan(root){(maps[page]||[]).forEach(([sel,key])=>root.querySelectorAll(sel).forEach(el=>iconize(el,key)));}
+function scan(root){(maps[page]||[]).forEach(([sel,key])=>{if(root.matches&&root.matches(sel))iconize(root,key);root.querySelectorAll(sel).forEach(el=>iconize(el,key));});}
 function start(){scan(document);const mo=new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1){scan(n);if(n.querySelector)scan(n);}})));mo.observe(document.body,{childList:true,subtree:true});}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();
 })();
