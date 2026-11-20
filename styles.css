@@ -849,3 +849,28 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     min-height: 164px !important;
   }
 }
+
+
+/* Service-specific logos inside Explore buttons */
+#homePage .service-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+#homePage .service-card button .service-button-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  object-fit: contain;
+  display: inline-block;
+  filter: drop-shadow(0 0 3px rgba(255,255,255,.28));
+}
+@media (max-width: 600px) {
+  #homePage .service-card button { gap: 4px; }
+  #homePage .service-card button .service-button-icon {
+    width: 12px;
+    height: 12px;
+    flex-basis: 12px;
+  }
+}
