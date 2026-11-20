@@ -306,3 +306,150 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   }
 }
 
+
+
+/* NEXORA mobile navbar: full brand on the top row, all actions in one menu. */
+.topbar > .brand {
+  flex: 0 0 auto;
+  min-width: max-content;
+  max-width: none;
+}
+.nav-links {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+.nav-links .nav-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+.menu-toggle {
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 600px) {
+  .topbar {
+    height: 66px;
+    min-height: 66px;
+    padding: 0 14px;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .topbar > .brand {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: none;
+    gap: 8px;
+    font-size: clamp(16px, 4.5vw, 19px);
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+  }
+  .topbar > .brand .brand-mark {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    font-size: 22px;
+  }
+  .topbar > .brand > span:last-child {
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .topbar > .menu-toggle {
+    display: inline-flex;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #191a35;
+    color: #fff;
+    font-size: 23px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .topbar > .menu-toggle span {
+    display: block;
+    line-height: 1;
+  }
+  .topbar > .nav-links {
+    display: none;
+    position: absolute;
+    top: 66px;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    flex: none;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 10px 16px 16px;
+    background: #0d1025;
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 16px 28px #0008;
+  }
+  .topbar > .nav-links.open {
+    display: flex;
+  }
+  .topbar > .nav-links > a {
+    display: block;
+    width: 100%;
+    padding: 13px 8px;
+    border-bottom: 1px solid #ffffff12;
+    font-size: 14px;
+  }
+  .topbar > .nav-links > .nav-actions {
+    display: flex;
+    width: 100%;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 8px 2px;
+  }
+  .topbar > .nav-links > .nav-actions .btn {
+    flex: 1 1 110px;
+    min-width: 0;
+    min-height: 42px;
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .topbar > .nav-links > .nav-actions .theme-toggle {
+    flex: 0 0 42px;
+    width: 42px;
+    min-width: 42px;
+    padding: 0;
+    font-size: 18px;
+  }
+  .light-theme .topbar > .menu-toggle {
+    background: #e8e9fb;
+    color: #17182c;
+  }
+  .light-theme .topbar > .nav-links {
+    background: #f7f7ff;
+  }
+}
+@media (max-width: 360px) {
+  .topbar {
+    padding-left: 10px;
+    padding-right: 10px;
+    gap: 8px;
+  }
+  .topbar > .brand {
+    font-size: 15px;
+    gap: 6px;
+  }
+  .topbar > .brand .brand-mark {
+    flex-basis: 29px;
+    width: 29px;
+    height: 29px;
+    font-size: 20px;
+  }
+}
