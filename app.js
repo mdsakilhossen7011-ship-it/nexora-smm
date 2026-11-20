@@ -121,7 +121,8 @@ authForm.addEventListener("submit", async (event) => {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || "Request failed.");
     authNotice.textContent = registering ? "Account created successfully." : "Login successful.";
-    window.location.href = "/";
+    const next = new URLSearchParams(window.location.search).get("next");
+    window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
   } catch (error) {
     authNotice.textContent = error.message.includes("Failed to fetch")
       ? "The secure API is not deployed or configured yet. Your details were not saved."
@@ -170,3 +171,7 @@ if (location.hash === "#login" || location.hash === "#register") {
  const host=document.getElementById("siteAnnouncements");if(!host)return;
  try{const response=await fetch((window.NEXORA_API_URL||"/api")+"/public/announcements",{credentials:"same-origin"});if(!response.ok)return;const data=await response.json();(data.announcements||[]).forEach(item=>{const card=document.createElement("article");card.className="site-announcement";const title=document.createElement("strong");title.textContent=item.title;const body=document.createElement("p");body.textContent=item.body;card.append(title,body);host.append(card)});}catch(_error){}
 })();
+
+
+// Restore the login screen when an admin page sends an unauthenticated visitor here.
+if (location.hash === "#login") setAuthPage("login");
