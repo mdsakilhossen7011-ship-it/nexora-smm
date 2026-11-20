@@ -221,3 +221,62 @@
  .ff-package .ff-package-copy b{font-size:11px!important;}
  .ff-package .ff-cart{width:18px!important;height:18px!important;min-width:18px!important;}
 }
+
+
+/* Definitive mobile fixes: hide failed banner image and keep prices inside cards */
+.ff-character[hidden]{display:none!important}
+#packageList{min-width:0}
+#packageList .ff-package{
+  display:grid!important;
+  grid-template-columns:20px minmax(0,1fr) 18px!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  align-items:center!important;
+  justify-content:stretch!important;
+  gap:5px!important;
+  width:100%!important;
+  min-width:0!important;
+  height:66px!important;
+  min-height:66px!important;
+  max-height:66px!important;
+  padding:7px!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+#packageList .ff-package>.ff-diamond-art{grid-column:1;grid-row:1;min-width:0!important;width:20px!important;flex:none!important;font-size:17px!important;line-height:1!important}
+#packageList .ff-package>.ff-package-copy{
+  grid-column:2;grid-row:1;display:flex!important;flex-direction:column!important;
+  align-items:flex-start!important;justify-content:center!important;
+  gap:2px!important;width:100%!important;min-width:0!important;min-height:0!important;
+  height:auto!important;overflow:hidden!important;
+}
+#packageList .ff-package>.ff-package-copy>strong{
+  display:block!important;width:100%!important;min-width:0!important;
+  margin:0!important;padding:0!important;font-size:10px!important;line-height:1.15!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+#packageList .ff-package>.ff-package-copy>small{
+  display:block!important;width:100%!important;min-width:0!important;
+  margin:0!important;font-size:7px!important;line-height:1.1!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+#packageList .ff-package>.ff-package-copy>b{
+  display:block!important;position:static!important;flex:none!important;
+  width:auto!important;max-width:100%!important;min-width:0!important;
+  height:auto!important;margin:2px 0 0!important;padding:0!important;
+  font-size:12px!important;line-height:1.15!important;font-weight:900!important;
+  color:#ffdc28!important;white-space:nowrap!important;overflow:visible!important;
+}
+#packageList .ff-package>.ff-cart{
+  grid-column:3;grid-row:1;justify-self:end;align-self:center;
+  width:18px!important;height:18px!important;min-width:18px!important;
+  flex:none!important;margin:0!important;font-size:9px!important;
+}
+#packageList .ff-package>.ff-selected-check{position:absolute!important;top:3px!important;right:3px!important;width:13px!important;height:13px!important;font-size:8px!important}
+#packageList .ff-package>.ff-popular{position:absolute!important;top:2px!important;left:4px!important}
+@media(max-width:390px){
+  #packageList .ff-package{height:62px!important;min-height:62px!important;max-height:62px!important;grid-template-columns:18px minmax(0,1fr) 17px!important;gap:4px!important;padding:6px!important}
+  #packageList .ff-package>.ff-diamond-art{width:18px!important;font-size:16px!important}
+  #packageList .ff-package>.ff-package-copy>strong{font-size:9px!important}
+  #packageList .ff-package>.ff-package-copy>b{font-size:11px!important}
+  #packageList .ff-package>.ff-cart{width:17px!important;height:17px!important;min-width:17px!important}
+}
