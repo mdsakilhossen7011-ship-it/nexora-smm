@@ -74,30 +74,41 @@
 .dash-wrap>.dash-columns.dash-view-hidden,.dash-wrap>.dash-panel.dash-view-hidden,.dash-wrap>.ledger-panel.dash-view-hidden{display:none!important}
 
 
-/* Mobile account menu: independent scrolling and page scroll lock */
+
+/* Reliable mobile account dropdown: viewport-fixed, fully scrollable */
 @media (max-width:700px){
+  /* backdrop-filter creates a containing block for fixed descendants */
+  .dash-topbar{backdrop-filter:none;-webkit-backdrop-filter:none}
   .account-menu{
-    position:fixed;
-    top:74px;
-    right:14px;
-    bottom:auto;
-    width:min(280px,calc(100vw - 28px));
-    max-height:calc(100vh - 90px);
-    max-height:calc(100dvh - 90px);
-    overflow-y:auto;
-    overflow-x:hidden;
-    overscroll-behavior:contain;
+    position:fixed !important;
+    top:74px !important;
+    right:14px !important;
+    left:auto !important;
+    bottom:auto !important;
+    width:min(280px,calc(100vw - 28px)) !important;
+    max-width:calc(100vw - 28px) !important;
+    max-height:calc(100vh - 86px) !important;
+    max-height:calc(100dvh - 86px) !important;
+    height:auto !important;
+    box-sizing:border-box !important;
+    padding:10px !important;
+    margin:0 !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    overscroll-behavior-y:contain;
     -webkit-overflow-scrolling:touch;
     touch-action:pan-y;
-    scrollbar-gutter:stable;
+    scrollbar-width:thin;
+    z-index:1000 !important;
   }
-  .account-menu.open{display:flex}
+  .account-menu.open{display:flex !important;flex-direction:column}
+  .account-menu a,.account-menu button{
+    flex:0 0 auto;
+    min-height:44px;
+    box-sizing:border-box;
+  }
   body.account-menu-open{
-    overflow:hidden;
+    overflow:hidden !important;
     overscroll-behavior:none;
-    touch-action:none;
-  }
-  body.account-menu-open .account-menu{
-    touch-action:pan-y;
   }
 }
