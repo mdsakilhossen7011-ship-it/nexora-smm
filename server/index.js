@@ -27,7 +27,16 @@ app.use(async (req,res,next)=>{
   const setting=await pool.query("SELECT enabled,message FROM site_settings WHERE id=TRUE");
   if(!setting.rows[0]?.enabled)return next();
   const raw=req.headers.authorization?.startsWith("Bearer ")?req.headers.authorization.slice(7):req.headers["x-session-token"]||req.headers.cookie?.split(";").map(v=>v.trim()).find(v=>v.startsWith("nexora_session="))?.slice("nexora_session=".length);
-  if(raw){const admin=await pool.query("SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>NOW() AND u.role='admin' AND u.status='active' LIMIT 1",[hashToken(decodeURIComponent(raw))]);if(admin.rowCount)return next();}
+  let isAdmin=false;
+  if(raw){const admin=await pool.query("SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>NOW() AND u.role='admin' AND u.status='active' LIMIT 1",[hashToken(decodeURIComponent(raw))]);isAdmin=admin.rowCount>0;}
+  // An administrator may keep using only the admin interface and its protected APIs.
+  // Do not exempt the public homepage/customer pages just because the same browser is logged in as admin.
+  if(isAdmin&&(
+   req.path==="/admin.html"||req.path==="/admin.css"||req.path==="/admin.js"||
+   req.path==="/support-admin"||req.path==="/support-admin.css"||req.path==="/support-admin.js"||
+   req.path==="/styles.css"||req.path==="/ui-icons.css"||req.path==="/ui-icons.js"||
+   req.path.startsWith("/api/admin/")||req.path.startsWith("/api/support/")
+  ))return next();
   res.set("Cache-Control","no-store");
   if(req.path.startsWith("/api/"))return res.status(503).json({error:"Site is temporarily under maintenance.",maintenance:true,message:setting.rows[0].message});
   const reason=String(setting.rows[0].message||"We are carrying out scheduled maintenance.").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
