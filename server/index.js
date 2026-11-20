@@ -18,13 +18,37 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({ origin: (process.env.APP_ORIGIN || "").split(",").filter(Boolean), credentials: true }));
-app.use(express.json({ limit: "20kb" }));
+app.use(express.json({ limit: "1.2mb" }));
 app.use("/api/auth", rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
 
 const cookieOptions = { httpOnly: true, secure: production || process.env.SESSION_COOKIE_SECURE === "true", sameSite: "lax", path: "/", maxAge: 7 * 24 * 60 * 60 * 1000 };
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const newToken = () => crypto.randomBytes(32).toString("base64url");
 const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const MAX_SUPPORT_IMAGE_BYTES = 200 * 1024;
+function decodeSupportImages(items) {
+  return items.map((value) => {
+    if (typeof value !== "string" || value.length > 280000) throw new Error("Each image must be 200 KB or smaller after compression.");
+    const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+    if (!match) throw new Error("Only valid JPG, PNG or WEBP images are allowed.");
+    const mime = match[1], encoded = match[2], data = Buffer.from(encoded, "base64");
+    if (!data.length || data.length > MAX_SUPPORT_IMAGE_BYTES || data.toString("base64") !== encoded) throw new Error("Each image must be 200 KB or smaller.");
+    const isJpeg = mime === "image/jpeg" && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+    const isPng = mime === "image/png" && data.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+    const isWebp = mime === "image/webp" && data.toString("ascii",0,4) === "RIFF" && data.toString("ascii",8,12) === "WEBP";
+    if (!isJpeg && !isPng && !isWebp) throw new Error("Image content does not match its file type.");
+    return { mime, data };
+  });
+}
+async function saveSupportImages(client, messageId, images) {
+  for (const image of images) {
+    const id = crypto.randomUUID();
+    await client.query(
+      "INSERT INTO support_attachments(id,message_id,public_id,secure_url,format,bytes,mime_type,data) VALUES($1,$2,$3,$4,'image',$5,$6,$7)",
+      [id,messageId,id,"/api/support/attachments/"+id,image.data.length,image.mime,image.data]
+    );
+  }
+}
 
 async function requireAuth(req, res, next) {
   try {
@@ -355,31 +379,21 @@ app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(re
 
 
 
-app.post("/api/support/uploads/sign",requireAuth,rateLimit({windowMs:15*60*1000,limit:20}),asyncRoute(async(req,res)=>{
- const cloud=process.env.CLOUDINARY_CLOUD_NAME,key=process.env.CLOUDINARY_API_KEY,secret=process.env.CLOUDINARY_API_SECRET;
- if(!cloud||!key||!secret)return res.status(503).json({error:"Support image storage is not configured yet."});
- const timestamp=Math.floor(Date.now()/1000),folder="nexora-support/"+req.user.id,publicId=crypto.randomUUID();
- const params={folder,public_id:publicId,timestamp};
- const toSign=Object.keys(params).sort().map(k=>k+"="+params[k]).join("&");
- const signature=crypto.createHash("sha1").update(toSign+secret).digest("hex");
- const intent=await pool.query("INSERT INTO support_upload_intents(user_id,public_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '15 minutes') RETURNING id",[req.user.id,publicId]);
- res.json({upload_id:intent.rows[0].id,cloud_name:cloud,api_key:key,timestamp,signature,folder,public_id:publicId});
-}));
-
 /* Support Center: private user tickets and separate administrator inbox. */
 app.get("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
  const r=await pool.query("SELECT t.id,t.subject,t.status,t.created_at,t.updated_at,(SELECT COUNT(*)::int FROM ticket_messages m WHERE m.ticket_id=t.id) AS message_count,(SELECT message FROM ticket_messages m WHERE m.ticket_id=t.id ORDER BY m.created_at DESC LIMIT 1) AS last_message FROM support_tickets t WHERE t.user_id=$1 ORDER BY t.updated_at DESC LIMIT 100",[req.user.id]);
  res.json({tickets:r.rows});
 }));
 app.post("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
- const parsed=z.object({subject:z.string().trim().min(4).max(180),message:z.string().trim().min(2).max(5000),uploads:z.array(z.string().uuid()).max(4).default([])}).safeParse(req.body);
- if(!parsed.success)return res.status(400).json({error:"Enter a subject and a message (maximum 5,000 characters)."});
+ const parsed=z.object({subject:z.string().trim().min(4).max(180),message:z.string().trim().min(2).max(5000),uploads:z.array(z.string().max(280000)).max(4).default([])}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Enter a subject, a message and up to four compressed images."});
+ let images;try{images=decodeSupportImages(parsed.data.uploads)}catch(e){return res.status(400).json({error:e.message})}
  const client=await pool.connect();
  try{await client.query("BEGIN");
  const t=await client.query("INSERT INTO support_tickets(user_id,subject,status) VALUES($1,$2,'open') RETURNING id,subject,status,created_at,updated_at",[req.user.id,parsed.data.subject]);
  const inserted=await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3) RETURNING id",[t.rows[0].id,req.user.id,parsed.data.message]);
  const messageId=inserted.rows[0].id;
- if(parsed.data.uploads.length){const up=await client.query("SELECT id,public_id FROM support_upload_intents WHERE id=ANY($1::uuid[]) AND user_id=$2 AND expires_at>NOW() FOR UPDATE",[parsed.data.uploads,req.user.id]);if(up.rowCount!==parsed.data.uploads.length)throw new Error("Uploaded image expired; please upload again.");for(const x of up.rows)await client.query("INSERT INTO support_attachments(message_id,public_id,secure_url,format,bytes) VALUES($1,$2,$3,'image',0)",[messageId,x.public_id,"https://res.cloudinary.com/"+process.env.CLOUDINARY_CLOUD_NAME+"/image/upload/nexora-support/"+req.user.id+"/"+x.public_id]);await client.query("DELETE FROM support_upload_intents WHERE id=ANY($1::uuid[])",[parsed.data.uploads]);}
+ if(images.length)await saveSupportImages(client,messageId,images);
  await client.query("COMMIT");res.status(201).json({ticket:t.rows[0]});
  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }));
@@ -387,12 +401,13 @@ app.get("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,res
  const t=await pool.query("SELECT id,user_id FROM support_tickets WHERE id=$1",[req.params.id]);
  if(!t.rowCount)return res.status(404).json({error:"Ticket not found."});
  if(t.rows[0].user_id!==req.user.id&&req.user.role!=="admin")return res.status(403).json({error:"You cannot view this ticket."});
- const r=await pool.query("SELECT m.id,m.message,m.created_at,m.sender_id,u.username,u.full_name,u.role,COALESCE((SELECT json_agg(json_build_object('url',a.secure_url,'format',a.format,'bytes',a.bytes)) FROM support_attachments a WHERE a.message_id=m.id),'[]'::json) AS attachments FROM ticket_messages m JOIN users u ON u.id=m.sender_id WHERE m.ticket_id=$1 ORDER BY m.created_at ASC",[req.params.id]);
+ const r=await pool.query("SELECT m.id,m.message,m.created_at,m.sender_id,u.username,u.full_name,u.role,COALESCE((SELECT json_agg(json_build_object('url',CASE WHEN a.data IS NOT NULL THEN '/api/support/attachments/'||a.id::text ELSE a.secure_url END,'format',a.format,'bytes',a.bytes)) FROM support_attachments a WHERE a.message_id=m.id),'[]'::json) AS attachments FROM ticket_messages m JOIN users u ON u.id=m.sender_id WHERE m.ticket_id=$1 ORDER BY m.created_at ASC",[req.params.id]);
  res.json({messages:r.rows});
 }));
 app.post("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,res)=>{
- const parsed=z.object({message:z.string().trim().max(5000).default(""),uploads:z.array(z.string().uuid()).max(4).default([])}).refine(v=>v.message.length>0||v.uploads.length>0).safeParse(req.body);
- if(!parsed.success)return res.status(400).json({error:"Message must contain 1–5,000 characters."});
+ const parsed=z.object({message:z.string().trim().max(5000).default(""),uploads:z.array(z.string().max(280000)).max(4).default([])}).refine(v=>v.message.length>0||v.uploads.length>0).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Send a message or attach up to four compressed images."});
+ let images;try{images=decodeSupportImages(parsed.data.uploads)}catch(e){return res.status(400).json({error:e.message})}
  const client=await pool.connect();
  try{await client.query("BEGIN");
  const t=await client.query("SELECT id,user_id,status FROM support_tickets WHERE id=$1 FOR UPDATE",[req.params.id]);
@@ -401,11 +416,17 @@ app.post("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,re
  if(t.rows[0].status==="closed"){await client.query("ROLLBACK");return res.status(409).json({error:"This ticket is closed."});}
  const inserted=await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3) RETURNING id",[req.params.id,req.user.id,parsed.data.message]);
  const messageId=inserted.rows[0].id;
- if(parsed.data.uploads.length){const up=await client.query("SELECT id,public_id FROM support_upload_intents WHERE id=ANY($1::uuid[]) AND user_id=$2 AND expires_at>NOW() FOR UPDATE",[parsed.data.uploads,req.user.id]);if(up.rowCount!==parsed.data.uploads.length)throw new Error("Uploaded image expired; please upload again.");for(const x of up.rows)await client.query("INSERT INTO support_attachments(message_id,public_id,secure_url,format,bytes) VALUES($1,$2,$3,'image',0)",[messageId,x.public_id,"https://res.cloudinary.com/"+process.env.CLOUDINARY_CLOUD_NAME+"/image/upload/"+x.public_id]);await client.query("DELETE FROM support_upload_intents WHERE id=ANY($1::uuid[])",[parsed.data.uploads]);}
+ if(images.length)await saveSupportImages(client,messageId,images);
  const nextStatus=req.user.role==="admin"?"answered":"open";
  await client.query("UPDATE support_tickets SET status=$1,updated_at=NOW() WHERE id=$2",[nextStatus,req.params.id]);
  await client.query("COMMIT");res.status(201).json({ok:true,status:nextStatus});
  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+app.get("/api/support/attachments/:id",requireAuth,asyncRoute(async(req,res)=>{
+ const found=await pool.query("SELECT a.data,a.mime_type,t.user_id FROM support_attachments a JOIN ticket_messages m ON m.id=a.message_id JOIN support_tickets t ON t.id=m.ticket_id WHERE a.id=$1",[req.params.id]);
+ if(!found.rowCount||!found.rows[0].data)return res.status(404).json({error:"Image not found."});
+ if(found.rows[0].user_id!==req.user.id&&req.user.role!=="admin")return res.status(403).json({error:"You cannot view this image."});
+ res.set({"Content-Type":found.rows[0].mime_type,"Content-Length":String(found.rows[0].data.length),"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff","Content-Disposition":"inline"}).send(found.rows[0].data);
 }));
 app.get("/api/admin/support/tickets",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const allowed=["open","in_progress","answered","resolved","closed"],status=allowed.includes(req.query.status)?req.query.status:null;
@@ -453,6 +474,8 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_upload_intents (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,public_id VARCHAR(255) NOT NULL UNIQUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),expires_at TIMESTAMPTZ NOT NULL)"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_attachments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),message_id UUID NOT NULL REFERENCES ticket_messages(id) ON DELETE CASCADE,public_id VARCHAR(255) NOT NULL UNIQUE,secure_url TEXT NOT NULL,format VARCHAR(20) NOT NULL,bytes BIGINT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS data BYTEA"))
+  .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS mime_type VARCHAR(40)"))
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS support_upload_intents_user_expiry_idx ON support_upload_intents(user_id,expires_at)"))
   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)")).then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
