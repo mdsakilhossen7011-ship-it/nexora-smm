@@ -47,3 +47,18 @@ Never commit secrets to GitHub. Put production secrets only in the hosting provi
 5. Check `GET /api/health`.
 
 The first admin account must be provisioned securely through a one-time operator process after deployment; public registration must never allow users to choose their own role.
+
+
+## Free hosting setup (no paid plan required)
+
+This repository includes a Render Blueprint for a single-origin deployment: the Node.js service serves the public website and the API together, so the login session cookie does not need cross-site frontend/API configuration.
+
+1. Create a free PostgreSQL project on Neon and copy its pooled or direct connection string. Keep the password private.
+2. Open the Neon SQL Editor and run the complete contents of `database/schema.sql` once.
+3. In Render, choose **New → Blueprint**, connect this GitHub repository, and apply `render.yaml`.
+4. When Render asks for `DATABASE_URL`, paste the Neon connection string. Keep the generated `SESSION_SECRET`; do not publish it.
+5. After deployment, open the Render service URL and check `/api/health`. It should report the database as connected.
+
+Free-tier caveats: Render free web services can sleep when idle and may take time to wake. Neon Free compute scales to zero and has monthly compute/network limits; when limits are reached, database access may pause until the allowance resets. This setup is suitable for development/testing, not a promise of uninterrupted commercial production. Review current provider limits before relying on it.
+
+Order creation is deliberately disabled by default (`ORDER_FULFILMENT_ENABLED=false`) so users cannot be charged before a verified supplier fulfilment workflow exists. Do not turn it on until the provider integration and refund/fulfilment process have been tested. Payment methods are also not connected yet.
