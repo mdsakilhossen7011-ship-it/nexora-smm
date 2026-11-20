@@ -140,14 +140,14 @@ app.get("/api/money-requests",requireAuth,asyncRoute(async(req,res)=>{
   res.json({requests:requests.rows,commission_balance_minor:commission.rows[0].balance_minor});
 }));
 app.post("/api/money-requests/deposit",requireAuth,asyncRoute(async(req,res)=>{
-  const parsed=z.object({method:z.enum(["bkash","nagad","rocket","upay"]),amount:z.number().int().min(100).max(50000),trxId:z.string().trim().min(6).max(120),accountNumber:z.string().trim().min(10).max(32)}).safeParse(req.body);
+  const parsed=z.object({method:z.enum(["bkash","nagad","rocket","upay"]),amount:z.number().int().min(100).max(50000),trxId:z.string().trim().min(6).max(120),accountNumber:z.string().trim().regex(/^(?:\+?88)?01[3-9]\d{8}$/)}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Enter a valid amount, sender number and TrxID. Minimum deposit is ৳100."});
   const d=parsed.data;
   const r=await pool.query("INSERT INTO money_requests(user_id,request_type,method,amount_minor,trx_id,account_number) VALUES($1,'deposit',$2,$3,$4,$5) RETURNING id,status,created_at",[req.user.id,d.method,d.amount*100,d.trxId,d.accountNumber]);
   res.status(201).json({request:r.rows[0],message:"Deposit request submitted. Balance will be added only after admin verifies the TrxID."});
 }));
 app.post("/api/money-requests/withdraw",requireAuth,asyncRoute(async(req,res)=>{
-  const parsed=z.object({method:z.enum(["bkash","nagad","rocket","upay"]),amount:z.number().int().min(100).max(50000),accountNumber:z.string().trim().min(10).max(32)}).safeParse(req.body);
+  const parsed=z.object({method:z.enum(["bkash","nagad","rocket","upay"]),amount:z.number().int().min(100).max(50000),accountNumber:z.string().trim().regex(/^(?:\+?88)?01[3-9]\d{8}$/)}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Enter a valid withdrawal amount and payout number. Minimum withdrawal is ৳100."});
   const client=await pool.connect();
   try{
@@ -214,4 +214,7 @@ app.use((err,_req,res,_next)=>{
   res.status(500).json({error:"Internal server error."});
 });
 const port=Number(process.env.PORT||4000);
-pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())").then(()=>app.listen(port,()=>console.log("NEXORA API listening on port "+port))).catch(error=>{console.error("Database initialization failed",error);process.exit(1);});
+pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())")
+  .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
+  .then(()=>app.listen(port,()=>console.log("NEXORA API listening on port "+port)))
+  .catch(error=>{console.error("Database initialization failed",error);process.exit(1);});
