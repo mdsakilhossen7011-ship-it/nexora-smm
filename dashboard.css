@@ -72,3 +72,32 @@
 /* Single-section dashboard navigation */
 .dash-view-hidden{display:none!important}
 .dash-wrap>.dash-columns.dash-view-hidden,.dash-wrap>.dash-panel.dash-view-hidden,.dash-wrap>.ledger-panel.dash-view-hidden{display:none!important}
+
+
+/* Mobile account menu: independent scrolling and page scroll lock */
+@media (max-width:700px){
+  .account-menu{
+    position:fixed;
+    top:74px;
+    right:14px;
+    bottom:auto;
+    width:min(280px,calc(100vw - 28px));
+    max-height:calc(100vh - 90px);
+    max-height:calc(100dvh - 90px);
+    overflow-y:auto;
+    overflow-x:hidden;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+    scrollbar-gutter:stable;
+  }
+  .account-menu.open{display:flex}
+  body.account-menu-open{
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:none;
+  }
+  body.account-menu-open .account-menu{
+    touch-action:pan-y;
+  }
+}
