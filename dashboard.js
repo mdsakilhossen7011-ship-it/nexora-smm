@@ -60,30 +60,39 @@ async function init(){const message=document.getElementById("dashMessage");try{c
 const [orders,ledger]=await Promise.all([request("/orders"),request("/wallet/ledger")]);const ol=document.getElementById("ordersList");ol.textContent="";if(!orders.orders.length)ol.textContent="No orders yet.";orders.orders.slice(0,8).forEach(o=>ol.append(row(o.service_name,o.status+" · "+new Date(o.created_at).toLocaleString(),money(o.charge_minor))));const ll=document.getElementById("ledgerList");ll.textContent="";if(!ledger.entries.length)ll.textContent="No wallet activity yet.";ledger.entries.slice(0,10).forEach(x=>ll.append(row(x.entry_type.replaceAll("_"," "),new Date(x.created_at).toLocaleString(),(Number(x.amount_minor)<0?"−":"+")+money(Math.abs(Number(x.amount_minor))))));await loadMoneyRequests();await loadReferrals();setupMoneyForms();setupSupport();document.getElementById("copyReferralLink").addEventListener("click",async()=>{const value=document.getElementById("myReferralLink").value;if(!value)return;try{await navigator.clipboard.writeText(value);document.getElementById("copyReferralLink").textContent="Copied!";}catch{document.getElementById("copyReferralLink").textContent="Copy failed";}});message.textContent="Your account data is loaded from the connected API.";applyDashboardView();}catch(e){message.textContent=e.message+" If the API is not deployed yet, dashboard data will not be available."}}
 function applyDashboardView(){
  const view=(location.hash||"#dashboard").slice(1);
- const groups=[
-  {parent:document.querySelector(".dash-columns"),ids:["profile","orders"]},
-  {parent:document.querySelectorAll(".dash-columns")[1],ids:["deposit","withdraw"]},
-  {parent:document.querySelectorAll(".dash-columns")[2],ids:["referral","top-leaders"]}
- ];
- const standalone=["moneyRequestsList","ledgerList","live-chat"];
- document.querySelectorAll(".dash-wrap > .dash-columns,.dash-wrap > .dash-panel,.dash-wrap > .ledger-panel").forEach(el=>el.classList.add("dash-view-hidden"));
- groups.forEach(g=>{if(!g.parent)return;g.ids.forEach(id=>document.getElementById(id)?.classList.add("dash-view-hidden"));});
- standalone.forEach(id=>{const el=document.getElementById(id);if(el){const panel=el.closest(".dash-panel");panel?.classList.add("dash-view-hidden");}});
- const showGroup=(index,id)=>{const g=groups[index];if(!g?.parent)return;g.parent.classList.remove("dash-view-hidden");g.ids.forEach(x=>document.getElementById(x)?.classList.toggle("dash-view-hidden",x!==id));};
- const showPanel=id=>{const el=document.getElementById(id);el?.closest(".dash-panel")?.classList.remove("dash-view-hidden");};
+ const heading=document.querySelector(".dash-heading");
+ const stats=document.querySelector(".stats-grid");
+ const topGroups=Array.from(document.querySelectorAll(".dash-wrap > .dash-columns"));
+ const topPanels=Array.from(document.querySelectorAll(".dash-wrap > .dash-panel,.dash-wrap > .ledger-panel"));
+ heading?.classList.add("dash-view-hidden");
+ stats?.classList.add("dash-view-hidden");
+ topGroups.forEach(el=>el.classList.add("dash-view-hidden"));
+ topPanels.forEach(el=>el.classList.add("dash-view-hidden"));
+ const showGroup=(index,id)=>{
+  const group=topGroups[index];
+  const panel=document.getElementById(id);
+  if(!group||!panel)return;
+  group.classList.remove("dash-view-hidden");
+  group.querySelectorAll(":scope > section").forEach(el=>el.classList.toggle("dash-view-hidden",el!==panel));
+ };
+ const showStandalone=id=>{
+  const panel=document.getElementById(id)?.closest(".dash-panel");
+  panel?.classList.remove("dash-view-hidden");
+ };
  if(view==="profile")showGroup(0,"profile");
  else if(view==="orders")showGroup(0,"orders");
  else if(view==="deposit")showGroup(1,"deposit");
  else if(view==="withdraw")showGroup(1,"withdraw");
  else if(view==="referral")showGroup(2,"referral");
  else if(view==="top-leaders")showGroup(2,"top-leaders");
- else if(view==="live-chat")showPanel("live-chat");
- else if(view==="money-history")showPanel("moneyRequestsList");
- else if(view==="wallet-activity")showPanel("ledgerList");
- else {showGroup(0,"profile");}
+ else if(view==="live-chat")showStandalone("live-chat");
+ else if(view==="money-history")showStandalone("moneyRequestsList");
+ else if(view==="wallet-activity")showStandalone("ledgerList");
+ else { heading?.classList.remove("dash-view-hidden"); stats?.classList.remove("dash-view-hidden"); }
  window.scrollTo({top:0,behavior:"smooth"});
 }
 window.addEventListener("hashchange",applyDashboardView);
+applyDashboardView();
 const menuToggle=document.getElementById("accountMenuToggle");const accountMenu=document.getElementById("accountMenu");
 menuToggle.addEventListener("click",()=>{const open=accountMenu.classList.toggle("open");menuToggle.setAttribute("aria-expanded",String(open));menuToggle.setAttribute("aria-label",open?"Close account menu":"Open account menu");});
 accountMenu.addEventListener("click",event=>{if(event.target.closest("a")){accountMenu.classList.remove("open");menuToggle.setAttribute("aria-expanded","false");}});
