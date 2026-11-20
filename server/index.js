@@ -241,6 +241,48 @@ app.patch("/api/admin/users/:id/status",requireAuth,requireAdmin,asyncRoute(asyn
     res.json({ok:true,status:updated.rows[0].status});
   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }));
+app.get("/api/admin/orders",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const search=String(req.query.search||"").trim().slice(0,100);
+  const allowed=["pending","processing","completed","canceled","refunded"];
+  const status=allowed.includes(req.query.status)?req.query.status:null;
+  const term=search?("%"+search+"%"):null;
+  const r=await pool.query(
+    "SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,o.updated_at,o.provider_order_id,s.name AS service_name,s.category,u.username,u.email FROM orders o JOIN services s ON s.id=o.service_id JOIN users u ON u.id=o.user_id WHERE ($1::text IS NULL OR o.status=$1) AND ($2::text IS NULL OR o.target ILIKE $2 OR s.name ILIKE $2 OR u.username ILIKE $2 OR u.email ILIKE $2 OR o.id::text ILIKE $2) ORDER BY o.created_at DESC LIMIT 200",
+    [status,term]
+  );
+  res.json({orders:r.rows});
+}));
+app.get("/api/admin/orders/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const r=await pool.query(
+    "SELECT o.id,o.user_id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,o.updated_at,o.provider_order_id,s.name AS service_name,s.category,u.full_name,u.username,u.email,u.phone FROM orders o JOIN services s ON s.id=o.service_id JOIN users u ON u.id=o.user_id WHERE o.id=$1",
+    [req.params.id]
+  );
+  if(!r.rowCount)return res.status(404).json({error:"Order not found."});
+  res.json({order:r.rows[0]});
+}));
+app.post("/api/admin/orders/:id/cancel-refund",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const parsed=z.object({reason:z.string().trim().min(5).max(250)}).safeParse(req.body);
+  if(!parsed.success)return res.status(400).json({error:"Enter a cancellation reason (5–250 characters)."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const found=await client.query("SELECT id,user_id,charge_minor,status FROM orders WHERE id=$1 FOR UPDATE",[req.params.id]);
+    if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Order not found."});}
+    const o=found.rows[0];
+    if(o.status!=="pending"){await client.query("ROLLBACK");return res.status(409).json({error:"Only pending orders can be canceled here. Check supplier status before changing any processing order."});}
+    const amount=BigInt(o.charge_minor);
+    if(amount>0n){
+      await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount.toString(),o.user_id]);
+      await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note,created_by) VALUES($1,$2,'refund',$3,$4,$5)",[o.user_id,amount.toString(),o.id,"Order cancellation refund: "+parsed.data.reason,req.user.id]);
+    }
+    const nextStatus=amount>0n?"refunded":"canceled";
+    await client.query("UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2",[nextStatus,o.id]);
+    await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'order_canceled_refunded','order',$2,$3::jsonb)",[req.user.id,o.id,JSON.stringify({amount_minor:amount.toString(),reason:parsed.data.reason,status:nextStatus})]);
+    await client.query("COMMIT");
+    res.json({ok:true,status:nextStatus,refunded_minor:amount.toString()});
+  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+
 app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const r=await pool.query("SELECT m.*,u.username,u.email FROM money_requests m JOIN users u ON u.id=m.user_id ORDER BY m.created_at DESC LIMIT 200");
   res.json({requests:r.rows});
