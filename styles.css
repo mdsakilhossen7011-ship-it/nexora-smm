@@ -85,3 +85,121 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     overflow: hidden;
   }
 }
+
+/* Navbar alignment: keep brand, hamburger, theme, login and register on one row */
+@media (max-width: 600px) {
+  .topbar {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    overflow: visible;
+  }
+
+  .topbar > .brand {
+    display: inline-flex;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: calc(100% - 175px);
+    gap: 6px;
+    font-size: clamp(12px, 4vw, 16px);
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+  }
+
+  .topbar > .brand .brand-mark {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    font-size: 21px;
+  }
+
+  .topbar > .brand > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar > .menu-toggle {
+    display: inline-flex;
+    flex: 0 0 28px;
+    width: 28px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .topbar > .nav-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .topbar > .nav-actions .btn {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 7px 8px;
+    border-radius: 9px;
+    font-size: 10px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .topbar > .nav-actions .theme-toggle {
+    width: 30px;
+    min-width: 30px;
+    padding: 0;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  .topbar {
+    gap: 3px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .topbar > .brand {
+    max-width: calc(100% - 165px);
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .topbar > .brand .brand-mark {
+    flex-basis: 27px;
+    width: 27px;
+    height: 27px;
+    font-size: 19px;
+  }
+
+  .topbar > .menu-toggle {
+    flex-basis: 25px;
+    width: 25px;
+    font-size: 20px;
+  }
+
+  .topbar > .nav-actions {
+    gap: 3px;
+  }
+
+  .topbar > .nav-actions .btn {
+    padding-left: 6px;
+    padding-right: 6px;
+    font-size: 9px;
+  }
+
+  .topbar > .nav-actions .theme-toggle {
+    width: 27px;
+    min-width: 27px;
+  }
+}
+
