@@ -32,7 +32,7 @@
     border-radius:9px!important;background:transparent!important;
   }
   .drawer-menu a:active,.drawer-menu button:active{background:rgba(153,91,255,.16)!important}
-  .drawer-menu .nav-public,.drawer-menu .nav-account{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:4px}
+  .drawer-menu .nav-public,.drawer-menu .nav-account{width:100%;display:flex;flex:1;flex-direction:column;align-items:stretch;gap:4px}
   .drawer-menu .nav-public.hidden,.drawer-menu .nav-account.hidden{display:none!important}
   .drawer-menu .nav-actions{display:flex!important;flex-direction:column!important;gap:10px!important;padding-top:18px!important}
   .drawer-menu .nav-actions .btn{width:100%!important;min-height:46px!important;justify-content:center!important}
