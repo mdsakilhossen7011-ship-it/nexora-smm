@@ -458,7 +458,7 @@ app.patch("/api/admin/support/tickets/:id/status",requireAuth,requireAdmin,async
 }));
 
 // Serve only the public website files from the same origin as the API.
-const publicFiles = new Set(["styles.css","app.js","facebook.html","facebook.css","facebook.js","instagram.html","instagram.css","instagram.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js","support-admin.html","support-admin.css","support-admin.js","free-fire.html","free-fire.css","free-fire.js"]);
+const publicFiles = new Set(["styles.css","app.js","facebook.html","facebook.css","facebook.js","instagram.html","instagram.css","instagram.js","tiktok.html","tiktok.css","tiktok.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js","support-admin.html","support-admin.css","support-admin.js","free-fire.html","free-fire.css","free-fire.js"]);
 app.get("/", (_req,res) => res.sendFile(path.join(__dirname,"..","index.html")));
 app.get("/support-admin", (_req,res) => res.sendFile(path.join(__dirname,"..","support-admin.html")));
 app.get("/:asset", (req,res,next) => {
