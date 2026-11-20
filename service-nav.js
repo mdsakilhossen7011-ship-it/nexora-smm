@@ -23,6 +23,7 @@
       logoutLink.href = "#logout";
       logoutLink.textContent = "Logout";
       logoutLink.dataset.serviceLogout = "true";
+      logoutLink.className = "menu-logout";
       menu.append(logoutLink);
     })
     .catch(() => {});
