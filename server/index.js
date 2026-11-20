@@ -201,7 +201,7 @@ app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(re
 }));
 
 // Serve only the public website files from the same origin as the API.
-const publicFiles = new Set(["styles.css","app.js","dashboard.html","dashboard.css","dashboard.js"]);
+const publicFiles = new Set(["styles.css","app.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js"]);
 app.get("/", (_req,res) => res.sendFile(path.join(__dirname,"..","index.html")));
 app.get("/:asset", (req,res,next) => {
   if (!publicFiles.has(req.params.asset)) return next();
