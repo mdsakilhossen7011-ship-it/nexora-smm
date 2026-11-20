@@ -372,12 +372,14 @@ app.get("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
  res.json({tickets:r.rows});
 }));
 app.post("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
- const parsed=z.object({subject:z.string().trim().min(4).max(180),message:z.string().trim().min(2).max(5000)}).safeParse(req.body);
+ const parsed=z.object({subject:z.string().trim().min(4).max(180),message:z.string().trim().min(2).max(5000),uploads:z.array(z.string().uuid()).max(4).default([])}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Enter a subject and a message (maximum 5,000 characters)."});
  const client=await pool.connect();
  try{await client.query("BEGIN");
  const t=await client.query("INSERT INTO support_tickets(user_id,subject,status) VALUES($1,$2,'open') RETURNING id,subject,status,created_at,updated_at",[req.user.id,parsed.data.subject]);
  await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3)",[t.rows[0].id,req.user.id,parsed.data.message]);
+ const messageId=(await client.query("SELECT id FROM ticket_messages WHERE ticket_id=$1 AND sender_id=$2 ORDER BY created_at DESC LIMIT 1",[t.rows[0].id,req.user.id])).rows[0].id;
+ if(parsed.data.uploads.length){const up=await client.query("SELECT id,public_id FROM support_upload_intents WHERE id=ANY($1::uuid[]) AND user_id=$2 AND expires_at>NOW() FOR UPDATE",[parsed.data.uploads,req.user.id]);if(up.rowCount!==parsed.data.uploads.length)throw new Error("Uploaded image expired; please upload again.");for(const x of up.rows)await client.query("INSERT INTO support_attachments(message_id,public_id,secure_url,format,bytes) VALUES($1,$2,$3,'image',0)",[messageId,x.public_id,"https://res.cloudinary.com/"+process.env.CLOUDINARY_CLOUD_NAME+"/image/upload/"+x.public_id]);await client.query("DELETE FROM support_upload_intents WHERE id=ANY($1::uuid[])",[parsed.data.uploads]);}
  await client.query("COMMIT");res.status(201).json({ticket:t.rows[0]});
  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }));
@@ -385,11 +387,11 @@ app.get("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,res
  const t=await pool.query("SELECT id,user_id FROM support_tickets WHERE id=$1",[req.params.id]);
  if(!t.rowCount)return res.status(404).json({error:"Ticket not found."});
  if(t.rows[0].user_id!==req.user.id&&req.user.role!=="admin")return res.status(403).json({error:"You cannot view this ticket."});
- const r=await pool.query("SELECT m.id,m.message,m.created_at,m.sender_id,u.username,u.full_name,u.role FROM ticket_messages m JOIN users u ON u.id=m.sender_id WHERE m.ticket_id=$1 ORDER BY m.created_at ASC",[req.params.id]);
+ const r=await pool.query("SELECT m.id,m.message,m.created_at,m.sender_id,u.username,u.full_name,u.role,COALESCE((SELECT json_agg(json_build_object('url',a.secure_url,'format',a.format,'bytes',a.bytes)) FROM support_attachments a WHERE a.message_id=m.id),'[]'::json) AS attachments FROM ticket_messages m JOIN users u ON u.id=m.sender_id WHERE m.ticket_id=$1 ORDER BY m.created_at ASC",[req.params.id]);
  res.json({messages:r.rows});
 }));
 app.post("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,res)=>{
- const parsed=z.object({message:z.string().trim().min(1).max(5000)}).safeParse(req.body);
+ const parsed=z.object({message:z.string().trim().max(5000).default(""),uploads:z.array(z.string().uuid()).max(4).default([])}).refine(v=>v.message.length>0||v.uploads.length>0).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Message must contain 1–5,000 characters."});
  const client=await pool.connect();
  try{await client.query("BEGIN");
@@ -398,6 +400,8 @@ app.post("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,re
  if(t.rows[0].user_id!==req.user.id&&req.user.role!=="admin"){await client.query("ROLLBACK");return res.status(403).json({error:"You cannot reply to this ticket."});}
  if(t.rows[0].status==="closed"){await client.query("ROLLBACK");return res.status(409).json({error:"This ticket is closed."});}
  await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3)",[req.params.id,req.user.id,parsed.data.message]);
+ const messageId=(await client.query("SELECT id FROM ticket_messages WHERE ticket_id=$1 AND sender_id=$2 ORDER BY created_at DESC LIMIT 1",[req.params.id,req.user.id])).rows[0].id;
+ if(parsed.data.uploads.length){const up=await client.query("SELECT id,public_id FROM support_upload_intents WHERE id=ANY($1::uuid[]) AND user_id=$2 AND expires_at>NOW() FOR UPDATE",[parsed.data.uploads,req.user.id]);if(up.rowCount!==parsed.data.uploads.length)throw new Error("Uploaded image expired; please upload again.");for(const x of up.rows)await client.query("INSERT INTO support_attachments(message_id,public_id,secure_url,format,bytes) VALUES($1,$2,$3,'image',0)",[messageId,x.public_id,"https://res.cloudinary.com/"+process.env.CLOUDINARY_CLOUD_NAME+"/image/upload/"+x.public_id]);await client.query("DELETE FROM support_upload_intents WHERE id=ANY($1::uuid[])",[parsed.data.uploads]);}
  const nextStatus=req.user.role==="admin"?"answered":"open";
  await client.query("UPDATE support_tickets SET status=$1,updated_at=NOW() WHERE id=$2",[nextStatus,req.params.id]);
  await client.query("COMMIT");res.status(201).json({ok:true,status:nextStatus});
