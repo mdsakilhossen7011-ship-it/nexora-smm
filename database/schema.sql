@@ -31,6 +31,12 @@ CREATE TABLE IF NOT EXISTS wallet_accounts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS commission_accounts (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  balance_minor BIGINT NOT NULL DEFAULT 0 CHECK (balance_minor >= 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS wallet_ledger (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id),
