@@ -12,12 +12,9 @@
       return response.json().then(() => true);
     })
     .then(signedIn => {
-      if (!signedIn || !loginLink) return;
-
-      const dashboardLink = document.createElement("a");
-      dashboardLink.href = "/dashboard.html";
-      dashboardLink.textContent = "Dashboard";
-      loginLink.replaceWith(dashboardLink);
+      if (!signedIn) return;
+      if (loginLink) loginLink.remove();
+      if (menu.querySelector("[data-service-logout]")) return;
 
       const logoutLink = document.createElement("a");
       logoutLink.href = "#logout";
