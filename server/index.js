@@ -95,6 +95,71 @@ app.post("/api/admin/smmexo/services",requireAuth,requireAdmin,asyncRoute(async(
   res.set("Cache-Control","no-store").json({supplier:"SMMEXO",currency:"USD",count:services.length,services});
 }));
 
+app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const parsed=z.object({serviceIds:z.array(z.string().trim().min(1).max(120)).min(1).max(100)}).safeParse(req.body);
+  if(!parsed.success)return res.status(400).json({error:"Select between 1 and 100 supplier services to import."});
+  const apiKey=process.env.SMMEXO_API_KEY;
+  if(!apiKey)return res.status(503).json({error:"SMMEXO_API_KEY is not configured in the hosting environment."});
+  const body=new URLSearchParams({key:apiKey,action:"services"});
+  let upstream;
+  try{
+    upstream=await fetch("https://smmexo.com/api/v2",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body,signal:AbortSignal.timeout(15000)});
+  }catch(error){
+    return res.status(502).json({error:error.name==="TimeoutError"?"SMMEXO did not respond within 15 seconds.":"Could not connect to SMMEXO."});
+  }
+  const supplierData=await upstream.json().catch(()=>null);
+  if(!upstream.ok)return res.status(502).json({error:"SMMEXO returned HTTP "+upstream.status+"."});
+  if(!Array.isArray(supplierData))return res.status(502).json({error:supplierData?.error||supplierData?.message||"SMMEXO returned an unexpected service-list response."});
+  const selectedIds=[...new Set(parsed.data.serviceIds)];
+  const selected=supplierData.filter(item=>selectedIds.includes(String(item.service??"")));
+  const foundIds=new Set(selected.map(item=>String(item.service??"")));
+  const skipped=selectedIds.filter(id=>!foundIds.has(id)).map(id=>({serviceId:id,reason:"Not found in the current SMMEXO catalogue."}));
+  const imported=[];
+  const client=await pool.connect();
+  const categoryFor=(item)=>{
+    const source=(String(item.category??"")+" "+String(item.name??"")).toLowerCase();
+    if(source.includes("instagram"))return "instagram";
+    if(source.includes("facebook"))return "facebook";
+    if(source.includes("tiktok")||source.includes("tik tok"))return "tiktok";
+    if(source.includes("youtube"))return "youtube";
+    if(source.includes("telegram"))return "telegram";
+    if(source.includes("free fire"))return "free_fire";
+    if(source.includes("pubg"))return "pubg_mobile";
+    if(source.includes("mobile legends")||source.includes("mlbb"))return "mlbb";
+    return null;
+  };
+  try{
+    await client.query("BEGIN");
+    for(const item of selected){
+      const serviceId=String(item.service??"");
+      const existing=await client.query("SELECT id FROM services WHERE provider_service_id=$1 LIMIT 1",[serviceId]);
+      if(existing.rowCount){skipped.push({serviceId,reason:"Already imported."});continue;}
+      const category=categoryFor(item);
+      const rate=Number(item.rate),min=Math.max(1,Math.floor(Number(item.min)||1)),max=Math.max(min,Math.floor(Number(item.max)||min));
+      if(!category){skipped.push({serviceId,reason:"Unsupported category; no matching NEXORA category."});continue;}
+      if(!serviceId||!String(item.name??"").trim()||!Number.isFinite(rate)||rate<0||!Number.isFinite(min)||!Number.isFinite(max)){
+        skipped.push({serviceId,reason:"Supplier returned invalid service details."});continue;
+      }
+      const supplierCategory=String(item.category??"").slice(0,500);
+      const supplierType=String(item.type??"").slice(0,100);
+      const refill=item.refill===true?"Yes":"No",cancel=item.cancel===true?"Yes":"No";
+      const description=("Imported from SMMEXO. Wholesale rate: $"+rate.toFixed(4)+" USD per 1,000. Supplier category: "+supplierCategory+". Type: "+supplierType+". Refill: "+refill+". Cancel: "+cancel+". Set purchase cost and selling price in BDT before enabling.").slice(0,2000);
+      const inserted=await client.query(
+        "INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) VALUES($1,$2,$3,0,0,$4,$5,$6,FALSE) RETURNING id",
+        [category,String(item.name).trim().slice(0,160),description,min,max,serviceId]
+      );
+      await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'smmexo_service_imported','service',$2,$3::jsonb)",[req.user.id,inserted.rows[0].id,JSON.stringify({supplier:"SMMEXO",supplier_service_id:serviceId,wholesale_rate_usd_per_1000:rate,category})]);
+      imported.push({serviceId,name:String(item.name).trim().slice(0,160),id:inserted.rows[0].id});
+    }
+    await client.query("COMMIT");
+  }catch(error){
+    await client.query("ROLLBACK");
+    throw error;
+  }finally{client.release();}
+  res.set("Cache-Control","no-store").json({imported,skipped,importedCount:imported.length,skippedCount:skipped.length});
+}));
+
+
 
 app.get("/api/health", asyncRoute(async (_req,res) => {
   await pool.query("SELECT 1");
