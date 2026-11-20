@@ -194,12 +194,9 @@ app.get("/api/wallet/ledger",requireAuth,asyncRoute(async(req,res)=>{
 app.get("/api/admin/users",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const search=String(req.query.search||"").trim().slice(0,100);
   const status=["active","blocked"].includes(req.query.status)?req.query.status:null;
-  const term=search?("%"+search.replace(/[\\%_]/g,"\\app.get("/api/admin/users",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
-  const r=await pool.query("SELECT u.id,u.full_name,u.username,u.email,u.phone,u.status,u.created_at,w.balance_minor FROM users u JOIN wallet_accounts w ON w.user_id=u.id ORDER BY u.created_at DESC LIMIT 200");
-  res.json({users:r.rows});
-}));")+"%"):null;
+  const term=search?("%"+search+"%"):null;
   const r=await pool.query(
-    "SELECT u.id,u.full_name,u.username,u.email,u.phone,u.status,u.created_at,w.balance_minor,w.total_spent_minor,COUNT(o.id)::int AS total_orders,COUNT(o.id) FILTER (WHERE o.status='completed')::int AS completed_orders FROM users u JOIN wallet_accounts w ON w.user_id=u.id LEFT JOIN orders o ON o.user_id=u.id WHERE u.role='user' AND ($1::text IS NULL OR (u.full_name ILIKE $1 ESCAPE '\\\\' OR u.username ILIKE $1 ESCAPE '\\\\' OR u.email ILIKE $1 ESCAPE '\\\\' OR COALESCE(u.phone,'') ILIKE $1 ESCAPE '\\\\')) AND ($2::text IS NULL OR u.status=$2) GROUP BY u.id,w.balance_minor,w.total_spent_minor ORDER BY u.created_at DESC LIMIT 200",
+    "SELECT u.id,u.full_name,u.username,u.email,u.phone,u.status,u.created_at,w.balance_minor,w.total_spent_minor,COUNT(o.id)::int AS total_orders,COUNT(o.id) FILTER (WHERE o.status='completed')::int AS completed_orders FROM users u JOIN wallet_accounts w ON w.user_id=u.id LEFT JOIN orders o ON o.user_id=u.id WHERE u.role='user' AND ($1::text IS NULL OR (u.full_name ILIKE $1 OR u.username ILIKE $1 OR u.email ILIKE $1 OR COALESCE(u.phone,'') ILIKE $1)) AND ($2::text IS NULL OR u.status=$2) GROUP BY u.id,w.balance_minor,w.total_spent_minor ORDER BY u.created_at DESC LIMIT 200",
     [term,status]
   );
   res.json({users:r.rows});
