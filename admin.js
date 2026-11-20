@@ -90,6 +90,25 @@ async function loadOrders(){
 const serviceCategories={facebook:"Facebook",tiktok:"TikTok",instagram:"Instagram",youtube:"YouTube",telegram:"Telegram",free_fire:"Free Fire",pubg_mobile:"PUBG Mobile",mlbb:"Mobile Legends"};
 function resetServiceForm(){document.getElementById("serviceForm").reset();document.getElementById("serviceId").value="";document.getElementById("serviceFormTitle").textContent="Add new service";document.getElementById("saveService").textContent="Save service";document.getElementById("serviceMin").value="1";document.getElementById("serviceMax").value="100000"}
 function fillServiceForm(s){document.getElementById("serviceId").value=s.id;document.getElementById("serviceCategory").value=s.category;document.getElementById("serviceName").value=s.name;document.getElementById("serviceDescription").value=s.description||"";document.getElementById("servicePrice").value=(Number(s.price_per_1000_minor)/100).toFixed(2);document.getElementById("serviceCost").value=(Number(s.cost_per_1000_minor)/100).toFixed(2);document.getElementById("serviceMin").value=s.min_quantity;document.getElementById("serviceMax").value=s.max_quantity;document.getElementById("serviceProviderId").value=s.provider_service_id||"";document.getElementById("serviceFormTitle").textContent="Edit service";document.getElementById("saveService").textContent="Update service";document.getElementById("serviceForm").scrollIntoView({behavior:"smooth",block:"start"})}
+
+const selectedServiceIds=new Set();
+function updateBulkPricingControls(){
+ const count=document.getElementById("bulkServiceCount"),button=document.getElementById("applyBulkPricing");
+ if(count)count.textContent=selectedServiceIds.size+" selected";
+ if(button)button.disabled=selectedServiceIds.size===0;
+}
+async function applyBulkPricing(event){
+ event.preventDefault();
+ const serviceIds=[...selectedServiceIds],price=Number(document.getElementById("bulkSellingPrice").value),cost=Number(document.getElementById("bulkPurchaseCost").value);
+ if(!serviceIds.length){alert("Select at least one service first.");return}
+ if(!Number.isFinite(price)||price<0||!Number.isFinite(cost)||cost<0){alert("Enter valid BDT prices.");return}
+ if(!confirm("Update selling price to ৳"+price.toFixed(2)+" and purchase cost to ৳"+cost.toFixed(2)+" for "+serviceIds.length+" selected services?"))return;
+ const button=document.getElementById("applyBulkPricing");button.disabled=true;
+ try{
+  const data=await request("/admin/services/bulk-pricing",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({serviceIds,price,cost})});
+  selectedServiceIds.clear();updateBulkPricingControls();await loadServices();alert("Updated prices for "+data.updatedCount+" services.");
+ }catch(error){alert(error.message)}finally{updateBulkPricingControls()}
+}
 async function loadServices(){
  const status=document.getElementById("servicesStatus"),list=document.getElementById("servicesList");if(!status||!list)return;
  status.textContent="Loading services…";list.textContent="";
@@ -99,8 +118,9 @@ async function loadServices(){
   status.textContent=services.length+" of "+all.length+" services";
   if(!services.length){list.append(el("div","empty-admin","No matching services found."));return}
   services.forEach(s=>{
-   const card=el("article","request-card service-card"),head=el("div","request-head"),identity=el("div","user-identity");
-   identity.append(el("strong","",s.name),el("span","user-subline",(serviceCategories[s.category]||s.category)+" · "+(s.provider_service_id||"No supplier ID")));
+   const card=el("article","request-card service-card"),head=el("div","request-head"),identity=el("div","user-identity"),selectLabel=el("label","smmexo-select-label"),selectBox=el("input");
+   selectBox.type="checkbox";selectBox.dataset.serviceId=s.id;selectBox.checked=selectedServiceIds.has(s.id);selectBox.setAttribute("aria-label","Select "+s.name+" for bulk pricing");selectBox.addEventListener("change",()=>{if(selectBox.checked)selectedServiceIds.add(s.id);else selectedServiceIds.delete(s.id);updateBulkPricingControls()});selectLabel.append(selectBox,document.createTextNode(" Select"));
+   identity.append(el("strong","",s.name),el("span","user-subline",(serviceCategories[s.category]||s.category)+" · "+(s.provider_service_id||"No supplier ID")));head.append(selectLabel);
    head.append(identity,el("span","request-status user-state "+(s.enabled?"is-active":"is-blocked"),s.enabled?"ENABLED":"DISABLED"));card.append(head);
    const price=Number(s.price_per_1000_minor)/100,cost=Number(s.cost_per_1000_minor)/100,meta=el("div","request-meta");
    [["Selling / 1000","৳"+price.toFixed(2)],["Purchase / 1000","৳"+cost.toFixed(2)],["Profit / 1000","৳"+(price-cost).toFixed(2)],["Margin",price>0?(((price-cost)/price)*100).toFixed(1)+"%":"—"],["Quantity",s.min_quantity+" – "+s.max_quantity],["Orders used",String(s.order_count||0)]].forEach(([k,v])=>meta.append(el("span","",k+": "+v)));card.append(meta);
@@ -151,6 +171,8 @@ document.getElementById("referralSettingsForm").addEventListener("submit",saveRe
 document.getElementById("serviceSearch").addEventListener("input",loadServices);
 document.getElementById("serviceCategoryFilter").addEventListener("change",loadServices);
 document.getElementById("serviceForm").addEventListener("submit",saveService);
+document.getElementById("bulkPricingForm").addEventListener("submit",applyBulkPricing);
+document.getElementById("selectAllServices").addEventListener("click",()=>{document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=true;selectedServiceIds.add(box.dataset.serviceId)});updateBulkPricingControls()});
 document.getElementById("resetServiceForm").addEventListener("click",resetServiceForm);
 document.getElementById("orderSearch").addEventListener("input",loadOrders);
 document.getElementById("orderStatusFilter").addEventListener("change",loadOrders);
