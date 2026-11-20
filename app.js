@@ -33,6 +33,9 @@ function setAuthPage(page) {
   document.getElementById("nameField").classList.toggle("hidden", !registering);
   document.getElementById("emailField").classList.toggle("hidden", !registering);
   document.getElementById("phoneField").classList.toggle("hidden", !registering);
+  document.getElementById("referralField").classList.toggle("hidden", !registering);
+  const referralFromUrl = new URLSearchParams(location.search).get("ref");
+  if (registering && referralFromUrl && !document.getElementById("referralCode").value) document.getElementById("referralCode").value = referralFromUrl.slice(0,32);
   document.getElementById("confirmField").classList.toggle("hidden", !registering);
   document.getElementById("fullName").required = registering;
   document.getElementById("email").required = registering;
@@ -86,7 +89,7 @@ authForm.addEventListener("submit", async (event) => {
   const registering = !document.getElementById("confirmField").classList.contains("hidden");
   const form = new FormData(authForm);
   const payload = registering
-    ? { fullName: form.get("fullName"), username: form.get("username"), email: form.get("email"), phone: form.get("phone"), password: form.get("password") }
+    ? { fullName: form.get("fullName"), username: form.get("username"), email: form.get("email"), phone: form.get("phone"), referralCode: form.get("referralCode"), password: form.get("password") }
     : { login: form.get("username"), password: form.get("password") };
   if (registering && payload.password !== form.get("confirmPassword")) {
     authNotice.textContent = "Passwords do not match.";
