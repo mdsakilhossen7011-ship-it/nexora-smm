@@ -49,3 +49,17 @@
     text-align: right;
   }
 }
+
+/* Three-dot account menu */
+.dash-topbar{position:sticky}
+.account-menu-wrap{position:relative;margin-left:auto}
+.account-menu-toggle{width:42px;height:42px;border:1px solid var(--line);border-radius:11px;background:#191a35;color:#fff;font-size:27px;line-height:1;cursor:pointer}
+.account-menu{display:none;position:absolute;right:0;top:52px;width:220px;padding:8px;background:#11142b;border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px #0009;z-index:50}
+.account-menu.open{display:flex;flex-direction:column}
+.account-menu a,.account-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:43px;padding:10px 12px;border:0;border-radius:9px;background:transparent;color:var(--text);font:600 13px Inter,system-ui,sans-serif;text-align:left;cursor:pointer}
+.account-menu a:hover,.account-menu button:hover{background:#8b35ff22;color:#d6a0ff}
+.account-menu button{border-top:1px solid var(--line);border-radius:0;margin-top:5px;padding-top:14px;color:#ff9b9b}
+.menu-feature-note{margin:0;color:var(--muted);font-size:12px;line-height:1.7}
+.light-theme .account-menu-toggle{background:#e8e9fb;color:#17182c}
+.light-theme .account-menu{background:#fff}
+@media(max-width:700px){.dash-topbar{height:66px;padding:0 14px}.account-menu{top:48px;width:min(240px,calc(100vw - 28px))}}
