@@ -65,3 +65,5 @@
 @media(max-width:700px){.dash-topbar{height:66px;padding:0 14px}.account-menu{top:48px;width:min(240px,calc(100vw - 28px))}}
 
 .money-form{display:grid;gap:12px;margin-top:18px}.money-form label{display:grid;gap:7px;color:var(--muted);font-size:12px}.money-form input,.money-form select{width:100%;max-width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:10px;background:#0d1025;color:var(--text);font:inherit}.money-form button{justify-self:start}.money-form button:disabled{opacity:.6;cursor:wait}.form-feedback{min-height:18px;color:var(--muted);font-size:12px;line-height:1.5}.light-theme .money-form input,.light-theme .money-form select{background:#fff;color:#17182c}
+
+.referral-share{display:grid;gap:12px;margin:14px 0}.referral-share label{display:grid;gap:6px;color:#aeb4d2;font-size:12px}.referral-share input{width:100%;min-width:0;padding:11px 12px;border:1px solid #303455;border-radius:10px;background:#0d1025;color:#fff;font:inherit}.referral-share button{justify-self:start}@media(max-width:600px){.referral-share button{width:100%}}
