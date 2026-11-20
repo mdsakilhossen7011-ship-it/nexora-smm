@@ -362,8 +362,8 @@ app.post("/api/support/uploads/sign",requireAuth,asyncRoute(async(req,res)=>{
  const params={folder,public_id:publicId,timestamp};
  const toSign=Object.keys(params).sort().map(k=>k+"="+params[k]).join("&");
  const signature=crypto.createHash("sha1").update(toSign+secret).digest("hex");
- await pool.query("INSERT INTO support_upload_intents(user_id,public_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '15 minutes')",[req.user.id,publicId]);
- res.json({cloud_name:cloud,api_key:key,timestamp,signature,folder,public_id:publicId});
+ const intent=await pool.query("INSERT INTO support_upload_intents(user_id,public_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '15 minutes') RETURNING id",[req.user.id,publicId]);
+ res.json({upload_id:intent.rows[0].id,cloud_name:cloud,api_key:key,timestamp,signature,folder,public_id:publicId});
 }));
 
 /* Support Center: private user tickets and separate administrator inbox. */
@@ -377,8 +377,8 @@ app.post("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
  const client=await pool.connect();
  try{await client.query("BEGIN");
  const t=await client.query("INSERT INTO support_tickets(user_id,subject,status) VALUES($1,$2,'open') RETURNING id,subject,status,created_at,updated_at",[req.user.id,parsed.data.subject]);
- await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3)",[t.rows[0].id,req.user.id,parsed.data.message]);
- const messageId=(await client.query("SELECT id FROM ticket_messages WHERE ticket_id=$1 AND sender_id=$2 ORDER BY created_at DESC LIMIT 1",[t.rows[0].id,req.user.id])).rows[0].id;
+ const inserted=await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3) RETURNING id",[t.rows[0].id,req.user.id,parsed.data.message]);
+ const messageId=inserted.rows[0].id;
  if(parsed.data.uploads.length){const up=await client.query("SELECT id,public_id FROM support_upload_intents WHERE id=ANY($1::uuid[]) AND user_id=$2 AND expires_at>NOW() FOR UPDATE",[parsed.data.uploads,req.user.id]);if(up.rowCount!==parsed.data.uploads.length)throw new Error("Uploaded image expired; please upload again.");for(const x of up.rows)await client.query("INSERT INTO support_attachments(message_id,public_id,secure_url,format,bytes) VALUES($1,$2,$3,'image',0)",[messageId,x.public_id,"https://res.cloudinary.com/"+process.env.CLOUDINARY_CLOUD_NAME+"/image/upload/"+x.public_id]);await client.query("DELETE FROM support_upload_intents WHERE id=ANY($1::uuid[])",[parsed.data.uploads]);}
  await client.query("COMMIT");res.status(201).json({ticket:t.rows[0]});
  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
@@ -399,8 +399,8 @@ app.post("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,re
  if(!t.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Ticket not found."});}
  if(t.rows[0].user_id!==req.user.id&&req.user.role!=="admin"){await client.query("ROLLBACK");return res.status(403).json({error:"You cannot reply to this ticket."});}
  if(t.rows[0].status==="closed"){await client.query("ROLLBACK");return res.status(409).json({error:"This ticket is closed."});}
- await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3)",[req.params.id,req.user.id,parsed.data.message]);
- const messageId=(await client.query("SELECT id FROM ticket_messages WHERE ticket_id=$1 AND sender_id=$2 ORDER BY created_at DESC LIMIT 1",[req.params.id,req.user.id])).rows[0].id;
+ const inserted=await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3) RETURNING id",[req.params.id,req.user.id,parsed.data.message]);
+ const messageId=inserted.rows[0].id;
  if(parsed.data.uploads.length){const up=await client.query("SELECT id,public_id FROM support_upload_intents WHERE id=ANY($1::uuid[]) AND user_id=$2 AND expires_at>NOW() FOR UPDATE",[parsed.data.uploads,req.user.id]);if(up.rowCount!==parsed.data.uploads.length)throw new Error("Uploaded image expired; please upload again.");for(const x of up.rows)await client.query("INSERT INTO support_attachments(message_id,public_id,secure_url,format,bytes) VALUES($1,$2,$3,'image',0)",[messageId,x.public_id,"https://res.cloudinary.com/"+process.env.CLOUDINARY_CLOUD_NAME+"/image/upload/"+x.public_id]);await client.query("DELETE FROM support_upload_intents WHERE id=ANY($1::uuid[])",[parsed.data.uploads]);}
  const nextStatus=req.user.role==="admin"?"answered":"open";
  await client.query("UPDATE support_tickets SET status=$1,updated_at=NOW() WHERE id=$2",[nextStatus,req.params.id]);
