@@ -68,6 +68,33 @@ async function requireAuth(req, res, next) {
   } catch (e) { next(e); }
 }
 const requireAdmin = (req,res,next) => req.user?.role === "admin" ? next() : res.status(403).json({error:"Administrator access required."});
+app.post("/api/admin/smmexo/services",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
+  const apiKey=process.env.SMMEXO_API_KEY;
+  if(!apiKey) return res.status(503).json({error:"SMMEXO_API_KEY is not configured in the hosting environment."});
+  const body=new URLSearchParams({key:apiKey,action:"services"});
+  let upstream;
+  try {
+    upstream=await fetch("https://smmexo.com/api/v2",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body,signal:AbortSignal.timeout(15000)});
+  } catch(error) {
+    return res.status(502).json({error:error.name==="TimeoutError"?"SMMEXO did not respond within 15 seconds.":"Could not connect to SMMEXO."});
+  }
+  const data=await upstream.json().catch(()=>null);
+  if(!upstream.ok) return res.status(502).json({error:"SMMEXO returned HTTP "+upstream.status+"."});
+  if(!Array.isArray(data)) return res.status(502).json({error:data?.error||data?.message||"SMMEXO returned an unexpected service-list response."});
+  const services=data.map(item=>({
+    serviceId:String(item.service??""),
+    name:String(item.name??""),
+    type:String(item.type??""),
+    category:String(item.category??""),
+    rate:Number(item.rate),
+    min:Number(item.min),
+    max:Number(item.max),
+    refill:item.refill===true,
+    cancel:item.cancel===true
+  })).filter(item=>item.serviceId&&item.name&&Number.isFinite(item.rate)&&Number.isFinite(item.min)&&Number.isFinite(item.max));
+  res.set("Cache-Control","no-store").json({supplier:"SMMEXO",currency:"USD",count:services.length,services});
+}));
+
 
 app.get("/api/health", asyncRoute(async (_req,res) => {
   await pool.query("SELECT 1");
