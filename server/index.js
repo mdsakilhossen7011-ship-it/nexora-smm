@@ -61,6 +61,7 @@ app.post("/api/auth/register", asyncRoute(async (req,res) => {
   if(!parsed.success) return res.status(400).json({error:"Invalid registration details.",details:parsed.error.flatten()});
   const {fullName,username,email,phone,password,referralCode}=parsed.data;
   const referrer=referralCode?await pool.query("SELECT id FROM users WHERE upper(referral_code)=upper($1) AND status='active' LIMIT 1",[referralCode]):{rowCount:0,rows:[]};
+  if(referralCode&&!referrer.rowCount)return res.status(400).json({error:"This referral code is invalid or inactive."});
   const referralCodeNew="NX"+crypto.randomBytes(5).toString("hex").toUpperCase();
   const passwordHash=await bcrypt.hash(password,12);
   const client=await pool.connect();
