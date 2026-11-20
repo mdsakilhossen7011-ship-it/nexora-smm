@@ -54,18 +54,21 @@ app.post("/api/auth/register", asyncRoute(async (req,res) => {
     username:z.string().trim().min(3).max(32).regex(/^[a-zA-Z0-9_.]+$/),
     email:z.string().trim().email().max(254),
     phone:z.string().trim().max(24).optional().or(z.literal("")),
+    referralCode:z.string().trim().max(32).optional().default(""),
     password:z.string().min(10).max(72)
   });
   const parsed=schema.safeParse(req.body);
   if(!parsed.success) return res.status(400).json({error:"Invalid registration details.",details:parsed.error.flatten()});
-  const {fullName,username,email,phone,password}=parsed.data;
+  const {fullName,username,email,phone,password,referralCode}=parsed.data;
+  const referrer=referralCode?await pool.query("SELECT id FROM users WHERE upper(referral_code)=upper($1) AND status='active' LIMIT 1",[referralCode]):{rowCount:0,rows:[]};
+  const referralCodeNew="NX"+crypto.randomBytes(5).toString("hex").toUpperCase();
   const passwordHash=await bcrypt.hash(password,12);
   const client=await pool.connect();
   try {
     await client.query("BEGIN");
     const user=await client.query(
-      "INSERT INTO users(full_name,username,email,phone,password_hash) VALUES($1,$2,$3,$4,$5) RETURNING id,full_name,username,email,phone,role,created_at",
-      [fullName,username,email.toLowerCase(),phone||null,passwordHash]
+      "INSERT INTO users(full_name,username,email,phone,password_hash,referral_code,referred_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,full_name,username,email,phone,role,created_at",
+      [fullName,username,email.toLowerCase(),phone||null,passwordHash,referralCodeNew,referrer.rows[0]?.id||null]
     );
     await client.query("INSERT INTO wallet_accounts(user_id) VALUES($1)",[user.rows[0].id]);
     await client.query("INSERT INTO commission_accounts(user_id) VALUES($1)",[user.rows[0].id]);
