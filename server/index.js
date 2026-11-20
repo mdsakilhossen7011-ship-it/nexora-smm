@@ -22,6 +22,19 @@ app.use(helmet());
 app.use(cors({ origin: (process.env.APP_ORIGIN || "").split(",").filter(Boolean), credentials: true }));
 app.use(express.json({ limit: "1.2mb" }));
 app.use("/api/auth", rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
+app.use(async (req,res,next)=>{
+ try{
+  const setting=await pool.query("SELECT enabled,message FROM site_settings WHERE id=TRUE");
+  if(!setting.rows[0]?.enabled)return next();
+  const raw=req.headers.authorization?.startsWith("Bearer ")?req.headers.authorization.slice(7):req.headers["x-session-token"]||req.headers.cookie?.split(";").map(v=>v.trim()).find(v=>v.startsWith("nexora_session="))?.slice("nexora_session=".length);
+  if(raw){const admin=await pool.query("SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>NOW() AND u.role='admin' AND u.status='active' LIMIT 1",[hashToken(decodeURIComponent(raw))]);if(admin.rowCount)return next();}
+  res.set("Cache-Control","no-store");
+  if(req.path.startsWith("/api/"))return res.status(503).json({error:"Site is temporarily under maintenance.",maintenance:true,message:setting.rows[0].message});
+  const reason=String(setting.rows[0].message||"We are carrying out scheduled maintenance.").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+  return res.status(503).type("html").send('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Site Maintenance — NEXORA SMM</title><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#08091a;color:#f5f5ff;font:16px Arial,sans-serif;padding:24px;box-sizing:border-box"><main style="max-width:560px;text-align:center;background:#15162b;border:1px solid #5550a0;border-radius:20px;padding:32px"><h1>We’ll be back soon</h1><p style="color:#c9c7df;line-height:1.7">'+reason+'</p><p style="color:#9b98b8;font-size:13px">NEXORA SMM · Site maintenance</p></main></body></html>');
+ }catch(error){next(error);}
+});
+
 
 const cookieOptions = { httpOnly: true, secure: production || process.env.SESSION_COOKIE_SECURE === "true", sameSite: "lax", path: "/", maxAge: 7 * 24 * 60 * 60 * 1000 };
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
@@ -547,6 +560,9 @@ app.get("/api/admin/activity",requireAuth,requireAdmin,asyncRoute(async(req,res)
  const r=await pool.query("SELECT l.id,l.action,l.entity_type,l.entity_id,l.details,l.created_at,u.full_name,u.username,u.email FROM audit_logs l LEFT JOIN users u ON u.id=l.actor_id WHERE ($1::text IS NULL OR l.action ILIKE $1 OR l.entity_type ILIKE $1 OR COALESCE(u.username,'') ILIKE $1 OR COALESCE(u.email,'') ILIKE $1 OR COALESCE(l.entity_id::text,'') ILIKE $1) AND ($2::text IS NULL OR l.action ILIKE $2) ORDER BY l.created_at DESC LIMIT 200",[term,actionTerm]);
  res.json({logs:r.rows});
 }));
+
+app.get("/api/admin/maintenance",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{const r=await pool.query("SELECT enabled,message FROM site_settings WHERE id=TRUE");res.set("Cache-Control","no-store").json(r.rows[0]||{enabled:false,message:""});}));
+app.put("/api/admin/maintenance",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{const parsed=z.object({enabled:z.boolean(),message:z.string().trim().max(1000)}).safeParse(req.body);if(!parsed.success)return res.status(400).json({error:"Enter a valid maintenance setting and message."});if(parsed.data.enabled&&parsed.data.message.length<5)return res.status(400).json({error:"When maintenance is ON, write a reason of at least 5 characters."});await pool.query("INSERT INTO site_settings(id,enabled,message,updated_at,updated_by) VALUES(TRUE,$1,$2,NOW(),$3) ON CONFLICT(id) DO UPDATE SET enabled=EXCLUDED.enabled,message=EXCLUDED.message,updated_at=NOW(),updated_by=EXCLUDED.updated_by",[parsed.data.enabled,parsed.data.message,req.user.id]);await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'site_maintenance_updated','site_settings',$2::jsonb)",[req.user.id,JSON.stringify({enabled:parsed.data.enabled,message:parsed.data.message})]);res.set("Cache-Control","no-store").json({ok:true,enabled:parsed.data.enabled,message:parsed.data.message});}));
 app.get("/api/admin/system",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
  const counts=await pool.query("SELECT (SELECT COUNT(*)::int FROM users WHERE role='user') AS users,(SELECT COUNT(*)::int FROM orders) AS orders,(SELECT COUNT(*)::int FROM services) AS services,(SELECT COUNT(*)::int FROM money_requests WHERE status='pending') AS pending_money,(SELECT COUNT(*)::int FROM support_tickets WHERE status IN ('open','in_progress')) AS open_tickets");
  res.set("Cache-Control","no-store").json({database:true,environment:process.env.NODE_ENV||"development",orderFulfilmentEnabled:process.env.ORDER_FULFILMENT_ENABLED==="true",counts:counts.rows[0],paymentMode:"Manual review (bKash, Nagad, Rocket, upay)",secretsEditable:false});
@@ -639,6 +655,7 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
  .then(()=>pool.query("UPDATE users SET referral_code=chr(78)||chr(88)||upper(substr(id::text,1,8)||substr(id::text,10,2)) WHERE referral_code IS NULL"))
  .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_unique ON users(upper(referral_code))"))
  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS users_referred_by_idx ON users(referred_by)"))
+ .then(()=>pool.query("CREATE TABLE IF NOT EXISTS site_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE), enabled BOOLEAN NOT NULL DEFAULT FALSE, message TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_by UUID REFERENCES users(id) ON DELETE SET NULL)"))
  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS payment_settings (method VARCHAR(12) PRIMARY KEY CHECK(method IN ('bkash','nagad','rocket','upay')), account_number VARCHAR(20) NOT NULL DEFAULT '', account_type VARCHAR(12) NOT NULL DEFAULT 'personal' CHECK(account_type IN ('personal','merchant')), active BOOLEAN NOT NULL DEFAULT FALSE, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_by UUID REFERENCES users(id) ON DELETE SET NULL)"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS referral_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE), commission_percent NUMERIC(5,2) NOT NULL DEFAULT 5.00 CHECK(commission_percent>=0 AND commission_percent<=50), enabled BOOLEAN NOT NULL DEFAULT FALSE, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
  .then(()=>pool.query("INSERT INTO referral_settings(id,commission_percent,enabled) VALUES(TRUE,5.00,FALSE) ON CONFLICT(id) DO NOTHING"))
