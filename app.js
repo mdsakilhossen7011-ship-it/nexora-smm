@@ -150,3 +150,8 @@ document.getElementById("year").textContent = new Date().getFullYear();
 if (location.hash === "#login" || location.hash === "#register") {
   setAuthPage(location.hash.slice(1));
 }
+
+(async function loadHomepageAnnouncements(){
+ const host=document.getElementById("siteAnnouncements");if(!host)return;
+ try{const response=await fetch((window.NEXORA_API_URL||"/api")+"/public/announcements",{credentials:"same-origin"});if(!response.ok)return;const data=await response.json();(data.announcements||[]).forEach(item=>{const card=document.createElement("article");card.className="site-announcement";const title=document.createElement("strong");title.textContent=item.title;const body=document.createElement("p");body.textContent=item.body;card.append(title,body);host.append(card)});}catch(_error){}
+})();
