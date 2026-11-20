@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(16) NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),
   status VARCHAR(16) NOT NULL DEFAULT 'active' CHECK (status IN ('active','blocked')),
   two_factor_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  referral_code VARCHAR(32) UNIQUE,
+  referred_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -23,6 +25,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS users_referred_by_idx ON users(referred_by);
+
+CREATE TABLE IF NOT EXISTS referral_settings (
+  id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id = TRUE),
+  commission_percent NUMERIC(5,2) NOT NULL DEFAULT 5.00 CHECK (commission_percent >= 0 AND commission_percent <= 50),
+  enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS wallet_accounts (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
