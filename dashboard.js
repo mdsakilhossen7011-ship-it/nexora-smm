@@ -14,8 +14,6 @@ function setupMoneyForms(){
  withdrawMethodSelect?.addEventListener("change",syncWithdrawGateway);
  syncWithdrawGateway();
  const methodLogo=document.getElementById("depositMethodLogo");
- const gatewayStyles={bkash:"money-bkash-logo",nagad:"money-nagad-logo",rocket:"money-rocket-logo",upay:"money-upay-logo"};
- const gatewayNames={bkash:"bKash",nagad:"Nagad",rocket:"Rocket",upay:"upay"};
  const syncDepositGateway=()=>{const method=methodSelect?.value||"bkash";if(methodLogo){methodLogo.textContent=gatewayNames[method]||"bKash";methodLogo.className="money-method-logo "+(gatewayStyles[method]||gatewayStyles.bkash);}};
  methodSelect?.addEventListener("change",syncDepositGateway);
  syncDepositGateway();
