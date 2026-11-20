@@ -323,6 +323,30 @@ app.delete("/api/admin/services/:id",requireAuth,requireAdmin,asyncRoute(async(r
  await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'service_deleted','service',$2,'{}'::jsonb)",[req.user.id,req.params.id]);
  res.json({ok:true});
 }));
+app.get("/api/referrals/me",requireAuth,asyncRoute(async(req,res)=>{
+ const r=await pool.query("SELECT u.referral_code,(SELECT COUNT(*) FROM users child WHERE child.referred_by=u.id)::int AS referred_count FROM users u WHERE u.id=$1",[req.user.id]);
+ res.json(r.rows[0]||{});
+}));
+app.get("/api/referrals/leaderboard",requireAuth,asyncRoute(async(_req,res)=>{
+ const r=await pool.query("SELECT u.username,COUNT(child.id)::int AS referrals FROM users u LEFT JOIN users child ON child.referred_by=u.id WHERE u.role=$1 GROUP BY u.id,u.username HAVING COUNT(child.id)>0 ORDER BY referrals DESC,u.created_at ASC LIMIT 10",["user"]);
+ res.json({leaders:r.rows});
+}));
+app.get("/api/admin/growth",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
+ const [settings,stats,referrals,leaders]=await Promise.all([
+  pool.query("SELECT commission_percent,enabled,updated_at FROM referral_settings WHERE id=TRUE"),
+  pool.query("SELECT COUNT(*)::int AS total_users,COUNT(*) FILTER(WHERE referred_by IS NOT NULL)::int AS referred_users,COUNT(DISTINCT referred_by)::int AS active_referrers FROM users WHERE role=$1",["user"]),
+  pool.query("SELECT child.id,child.full_name,child.username,child.email,child.created_at,ref.full_name AS referrer_name,ref.username AS referrer_username,ref.referral_code FROM users child JOIN users ref ON ref.id=child.referred_by ORDER BY child.created_at DESC LIMIT 200"),
+  pool.query("SELECT ref.id,ref.full_name,ref.username,ref.referral_code,COUNT(child.id)::int AS referral_count FROM users ref JOIN users child ON child.referred_by=ref.id WHERE ref.role=$1 GROUP BY ref.id ORDER BY referral_count DESC,ref.created_at ASC LIMIT 10",["user"])
+ ]);
+ res.json({settings:settings.rows[0]||{commission_percent:"5.00",enabled:false},stats:stats.rows[0],referrals:referrals.rows,leaders:leaders.rows});
+}));
+app.patch("/api/admin/growth/settings",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({commissionPercent:z.number().finite().min(0).max(50),enabled:z.boolean()}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Commission rate must be between 0 and 50 percent."});
+ const r=await pool.query("INSERT INTO referral_settings(id,commission_percent,enabled,updated_at) VALUES(TRUE,$1,$2,NOW()) ON CONFLICT(id) DO UPDATE SET commission_percent=EXCLUDED.commission_percent,enabled=EXCLUDED.enabled,updated_at=NOW() RETURNING commission_percent,enabled,updated_at",[parsed.data.commissionPercent,parsed.data.enabled]);
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,$2,$3,$4::jsonb)",[req.user.id,"referral_settings_updated","referral_settings",JSON.stringify(parsed.data)]);
+ res.json({settings:r.rows[0]});
+}));
 app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const r=await pool.query("SELECT m.*,u.username,u.email FROM money_requests m JOIN users u ON u.id=m.user_id ORDER BY m.created_at DESC LIMIT 200");
   res.json({requests:r.rows});
