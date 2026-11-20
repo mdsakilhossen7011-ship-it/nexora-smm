@@ -85,3 +85,11 @@ html:has(.admin-body),body.admin-body{width:100%;min-width:0;max-width:100%;marg
  .user-action{width:100%;min-height:40px}
  .user-detail-grid{grid-template-columns:1fr}
 }
+
+/* Admin order review */
+.order-card .user-state{white-space:nowrap}
+.order-card .request-meta span{overflow-wrap:anywhere}
+.order-detail{display:block}
+.order-detail[hidden]{display:none}
+.order-card .user-actions{margin-top:12px}
+@media(max-width:600px){.order-card .user-actions{grid-template-columns:1fr}.order-card .user-action{width:100%;min-height:42px}}
