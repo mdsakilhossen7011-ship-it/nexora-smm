@@ -65,10 +65,7 @@ document.addEventListener("click", (event) => {
   if (pageButton) {
     event.preventDefault();
     setAuthPage(pageButton.dataset.page);
-    navLinks.classList.remove("open");
-    menuToggle.setAttribute("aria-expanded", "false");
-    menuToggle.setAttribute("aria-label", "Open navigation menu");
-    menuToggle.querySelector("span").textContent = "☰";
+    closeMobileMenu();
   }
   if (event.target.closest('a[href="#home"]')) {
     showHome();
@@ -79,11 +76,29 @@ document.addEventListener("click", (event) => {
   }
 });
 
-menuToggle.addEventListener("click", () => {
-  const isOpen = navLinks.classList.toggle("open");
-  menuToggle.setAttribute("aria-expanded", String(isOpen));
-  menuToggle.setAttribute("aria-label", isOpen ? "Close navigation menu" : "Open navigation menu");
-  menuToggle.querySelector("span").textContent = isOpen ? "×" : "☰";
+function closeMobileMenu(){
+  navLinks.classList.remove("open");
+  document.getElementById("navBackdrop")?.classList.remove("open");
+  document.body.classList.remove("nav-drawer-open");
+  menuToggle.setAttribute("aria-expanded","false");
+  menuToggle.setAttribute("aria-label","Open navigation menu");
+  menuToggle.querySelector("span").textContent="☰";
+}
+function openMobileMenu(){
+  navLinks.classList.add("open");
+  document.getElementById("navBackdrop")?.classList.add("open");
+  document.body.classList.add("nav-drawer-open");
+  menuToggle.setAttribute("aria-expanded","true");
+  menuToggle.setAttribute("aria-label","Close navigation menu");
+  menuToggle.querySelector("span").textContent="×";
+}
+menuToggle.addEventListener("click",()=>{
+  navLinks.classList.contains("open")?closeMobileMenu():openMobileMenu();
+});
+document.getElementById("navBackdrop")?.addEventListener("click",closeMobileMenu);
+document.addEventListener("keydown",event=>{if(event.key==="Escape")closeMobileMenu();});
+navLinks.addEventListener("click",event=>{
+  if(event.target.closest("a")||event.target.closest("[data-page]")||event.target.closest("#homeLogoutBtn"))closeMobileMenu();
 });
 
 authForm.addEventListener("submit", async (event) => {
@@ -137,7 +152,7 @@ document.getElementById("homeLogoutBtn").addEventListener("click", async () => {
     });
   } finally {
     setSignedIn(false);
-    navLinks.classList.remove("open");
+    closeMobileMenu();
     button.disabled = false;
     showHome();
   }
