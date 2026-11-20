@@ -203,3 +203,106 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   }
 }
 
+/* Mobile navbar layout: brand left, account actions centered, three-dot menu right */
+@media (max-width: 600px) {
+  .topbar {
+    position: sticky;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+    padding-left: 9px;
+    padding-right: 9px;
+    gap: 0;
+  }
+
+  .topbar > .brand {
+    flex: 0 1 34%;
+    min-width: 0;
+    max-width: 34%;
+    gap: 5px;
+    font-size: 12px;
+    letter-spacing: -0.4px;
+  }
+
+  .topbar > .brand .brand-mark {
+    flex: 0 0 27px;
+    width: 27px;
+    height: 27px;
+    font-size: 19px;
+  }
+
+  .topbar > .brand > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar > .nav-actions {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    gap: 4px;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .topbar > .nav-actions .btn {
+    min-height: 32px;
+    padding: 6px 7px;
+    font-size: 9px;
+    line-height: 1;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  .topbar > .nav-actions .theme-toggle {
+    width: 27px;
+    min-width: 27px;
+    padding: 0;
+    font-size: 15px;
+  }
+
+  .topbar > .menu-toggle {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 25px;
+    width: 25px;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    font-size: 27px;
+    line-height: 1;
+    order: 3;
+  }
+}
+
+@media (max-width: 360px) {
+  .topbar > .brand {
+    flex-basis: 31%;
+    max-width: 31%;
+    font-size: 11px;
+  }
+
+  .topbar > .nav-actions {
+    gap: 3px;
+  }
+
+  .topbar > .nav-actions .btn {
+    padding-left: 5px;
+    padding-right: 5px;
+    font-size: 8px;
+  }
+
+  .topbar > .nav-actions .theme-toggle {
+    width: 25px;
+    min-width: 25px;
+  }
+}
+
