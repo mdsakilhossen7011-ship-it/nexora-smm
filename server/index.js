@@ -52,6 +52,11 @@ async function saveSupportImages(client, messageId, images) {
   }
 }
 
+async function cleanupExpiredSupportMessages() {
+  const result = await pool.query("DELETE FROM ticket_messages WHERE created_at <= NOW() - INTERVAL '1 hour'");
+  return result.rowCount;
+}
+
 async function requireAuth(req, res, next) {
   try {
     const token = req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : req.headers["x-session-token"];
@@ -566,6 +571,7 @@ app.post("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }));
 app.get("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,res)=>{
+ await cleanupExpiredSupportMessages();
  const t=await pool.query("SELECT id,user_id FROM support_tickets WHERE id=$1",[req.params.id]);
  if(!t.rowCount)return res.status(404).json({error:"Ticket not found."});
  if(t.rows[0].user_id!==req.user.id&&req.user.role!=="admin")return res.status(403).json({error:"You cannot view this ticket."});
@@ -644,6 +650,7 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("ALTER TABLE support_tickets ADD CONSTRAINT support_tickets_status_check CHECK(status IN ('open','in_progress','answered','resolved','closed'))"))
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS support_tickets_user_updated_idx ON support_tickets(user_id,updated_at DESC)"))
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS ticket_messages_ticket_date_idx ON ticket_messages(ticket_id,created_at)"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS ticket_messages_created_at_idx ON ticket_messages(created_at)"))
   
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_attachments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),message_id UUID NOT NULL REFERENCES ticket_messages(id) ON DELETE CASCADE,public_id VARCHAR(255) NOT NULL UNIQUE,secure_url TEXT NOT NULL,format VARCHAR(20) NOT NULL,bytes BIGINT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS data BYTEA"))
@@ -655,5 +662,12 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire',v.name,'Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',v.rate,0,v.qty,v.qty,NULL,TRUE FROM (VALUES ('100 Diamonds',80000,100),('210 Diamonds',76190,210),('530 Diamonds',75471,530),('1,060 Diamonds',75471,1060)) AS v(name,rate,qty) WHERE NOT EXISTS (SELECT 1 FROM services s WHERE s.category='free_fire' AND lower(s.name)=lower(v.name))"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
-  .then(()=>app.listen(port,()=>console.log("NEXORA API listening on port "+port)))
+  .then(()=>app.listen(port,()=>{
+    console.log("NEXORA API listening on port "+port);
+    cleanupExpiredSupportMessages().catch(error=>console.error("Initial support message cleanup failed",error));
+    const supportCleanupTimer=setInterval(()=>{
+      cleanupExpiredSupportMessages().catch(error=>console.error("Scheduled support message cleanup failed",error));
+    },30*1000);
+    supportCleanupTimer.unref();
+  }))
   .catch(error=>{console.error("Database initialization failed",error);process.exit(1);});
