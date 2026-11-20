@@ -192,8 +192,57 @@ app.get("/api/wallet/ledger",requireAuth,asyncRoute(async(req,res)=>{
   res.json({entries:r.rows});
 }));
 app.get("/api/admin/users",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const search=String(req.query.search||"").trim().slice(0,100);
+  const status=["active","blocked"].includes(req.query.status)?req.query.status:null;
+  const term=search?("%"+search.replace(/[\\%_]/g,"\\app.get("/api/admin/users",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const r=await pool.query("SELECT u.id,u.full_name,u.username,u.email,u.phone,u.status,u.created_at,w.balance_minor FROM users u JOIN wallet_accounts w ON w.user_id=u.id ORDER BY u.created_at DESC LIMIT 200");
   res.json({users:r.rows});
+}));")+"%"):null;
+  const r=await pool.query(
+    "SELECT u.id,u.full_name,u.username,u.email,u.phone,u.status,u.created_at,w.balance_minor,w.total_spent_minor,COUNT(o.id)::int AS total_orders,COUNT(o.id) FILTER (WHERE o.status='completed')::int AS completed_orders FROM users u JOIN wallet_accounts w ON w.user_id=u.id LEFT JOIN orders o ON o.user_id=u.id WHERE u.role='user' AND ($1::text IS NULL OR (u.full_name ILIKE $1 ESCAPE '\\\\' OR u.username ILIKE $1 ESCAPE '\\\\' OR u.email ILIKE $1 ESCAPE '\\\\' OR COALESCE(u.phone,'') ILIKE $1 ESCAPE '\\\\')) AND ($2::text IS NULL OR u.status=$2) GROUP BY u.id,w.balance_minor,w.total_spent_minor ORDER BY u.created_at DESC LIMIT 200",
+    [term,status]
+  );
+  res.json({users:r.rows});
+}));
+app.get("/api/admin/users/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const user=await pool.query("SELECT u.id,u.full_name,u.username,u.email,u.phone,u.status,u.role,u.created_at,w.balance_minor,w.total_spent_minor,COUNT(o.id)::int AS total_orders,COUNT(o.id) FILTER (WHERE o.status='completed')::int AS completed_orders FROM users u JOIN wallet_accounts w ON w.user_id=u.id LEFT JOIN orders o ON o.user_id=u.id WHERE u.id=$1 AND u.role='user' GROUP BY u.id,w.balance_minor,w.total_spent_minor",[req.params.id]);
+  if(!user.rowCount)return res.status(404).json({error:"User not found."});
+  const ledger=await pool.query("SELECT amount_minor,entry_type,note,created_at FROM wallet_ledger WHERE user_id=$1 ORDER BY created_at DESC LIMIT 10",[req.params.id]);
+  res.json({user:user.rows[0],recent_activity:ledger.rows});
+}));
+app.post("/api/admin/users/:id/balance",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const parsed=z.object({amount:z.number().finite().min(-500000).max(500000).refine(v=>Math.round(v*100)!==0),reason:z.string().trim().min(5).max(250)}).safeParse(req.body);
+  if(!parsed.success)return res.status(400).json({error:"Enter a non-zero amount (maximum ৳500,000) and a reason of 5–250 characters."});
+  const amountMinor=BigInt(Math.round(parsed.data.amount*100));
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const user=await client.query("SELECT id FROM users WHERE id=$1 AND role='user' FOR UPDATE",[req.params.id]);
+    if(!user.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"User not found."});}
+    const wallet=await client.query("SELECT balance_minor FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.params.id]);
+    if(!wallet.rowCount){await client.query("ROLLBACK");return res.status(409).json({error:"Wallet account is missing."});}
+    const next=BigInt(wallet.rows[0].balance_minor)+amountMinor;
+    if(next<0n){await client.query("ROLLBACK");return res.status(400).json({error:"This adjustment would make the user's balance negative."});}
+    await client.query("UPDATE wallet_accounts SET balance_minor=$1,updated_at=NOW() WHERE user_id=$2",[next.toString(),req.params.id]);
+    await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,note,created_by) VALUES($1,$2,'admin_adjustment',$3,$4)",[req.params.id,amountMinor.toString(),parsed.data.reason,req.user.id]);
+    await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'user_balance_adjusted','user',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({amount_minor:amountMinor.toString(),reason:parsed.data.reason})]);
+    await client.query("COMMIT");
+    res.json({ok:true,balance_minor:next.toString()});
+  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+app.patch("/api/admin/users/:id/status",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const parsed=z.object({status:z.enum(["active","blocked"])}).safeParse(req.body);
+  if(!parsed.success)return res.status(400).json({error:"Choose active or blocked."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const updated=await client.query("UPDATE users SET status=$1,updated_at=NOW() WHERE id=$2 AND role='user' RETURNING id,status",[parsed.data.status,req.params.id]);
+    if(!updated.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"User not found."});}
+    if(parsed.data.status==="blocked")await client.query("DELETE FROM sessions WHERE user_id=$1",[req.params.id]);
+    await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'user',$3,$4::jsonb)",[req.user.id,"user_"+parsed.data.status,req.params.id,JSON.stringify({status:parsed.data.status})]);
+    await client.query("COMMIT");
+    res.json({ok:true,status:updated.rows[0].status});
+  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }));
 app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const r=await pool.query("SELECT m.*,u.username,u.email FROM money_requests m JOIN users u ON u.id=m.user_id ORDER BY m.created_at DESC LIMIT 200");
