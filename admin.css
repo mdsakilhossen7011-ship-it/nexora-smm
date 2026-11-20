@@ -93,3 +93,13 @@ html:has(.admin-body),body.admin-body{width:100%;min-width:0;max-width:100%;marg
 .order-detail[hidden]{display:none}
 .order-card .user-actions{margin-top:12px}
 @media(max-width:600px){.order-card .user-actions{grid-template-columns:1fr}.order-card .user-action{width:100%;min-height:42px}}
+
+/* Service catalogue */
+.service-form{display:grid;gap:12px;margin:18px 0 22px;padding:16px;border:1px solid #34345e;border-radius:13px;background:#10132a}
+.service-form h3{margin:0;color:#fff;font-size:15px}
+.service-form label{display:grid;gap:6px;color:#b9bfdc;font-size:12px}
+.service-form input,.service-form select,.service-form textarea{width:100%;min-width:0;padding:11px 12px;border:1px solid #303455;border-radius:9px;background:#0b0e20;color:#fff;font:inherit}
+.service-form textarea{resize:vertical}
+.service-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.service-card .user-actions{margin-top:12px}
+@media(max-width:600px){.service-form-grid{grid-template-columns:1fr}.service-card .user-actions{display:grid;grid-template-columns:1fr}.service-card .user-action{width:100%;min-height:42px}}
