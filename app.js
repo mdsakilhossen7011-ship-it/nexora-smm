@@ -104,7 +104,7 @@ authForm.addEventListener("submit", async (event) => {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || "Request failed.");
     authNotice.textContent = registering ? "Account created successfully." : "Login successful.";
-    window.location.href = "/dashboard.html";
+    window.location.href = "/";
   } catch (error) {
     authNotice.textContent = error.message.includes("Failed to fetch")
       ? "The secure API is not deployed or configured yet. Your details were not saved."
