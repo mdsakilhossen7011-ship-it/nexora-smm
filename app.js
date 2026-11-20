@@ -8,6 +8,23 @@ const authSwitch = document.getElementById("authSwitch");
 const authNotice = document.getElementById("authNotice");
 const menuToggle = document.getElementById("menuToggle");
 const navLinks = document.getElementById("navLinks");
+const publicNav = document.getElementById("publicNav");
+const accountNav = document.getElementById("accountNav");
+
+function setSignedIn(signedIn) {
+  publicNav.classList.toggle("hidden", signedIn);
+  accountNav.classList.toggle("hidden", !signedIn);
+  navLinks.classList.toggle("account-mode", signedIn);
+}
+
+async function checkSession() {
+  try {
+    const response = await fetch((window.NEXORA_API_URL || "/api") + "/me", { credentials: "include" });
+    setSignedIn(response.ok);
+  } catch {
+    setSignedIn(false);
+  }
+}
 
 function setAuthPage(page) {
   const registering = page === "register";
@@ -104,7 +121,24 @@ themeButton.addEventListener("click", () => {
   document.body.classList.toggle("light-theme");
   themeButton.textContent = document.body.classList.contains("light-theme") ? "☾" : "☼";
 });
-document.querySelector(".nav-actions").prepend(themeButton);
+document.querySelector("#publicNav .nav-actions").prepend(themeButton);
+
+document.getElementById("homeLogoutBtn").addEventListener("click", async () => {
+  const button = document.getElementById("homeLogoutBtn");
+  button.disabled = true;
+  try {
+    await fetch((window.NEXORA_API_URL || "/api") + "/auth/logout", {
+      method: "POST", credentials: "include"
+    });
+  } finally {
+    setSignedIn(false);
+    navLinks.classList.remove("open");
+    button.disabled = false;
+    showHome();
+  }
+});
+
+checkSession();
 
 document.getElementById("year").textContent = new Date().getFullYear();
 
