@@ -1,30 +1,49 @@
 # NEXORA SMM
 
-A separate SMM and gaming top-up panel project.
+A separate SMM and gaming top-up panel.
 
-## Current foundation
-- Responsive homepage based on the visual references supplied by the project owner.
-- Login and account-creation page layouts.
-- Service-category presentation for Facebook, Instagram, TikTok, YouTube, Telegram, and gaming top-ups.
-- Basic navigation and mobile menu.
-- Dark-first visual system with a theme toggle control.
+## Repository structure
+- `index.html`, `styles.css`, `app.js`: responsive public website and auth screens.
+- `dashboard.html`, `dashboard.css`, `dashboard.js`: authenticated user dashboard UI.
+- `server/index.js`: Express API with registration, login, logout, session authentication, profile summary, service listing, order creation, order history, wallet ledger, and initial admin read endpoints.
+- `database/schema.sql`: PostgreSQL schema for users, sessions, wallet ledger, services, orders, deposits/withdrawals, support tickets, announcements, and audit logs.
+- `.env.example`: environment variable template.
 
-## Implementation status
-This is a frontend foundation only. Authentication, wallet balances, deposits, withdrawals, order processing, live order events, support tickets, admin controls, and provider integrations are **not connected or operational yet**. The interface does not pretend that these backend features are live.
+## Current implementation status
+The codebase is an in-progress production implementation, **not a live service yet**. API routes require a deployed Node.js server and PostgreSQL database. The browser frontend requires the API to be deployed at the same origin under `/api`, or set `window.NEXORA_API_URL` to the API base URL before the page scripts load.
 
-## Planned implementation sequence
-1. Secure backend, data model, and authentication.
-2. User accounts, profile, wallet ledger, deposit and withdrawal workflows.
-3. Service catalogue, order lifecycle, provider/API integration, and order history.
-4. Support tickets and admin operations with server-side authorization and audit trails.
-5. Legal pages, verified payment/provider integrations, testing, and deployment configuration.
+Implemented API capabilities:
+- Password hashing with bcrypt.
+- Random opaque sessions; only SHA-256 token hashes are stored in PostgreSQL.
+- HTTP-only session cookie, security headers, CORS configuration, JSON body limit, and authentication rate limiting.
+- User registration/login/logout.
+- User profile summary, service catalogue, order history, wallet ledger.
+- Transactional order charge and wallet ledger write.
+- Admin-protected user and money-request listing endpoints.
 
-## Security principles
-- Never trust client-side role flags or client-submitted wallet balances.
-- Keep provider credentials and payment secrets server-side.
-- Use server-side authorization for all administrative and financial actions.
-- Record financial changes in an auditable ledger.
-- Do not launch real payments or orders until provider credentials, callbacks, and verification are tested.
+Not yet implemented or activated:
+- Payment gateway checkout/callback and verified bKash, Nagad, Rocket, or Upay settlement.
+- External SMM supplier and game top-up fulfilment adapters.
+- Admin UI and complete admin mutation workflows.
+- Deposit/withdrawal request creation/review endpoints.
+- Support ticket messaging, announcement management, password reset, 2FA, reseller API keys, affiliate commissions, and legal page content.
+- Production deployment, domain, SSL, database backups, monitoring, and end-to-end tests.
 
-## Local preview
-Open `index.html` in a browser or serve the repository with a static development server.
+## Required deployment configuration
+1. Node.js 20+ application hosting.
+2. PostgreSQL database and a secure `DATABASE_URL`.
+3. A random `SESSION_SECRET` of at least 32 characters.
+4. Exact production `APP_ORIGIN` and HTTPS.
+5. Verified merchant onboarding and API credentials for each payment method.
+6. A real SMM supplier API and game top-up provider API, with service IDs, pricing, callback/webhook documentation, and test credentials.
+
+Never commit secrets to GitHub. Put production secrets only in the hosting provider's secret/environment-variable settings.
+
+## Run locally
+1. Install Node.js 20+ and PostgreSQL.
+2. Create a database and apply `database/schema.sql`.
+3. Copy `.env.example` to `.env` and fill the required values.
+4. Run `npm install`, then `npm start`.
+5. Check `GET /api/health`.
+
+The first admin account must be provisioned securely through a one-time operator process after deployment; public registration must never allow users to choose their own role.
