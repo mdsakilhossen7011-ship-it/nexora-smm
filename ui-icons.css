@@ -1,3 +1,3 @@
-/* Restore original NEXORA controls: no injected icon overlays or layout changes. */
-.nexora-ui-icon{display:none!important}
-.nexora-iconized{position:initial!important}
+/* Safe inline icons: never overlay text or change button dimensions with positioning. */
+.nexora-btn-icon{display:inline-flex;align-items:center;justify-content:center;width:1em;height:1em;flex:0 0 1em;vertical-align:-.16em;margin-right:.42em;pointer-events:none;line-height:1}
+.nexora-btn-icon svg{display:block;width:100%;height:100%;overflow:visible}
