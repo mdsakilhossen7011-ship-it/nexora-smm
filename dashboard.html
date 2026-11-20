@@ -3,6 +3,8 @@
 <body><header class="topbar dash-topbar"><a class="brand" href="/"><span class="brand-mark">N</span><span>NEXORA <b>SMM</b></span></a><div class="account-menu-wrap"><button class="account-menu-toggle" id="accountMenuToggle" type="button" aria-label="Open account menu" aria-expanded="false" aria-controls="accountMenu">⋮</button><nav class="account-menu" id="accountMenu" aria-label="Account menu">
 <a href="#dashboard">⌂ <span>Dashboard</span></a>
 <a href="#profile">♙ <span>Profile</span></a>
+<a href="#deposit">＋ <span>Add Money / Deposit</span></a>
+<a href="#withdraw">↗ <span>Withdraw</span></a>
 <a href="#referral">↗ <span>Referral</span></a>
 <a href="#top-leaders">🏆 <span>Top Leaders</span></a>
 <a href="#orders">◷ <span>Order History</span></a>
@@ -14,6 +16,7 @@
 <div class="dash-columns"><section class="dash-panel" id="profile"><div class="panel-heading"><h2>Account Details / Profile</h2><span class="status-pill" id="accountStatus">Checking</span></div><dl class="profile-list"><div><dt>Full name</dt><dd id="fullName">—</dd></div><div><dt>Username</dt><dd id="username">—</dd></div><div><dt>Email</dt><dd id="email">—</dd></div><div><dt>Phone</dt><dd id="phone">—</dd></div><div><dt>Joined</dt><dd id="joined">—</dd></div></dl></section>
 <section class="dash-panel" id="orders"><div class="panel-heading"><h2>Order History</h2><span class="muted">Latest 100</span></div><div id="ordersList" class="empty-state">Loading orders…</div></section></div>
 <div class="dash-panel ledger-panel"><div class="panel-heading"><h2>Wallet Activity</h2><span class="muted">Recent transactions</span></div><div id="ledgerList" class="empty-state">Loading wallet activity…</div></div>
+<div class="dash-columns menu-destination-panels"><section class="dash-panel" id="deposit"><div class="panel-heading"><h2>Add Money / Deposit</h2></div><p class="menu-feature-note">Deposit requests are not available yet. bKash, Nagad, Rocket, Upay and TrxID verification will be added after the secure deposit workflow is implemented. No payment has been collected through this panel.</p></section><section class="dash-panel" id="withdraw"><div class="panel-heading"><h2>Withdraw</h2></div><p class="menu-feature-note">Withdrawals are not available yet. The secure affiliate/reseller commission balance and admin approval workflow must be implemented before withdrawal requests can be submitted.</p></section></div>
 <div class="dash-columns menu-destination-panels"><section class="dash-panel" id="referral"><div class="panel-heading"><h2>Referral</h2></div><p class="menu-feature-note">Referral program is not activated yet.</p></section><section class="dash-panel" id="top-leaders"><div class="panel-heading"><h2>Top Leaders</h2></div><p class="menu-feature-note">Leaderboard will appear here after the ranking system is connected.</p></section></div>
 <section class="dash-panel" id="live-chat"><div class="panel-heading"><h2>Live Chat</h2></div><p class="menu-feature-note">Live chat connection is not configured yet.</p></section>
 <p class="api-warning" id="dashMessage" role="status">Connecting securely…</p></main><script src="dashboard.js"></script></body></html>
