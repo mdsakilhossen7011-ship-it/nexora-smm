@@ -129,6 +129,7 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
     return null;
   };
   try{
+    await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0");
     await client.query("BEGIN");
     for(const item of selected){
       const serviceId=String(item.service??"");
