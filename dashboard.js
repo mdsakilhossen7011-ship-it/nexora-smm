@@ -68,18 +68,24 @@ function setupProfile(user){
 
 async function init(){const message=document.getElementById("dashMessage");try{const me=await request("/me");const u=me.user;document.getElementById("userName").textContent=u.full_name.split(" ")[0];document.getElementById("fullName").textContent=u.full_name;document.getElementById("username").textContent=u.username;document.getElementById("email").textContent=u.email;document.getElementById("phone").textContent=u.phone||"Not added";document.getElementById("joined").textContent=new Date(u.created_at).toLocaleDateString();document.getElementById("balance").textContent=money(u.balance_minor);
 document.getElementById("profileUsername").textContent=(u.username||"NEXORA_MEMBER").toUpperCase();document.getElementById("profileUserId").textContent="User ID: NXM-"+String(u.id||"").replaceAll("-","").slice(0,6).toUpperCase();document.getElementById("profileRank").textContent=u.role==="admin"?"ADMIN":"MEMBER";document.getElementById("profileBalance").textContent=money(u.balance_minor);
-document.getElementById("editFullName").value=u.full_name||"";document.getElementById("editPhone").value=u.phone||"";document.getElementById("spent").textContent=money(u.total_spent_minor);document.getElementById("completed").textContent=u.completed_orders;document.getElementById("accountStatus").textContent="Active";
-const [orders,ledger]=await Promise.all([request("/orders"),request("/wallet/ledger")]);const ol=document.getElementById("ordersList");ol.textContent="";if(!orders.orders.length)ol.textContent="No orders yet.";orders.orders.slice(0,8).forEach(o=>ol.append(row(o.service_name,o.status+" · "+new Date(o.created_at).toLocaleString(),money(o.charge_minor))));const ll=document.getElementById("ledgerList");ll.textContent="";if(!ledger.entries.length)ll.textContent="No wallet activity yet.";ledger.entries.slice(0,10).forEach(x=>ll.append(row(x.entry_type.replaceAll("_"," "),new Date(x.created_at).toLocaleString(),(Number(x.amount_minor)<0?"−":"+")+money(Math.abs(Number(x.amount_minor))))));await loadMoneyRequests();await loadReferrals();setupProfile(u);setupMoneyForms();setupSupport();document.getElementById("copyReferralLink").addEventListener("click",async()=>{const value=document.getElementById("myReferralLink").value;if(!value)return;try{await navigator.clipboard.writeText(value);document.getElementById("copyReferralLink").textContent="Copied!";}catch{document.getElementById("copyReferralLink").textContent="Copy failed";}});message.textContent="Your account data is loaded from the connected API.";applyDashboardView();}catch(e){message.textContent=e.message+" If the API is not deployed yet, dashboard data will not be available."}}
+document.getElementById("editFullName").value=u.full_name||"";document.getElementById("editPhone").value=u.phone||"";document.getElementById("spent").textContent=money(u.total_spent_minor);document.getElementById("completed").textContent=String(u.completed_orders??0);
+const [orders,ledger]=await Promise.all([request("/orders"),request("/wallet/ledger")]);
+const orderItems=Array.isArray(orders.orders)?orders.orders:[];
+const activeCount=orderItems.filter(o=>!["completed","cancelled","canceled","failed","refunded"].includes(String(o.status||"").toLowerCase())).length;
+const activeEl=document.getElementById("activeOrders");if(activeEl)activeEl.textContent=String(activeCount);
+const recent=document.getElementById("recentOrdersList");if(recent){recent.textContent="";if(!orderItems.length){const empty=document.createElement("div");empty.className="recent-empty";const icon=document.createElement("span");icon.textContent="▤";const p=document.createElement("p");p.textContent="No recent orders found. Start by making a new order below!";empty.append(icon,p);recent.append(empty);}else orderItems.slice(0,4).forEach(o=>recent.append(row(o.service_name,o.status+" · "+new Date(o.created_at).toLocaleString(),money(o.charge_minor))));}
+const spentMinor=Number(u.total_spent_minor||0),balanceMinor=Number(u.balance_minor||0);const spentProgress=document.getElementById("spentProgress");if(spentProgress)spentProgress.style.width=(spentMinor+balanceMinor>0?Math.min(100,spentMinor/(spentMinor+balanceMinor)*100):0)+"%";
+const ol=document.getElementById("ordersList");ol.textContent="";if(!orders.orders.length)ol.textContent="No orders yet.";orders.orders.slice(0,8).forEach(o=>ol.append(row(o.service_name,o.status+" · "+new Date(o.created_at).toLocaleString(),money(o.charge_minor))));const ll=document.getElementById("ledgerList");ll.textContent="";if(!ledger.entries.length)ll.textContent="No wallet activity yet.";ledger.entries.slice(0,10).forEach(x=>ll.append(row(x.entry_type.replaceAll("_"," "),new Date(x.created_at).toLocaleString(),(Number(x.amount_minor)<0?"−":"+")+money(Math.abs(Number(x.amount_minor))))));await loadMoneyRequests();await loadReferrals();setupProfile(u);setupMoneyForms();setupSupport();document.getElementById("copyReferralLink").addEventListener("click",async()=>{const value=document.getElementById("myReferralLink").value;if(!value)return;try{await navigator.clipboard.writeText(value);document.getElementById("copyReferralLink").textContent="Copied!";}catch{document.getElementById("copyReferralLink").textContent="Copy failed";}});message.textContent="Your account data is loaded from the connected API.";applyDashboardView();}catch(e){console.error("NEXORA dashboard initialization failed:",e);message.textContent="We couldn’t load your dashboard data right now. Please refresh in a moment.";message.classList.add("api-error-safe");}}
 function applyDashboardView(){
  const view=(location.hash||"#dashboard").slice(1);
  const heading=document.querySelector(".dash-heading");
  const stats=document.querySelector(".stats-grid");
  const topGroups=Array.from(document.querySelectorAll(".dash-wrap > .dash-columns"));
- const topPanels=Array.from(document.querySelectorAll(".dash-wrap > .dash-panel,.dash-wrap > .ledger-panel"));
+ const topPanels=Array.from(document.querySelectorAll(".dash-wrap > .dash-panel,.dash-wrap > .ledger-panel"));\n const recentOrders=document.getElementById("recentOrders");
  heading?.classList.add("dash-view-hidden");
  stats?.classList.add("dash-view-hidden");
  topGroups.forEach(el=>el.classList.add("dash-view-hidden"));
- topPanels.forEach(el=>el.classList.add("dash-view-hidden"));
+ topPanels.forEach(el=>el.classList.add("dash-view-hidden"));\n recentOrders?.classList.add("dash-view-hidden");
  const showGroup=(index,id)=>{
   const group=topGroups[index];
   const panel=document.getElementById(id);
@@ -100,7 +106,7 @@ function applyDashboardView(){
  else if(view==="live-chat")showStandalone("live-chat");
  else if(view==="money-history")showStandalone("moneyRequestsList");
  else if(view==="wallet-activity")showStandalone("ledgerList");
- else { heading?.classList.remove("dash-view-hidden"); stats?.classList.remove("dash-view-hidden"); }
+ else { heading?.classList.remove("dash-view-hidden"); stats?.classList.remove("dash-view-hidden"); recentOrders?.classList.remove("dash-view-hidden"); }
  window.scrollTo({top:0,behavior:"smooth"});
 }
 window.addEventListener("hashchange",applyDashboardView);
