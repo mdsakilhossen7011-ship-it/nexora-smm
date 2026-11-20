@@ -354,3 +354,21 @@
 .money-select-wrap .money-method-logo.money-nagad-logo{color:#ff8a32}
 .money-select-wrap .money-method-logo.money-rocket-logo{color:#c7b3ff}
 .money-select-wrap .money-method-logo.money-upay-logo{color:#b8e85c}
+
+
+/* NEXORA withdrawal page — matching neon wallet design */
+#withdraw{scroll-margin-top:82px}
+.money-withdraw-icon{border-color:#a66aff77;background:#7928d522;color:#c08aff;box-shadow:0 0 18px #a12cff38}
+.money-balance-strip{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:5px 0 13px;padding:13px 14px;border:1px solid #38baff55;border-radius:13px;background:linear-gradient(105deg,#102342,#171538);box-shadow:inset 0 1px #ffffff0a}
+.money-balance-strip span{color:#aebbd8;font-size:11px;font-weight:650}
+.money-balance-strip strong{color:#72d4ff;font-size:19px;font-weight:850;text-shadow:0 0 13px #32aaff44}
+.nex-withdraw-form{margin-top:15px}
+.nex-withdraw-form .money-field{display:flex;flex-direction:column}
+#withdraw .money-partners{margin-top:21px}
+#withdraw .money-select-wrap>.money-method-logo{left:13px;min-width:55px;justify-content:flex-start;font-size:15px;line-height:1;z-index:2}
+#withdraw .money-select-wrap select{padding-left:84px}
+#withdraw .money-select-wrap .money-nagad-logo{color:#ff8a32}
+#withdraw .money-select-wrap .money-rocket-logo{color:#c7b3ff}
+#withdraw .money-select-wrap .money-upay-logo{color:#b8e85c}
+.quick-actions a.quick-active{border-color:#a64bff!important;background:linear-gradient(110deg,#7627ff,#b72ce9)!important;color:#fff!important;box-shadow:0 0 18px #8b2cff66,inset 0 1px #ffffff55!important}
+@media(max-width:700px){#withdraw .money-card{padding:19px 14px 15px}}
