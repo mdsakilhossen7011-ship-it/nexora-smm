@@ -283,6 +283,43 @@ app.post("/api/admin/orders/:id/cancel-refund",requireAuth,requireAdmin,asyncRou
   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }));
 
+
+app.get("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const r=await pool.query("SELECT s.id,s.category,s.name,s.description,s.price_per_1000_minor,s.cost_per_1000_minor,s.min_quantity,s.max_quantity,s.provider_service_id,s.enabled,s.created_at,s.updated_at,(SELECT COUNT(*) FROM orders o WHERE o.service_id=s.id)::int AS order_count FROM services s ORDER BY s.category,s.name");
+ res.json({services:r.rows});
+}));
+app.post("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({category:z.enum(["facebook","tiktok","instagram","youtube","telegram","free_fire","pubg_mobile","mlbb"]),name:z.string().trim().min(2).max(160),description:z.string().trim().max(2000).optional().default(""),price:z.number().finite().min(0).max(10000000),cost:z.number().finite().min(0).max(10000000),minQuantity:z.number().int().min(1).max(10000000),maxQuantity:z.number().int().min(1).max(10000000),providerServiceId:z.string().trim().max(120).optional().default("")}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Check service details and price/quantity limits."});
+ const d=parsed.data;if(d.maxQuantity<d.minQuantity)return res.status(400).json({error:"Maximum quantity must be at least minimum quantity."});
+ const price=Math.round(d.price*100),cost=Math.round(d.cost*100);
+ const r=await pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8,FALSE) RETURNING id",[d.category,d.name,d.description,price,cost,d.minQuantity,d.maxQuantity,d.providerServiceId||null]);
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'service_created','service',$2,$3::jsonb)",[req.user.id,r.rows[0].id,JSON.stringify({category:d.category,name:d.name,price_minor:price,cost_minor:cost})]);
+ res.status(201).json({ok:true,id:r.rows[0].id,enabled:false});
+}));
+app.patch("/api/admin/services/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({category:z.enum(["facebook","tiktok","instagram","youtube","telegram","free_fire","pubg_mobile","mlbb"]),name:z.string().trim().min(2).max(160),description:z.string().trim().max(2000),price:z.number().finite().min(0).max(10000000),cost:z.number().finite().min(0).max(10000000),minQuantity:z.number().int().min(1).max(10000000),maxQuantity:z.number().int().min(1).max(10000000),providerServiceId:z.string().trim().max(120)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Invalid service details."});
+ const d=parsed.data;if(d.maxQuantity<d.minQuantity)return res.status(400).json({error:"Maximum quantity must be at least minimum quantity."});
+ const r=await pool.query("UPDATE services SET category=$1,name=$2,description=$3,price_per_1000_minor=$4,cost_per_1000_minor=$5,min_quantity=$6,max_quantity=$7,provider_service_id=$8,updated_at=NOW() WHERE id=$9 RETURNING id",[d.category,d.name,d.description,Math.round(d.price*100),Math.round(d.cost*100),d.minQuantity,d.maxQuantity,d.providerServiceId||null,req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Service not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'service_updated','service',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({category:d.category,name:d.name,price:d.price,cost:d.cost})]);
+ res.json({ok:true});
+}));
+app.patch("/api/admin/services/:id/status",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({enabled:z.boolean()}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Invalid service status."});
+ const r=await pool.query("UPDATE services SET enabled=$1,updated_at=NOW() WHERE id=$2 RETURNING id,enabled",[parsed.data.enabled,req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Service not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'service',$3,$4::jsonb)",[req.user.id,parsed.data.enabled?"service_enabled":"service_disabled",req.params.id,JSON.stringify({enabled:parsed.data.enabled})]);
+ res.json({ok:true,enabled:r.rows[0].enabled});
+}));
+app.delete("/api/admin/services/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const r=await pool.query("DELETE FROM services s WHERE s.id=$1 AND NOT EXISTS(SELECT 1 FROM orders o WHERE o.service_id=s.id) RETURNING s.id",[req.params.id]);
+ if(!r.rowCount)return res.status(409).json({error:"Service not found or already used by an order. Disable it instead of deleting."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'service_deleted','service',$2,'{}'::jsonb)",[req.user.id,req.params.id]);
+ res.json({ok:true});
+}));
 app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const r=await pool.query("SELECT m.*,u.username,u.email FROM money_requests m JOIN users u ON u.id=m.user_id ORDER BY m.created_at DESC LIMIT 200");
   res.json({requests:r.rows});
@@ -302,7 +339,7 @@ app.use((err,_req,res,_next)=>{
   res.status(500).json({error:"Internal server error."});
 });
 const port=Number(process.env.PORT||4000);
-pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())")
+pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)").then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())")
   .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
   .then(()=>app.listen(port,()=>console.log("NEXORA API listening on port "+port)))
   .catch(error=>{console.error("Database initialization failed",error);process.exit(1);});
