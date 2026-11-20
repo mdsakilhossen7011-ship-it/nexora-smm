@@ -245,3 +245,56 @@
  .nex-balance{margin:10px!important;padding:14px 12px!important}
  .nex-profile-grid{grid-template-columns:1fr!important}
 }
+
+
+/* NEXORA dashboard home — compact gaming control center */
+.dash-wrap{width:min(1060px,92%);margin:34px auto 80px}
+.dash-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 18px}
+.dash-welcome h1{margin:0 0 7px;color:#fff;font-size:clamp(24px,4vw,34px);font-weight:850;letter-spacing:-.8px}
+.dash-welcome h1 span{color:#fff;background:none}
+.dash-welcome p{margin:0;color:#aeb6d2;font-size:12px}
+.dash-avatar{position:relative;flex:0 0 62px;width:62px;height:62px;display:grid;place-items:center;border:2px solid #a34dff;border-radius:50%;background:#17153c;box-shadow:0 0 0 4px #803bff20,0 0 22px #8d35ff55;color:#fff}
+.dash-avatar b{font-size:18px;letter-spacing:-1px}
+.dash-avatar span{position:absolute;top:-12px;left:20px;color:#ffd36a;font-size:20px;text-shadow:0 0 10px #ffc04e}
+.quick-actions{display:grid;grid-template-columns:1.25fr 1fr .9fr;gap:10px;margin:0 0 17px}
+.quick-actions a{display:flex;align-items:center;justify-content:center;min-height:43px;padding:8px 12px;border:1px solid #3d426c;border-radius:999px;color:#f5f2ff;font-size:12px;font-weight:800;white-space:nowrap}
+.quick-actions .quick-primary{border-color:#a04cff;background:linear-gradient(100deg,#7629ed,#b13bfa);box-shadow:0 0 17px #8d35ff44}
+.quick-actions .quick-deposit{border-color:#318fce;background:#101c39;box-shadow:inset 0 0 12px #1d8cff13}
+.quick-actions .quick-history{border-color:#444766;background:#11152c}
+.stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:0 0 17px}
+.stat-card{min-width:0;min-height:128px;padding:15px 16px;border-radius:14px;background:#10172e;border:1px solid #3c416b}
+.stat-label{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.stat-label small{color:#c0c5df;font-size:11px;font-weight:700}
+.stat-icon{display:inline-grid;place-items:center;width:27px;height:27px;border-radius:8px;font-size:16px}
+.stat-card strong{display:block;margin:9px 0 0;color:#fff;font-size:25px;font-weight:850;letter-spacing:-.4px}
+.stat-balance{border-color:#a98538;background:#1c1a25}.stat-balance .stat-icon{color:#ffd76b;background:#44371d}.stat-balance strong{color:#ffe19a}
+.stat-balance>a{display:inline-flex;margin-top:9px;padding:6px 9px;border:1px solid #725a2b;border-radius:7px;background:#292315;color:#ffdfa0;font-size:10px;font-weight:750}
+.stat-spent{border-color:#278fba;background:#101d30}.stat-spent .stat-icon{color:#6bdcff;background:#123b54}.stat-spent strong{color:#74dcff}
+.stat-progress{height:4px;margin-top:14px;border-radius:10px;background:#1d3b51;overflow:hidden}.stat-progress span{display:block;width:0;height:100%;background:#39c9f6;border-radius:10px}
+.stat-completed{border-color:#328f68;background:#10231f}.stat-completed .stat-label .stat-icon{color:#8af0b6;background:#164b38}.stat-completed strong{color:#75e7a5}
+.stat-active{border-color:#b96d2c;background:#251b17}.stat-active .stat-label .stat-icon{color:#ffb66f;background:#54301a}.stat-active strong{color:#ffad62}
+.stat-number-row{display:flex;align-items:center;justify-content:space-between}.stat-number-row strong{font-size:31px}.stat-big-icon{font-size:27px;opacity:.9}
+.recent-orders-panel{padding:17px 18px;border:1px solid #4d467e;border-radius:14px;background:#10172d}
+.recent-orders-panel .panel-heading{margin-bottom:7px}.recent-orders-panel .panel-heading h2{color:#f7f3ff;font-size:15px}.recent-orders-panel .panel-heading>a{color:#c69bff;font-size:11px;font-weight:750}
+.recent-orders-list{min-width:0}.recent-empty{display:grid;justify-items:center;gap:9px;padding:25px 10px 22px;text-align:center}
+.recent-empty>span{display:grid;place-items:center;width:46px;height:46px;border:1px solid #7654ad;border-radius:13px;background:#211b43;color:#d8b8ff;font-size:24px}
+.recent-empty p{margin:0;max-width:310px;color:#aeb6d2;font-size:12px;line-height:1.6}
+.recent-orders-list .data-row{border-bottom:1px solid #302d50}
+.recent-orders-list .data-row:last-child{border-bottom:0}
+@media(max-width:600px){
+ .dash-wrap{width:calc(100% - 28px);margin:25px auto 65px}
+ .dash-heading{margin-bottom:15px}
+ .dash-avatar{width:56px;height:56px;flex-basis:56px}
+ .quick-actions{gap:7px;margin-bottom:13px}
+ .quick-actions a{min-height:40px;padding:7px 5px;font-size:10px}
+ .stats-grid{gap:9px;margin-bottom:13px}
+ .stat-card{min-height:119px;padding:12px 11px;border-radius:12px}
+ .stat-label small{font-size:10px}
+ .stat-card strong{font-size:21px}
+ .stat-balance>a{font-size:9px;padding:6px 7px}
+ .stat-number-row strong{font-size:28px}
+ .stat-big-icon{font-size:23px}
+ .recent-orders-panel{padding:14px 12px}
+}
+
+.api-warning.api-error-safe{border:1px solid #4b416d;background:#11172d;color:#aeb6d2}.api-warning{font-size:11px}
