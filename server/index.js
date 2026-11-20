@@ -149,6 +149,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
     const svc=await client.query("SELECT * FROM services WHERE id=$1 AND enabled=true FOR UPDATE",[parsed.data.serviceId]);
     if(!svc.rowCount) {await client.query("ROLLBACK");return res.status(404).json({error:"Service unavailable."});}
     const s=svc.rows[0],q=parsed.data.quantity;
+    if(s.category==="free_fire"&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
     if(q<s.min_quantity||q>s.max_quantity){await client.query("ROLLBACK");return res.status(400).json({error:"Quantity is outside the service limits."});}
     const charge=BigInt(Math.ceil(Number(s.price_per_1000_minor)*q/1000));
     const wallet=await client.query("SELECT balance_minor FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
