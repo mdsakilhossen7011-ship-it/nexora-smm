@@ -13,13 +13,13 @@
    menu.hidden=false;menu.classList.add("is-open","open");
    backdrop.classList.add("is-open");document.body.classList.add("nexora-drawer-lock");
    toggle.setAttribute("aria-expanded","true");toggle.setAttribute("aria-label","Close navigation menu");
-   const icon=toggle.querySelector("span");if(icon)icon.textContent="×";else if(toggle.id==="menuToggle")toggle.textContent="×";
+   toggle.textContent="×";
  }
  function close(){
    menu.classList.remove("is-open","open");backdrop.classList.remove("is-open");
    document.body.classList.remove("nexora-drawer-lock");
    toggle.setAttribute("aria-expanded","false");toggle.setAttribute("aria-label","Open navigation menu");
-   const icon=toggle.querySelector("span");if(icon)icon.textContent="☰";else if(toggle.id==="menuToggle")toggle.textContent="☰";
+   toggle.textContent="☰";
  }
  // Capture the toggle before older page-specific click handlers can run.
  document.addEventListener("click",event=>{
