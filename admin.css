@@ -106,3 +106,11 @@ html:has(.admin-body),body.admin-body{width:100%;min-width:0;max-width:100%;marg
 
 /* Growth and referral settings */
 .referral-switch{display:flex!important;align-items:center;gap:10px;grid-template-columns:20px 1fr!important}.referral-switch input{width:18px!important;height:18px;accent-color:#a56cff}.admin-page#page-growth .admin-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-page#page-growth .service-form{max-width:100%}@media(max-width:600px){.admin-page#page-growth .admin-stats{grid-template-columns:1fr 1fr}.admin-page#page-growth .admin-stats article:last-child{grid-column:1/-1}}
+
+/* Admin content, system status and audit trail components */
+.announcement-copy{white-space:pre-wrap;overflow-wrap:anywhere;color:#d9def6!important;margin:12px 0}
+#systemStatus .request-head{width:100%;align-items:center}
+#systemStatus .request-status{max-width:65%;text-align:right;overflow-wrap:anywhere}
+#activityList .request-meta span:last-child{grid-column:1/-1;overflow-wrap:anywhere}
+#activitySearch,#activityAction{min-width:0;flex:1 1 180px}
+@media(max-width:600px){#systemStatus .request-head{align-items:flex-start;flex-direction:column}#systemStatus .request-status{max-width:100%;text-align:left}}
