@@ -5,6 +5,9 @@
  const menu=document.getElementById("navLinks")||document.getElementById("mobileMenu")||document.getElementById("accountMenu");
  if(!backdrop||!toggle||!menu)return;
  toggle.classList.add("drawer-toggle");menu.classList.add("drawer-menu");
+ // Move the panel out of sticky/backdrop-filter headers so it stays crisp and truly viewport-fixed.
+ if(menu.parentElement!==document.body)document.body.appendChild(menu);
+ if(backdrop.parentElement!==document.body)document.body.insertBefore(backdrop,document.body.firstChild);
  const isOpen=()=>menu.classList.contains("is-open")||menu.classList.contains("open");
  function open(){
    menu.hidden=false;menu.classList.add("is-open","open");
