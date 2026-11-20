@@ -46,7 +46,7 @@ function setAuthPage(page) {
   authSwitch.innerHTML = registering
     ? 'Already have an account? <button type="button" data-page="login">Login now</button>'
     : 'Don\'t have an account? <button type="button" data-page="register">Create account</button>';
-  authNotice.textContent = "Secure account registration and login will be activated after the backend and authentication provider are configured. This form does not create or sign in to accounts yet.";
+  authNotice.textContent = registering ? "Username: 3–32 characters; letters, numbers, dot or underscore. Password: 10–72 characters. Email must be valid. Phone and referral code are optional." : "Enter your username or email and password.";
   history.replaceState(null, "", registering ? "#register" : "#login");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
