@@ -819,3 +819,33 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     padding-inline: 3px !important;
   }
 }
+
+
+/* Final compact mobile Explore buttons: consistent size without clipping. */
+@media (max-width: 600px) {
+  #homePage .service-card button {
+    min-height: 30px !important;
+    height: 30px !important;
+    padding: 5px 4px !important;
+    font-size: 8px !important;
+    letter-spacing: -.1px !important;
+    border-radius: 8px !important;
+    line-height: 1 !important;
+  }
+  #homePage .service-card {
+    height: 168px !important;
+    min-height: 168px !important;
+  }
+}
+@media (max-width: 360px) {
+  #homePage .service-card button {
+    min-height: 28px !important;
+    height: 28px !important;
+    font-size: 7.5px !important;
+    padding-inline: 3px !important;
+  }
+  #homePage .service-card {
+    height: 164px !important;
+    min-height: 164px !important;
+  }
+}
