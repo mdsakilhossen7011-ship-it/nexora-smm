@@ -355,7 +355,7 @@ app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(re
 
 
 
-app.post("/api/support/uploads/sign",requireAuth,asyncRoute(async(req,res)=>{
+app.post("/api/support/uploads/sign",requireAuth,rateLimit({windowMs:15*60*1000,limit:20}),asyncRoute(async(req,res)=>{
  const cloud=process.env.CLOUDINARY_CLOUD_NAME,key=process.env.CLOUDINARY_API_KEY,secret=process.env.CLOUDINARY_API_SECRET;
  if(!cloud||!key||!secret)return res.status(503).json({error:"Support image storage is not configured yet."});
  const timestamp=Math.floor(Date.now()/1000),folder="nexora-support/"+req.user.id,publicId=crypto.randomUUID();
@@ -379,7 +379,7 @@ app.post("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
  const t=await client.query("INSERT INTO support_tickets(user_id,subject,status) VALUES($1,$2,'open') RETURNING id,subject,status,created_at,updated_at",[req.user.id,parsed.data.subject]);
  const inserted=await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3) RETURNING id",[t.rows[0].id,req.user.id,parsed.data.message]);
  const messageId=inserted.rows[0].id;
- if(parsed.data.uploads.length){const up=await client.query("SELECT id,public_id FROM support_upload_intents WHERE id=ANY($1::uuid[]) AND user_id=$2 AND expires_at>NOW() FOR UPDATE",[parsed.data.uploads,req.user.id]);if(up.rowCount!==parsed.data.uploads.length)throw new Error("Uploaded image expired; please upload again.");for(const x of up.rows)await client.query("INSERT INTO support_attachments(message_id,public_id,secure_url,format,bytes) VALUES($1,$2,$3,'image',0)",[messageId,x.public_id,"https://res.cloudinary.com/"+process.env.CLOUDINARY_CLOUD_NAME+"/image/upload/"+x.public_id]);await client.query("DELETE FROM support_upload_intents WHERE id=ANY($1::uuid[])",[parsed.data.uploads]);}
+ if(parsed.data.uploads.length){const up=await client.query("SELECT id,public_id FROM support_upload_intents WHERE id=ANY($1::uuid[]) AND user_id=$2 AND expires_at>NOW() FOR UPDATE",[parsed.data.uploads,req.user.id]);if(up.rowCount!==parsed.data.uploads.length)throw new Error("Uploaded image expired; please upload again.");for(const x of up.rows)await client.query("INSERT INTO support_attachments(message_id,public_id,secure_url,format,bytes) VALUES($1,$2,$3,'image',0)",[messageId,x.public_id,"https://res.cloudinary.com/"+process.env.CLOUDINARY_CLOUD_NAME+"/image/upload/nexora-support/"+req.user.id+"/"+x.public_id]);await client.query("DELETE FROM support_upload_intents WHERE id=ANY($1::uuid[])",[parsed.data.uploads]);}
  await client.query("COMMIT");res.status(201).json({ticket:t.rows[0]});
  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }));
