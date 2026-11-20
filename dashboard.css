@@ -345,3 +345,12 @@
  .money-partner-card{min-height:49px}
 }
 @media(min-width:701px){.nex-money-panel{max-width:590px;margin-inline:auto}.money-card{padding:25px}}
+
+
+/* Deposit corrections: single shared action row and selected payment brand */
+.money-quick-actions{display:none!important}
+.money-select-wrap>.money-method-logo{left:13px;min-width:55px;justify-content:flex-start;font-size:15px;line-height:1;z-index:2}
+.money-select-wrap select{padding-left:84px}
+.money-select-wrap .money-method-logo.money-nagad-logo{color:#ff8a32}
+.money-select-wrap .money-method-logo.money-rocket-logo{color:#c7b3ff}
+.money-select-wrap .money-method-logo.money-upay-logo{color:#b8e85c}
