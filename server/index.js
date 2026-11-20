@@ -208,7 +208,7 @@ app.get("/api/admin/users/:id",requireAuth,requireAdmin,asyncRoute(async(req,res
   res.json({user:user.rows[0],recent_activity:ledger.rows});
 }));
 app.post("/api/admin/users/:id/balance",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
-  const parsed=z.object({amount:z.number().finite().min(-500000).max(500000).refine(v=>Math.round(v*100)!==0),reason:z.string().trim().min(5).max(250)}).safeParse(req.body);
+  const parsed=z.object({amount:z.number().finite().multipleOf(0.01).min(-500000).max(500000).refine(v=>Math.round(v*100)!==0),reason:z.string().trim().min(5).max(250)}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Enter a non-zero amount (maximum ৳500,000) and a reason of 5–250 characters."});
   const amountMinor=BigInt(Math.round(parsed.data.amount*100));
   const client=await pool.connect();
