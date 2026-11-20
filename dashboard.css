@@ -176,3 +176,5 @@
  .nex-profile-actions{gap:7px;padding:0 10px 12px}
  .nex-profile-actions a{font-size:10px;min-height:40px}
 }
+
+@media(min-width:701px){.dash-columns:has(>.nex-profile:not(.dash-view-hidden)){grid-template-columns:minmax(0,1fr)}}
