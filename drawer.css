@@ -1,0 +1,43 @@
+/* Shared mobile drawer used by every NEXORA page */
+@media(max-width:700px){
+  .nexora-drawer-backdrop{
+    position:fixed!important;inset:0!important;z-index:1998!important;
+    background:rgba(3,5,18,.74)!important;backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .28s ease,visibility .28s ease;
+  }
+  .nexora-drawer-backdrop.is-open{opacity:1;visibility:visible;pointer-events:auto}
+  .drawer-toggle{position:relative;z-index:2001!important}
+  .drawer-menu{
+    position:fixed!important;top:0!important;left:0!important;right:auto!important;bottom:0!important;
+    width:min(86vw,340px)!important;height:100vh!important;height:100dvh!important;
+    max-height:100vh!important;max-height:100dvh!important;box-sizing:border-box!important;
+    margin:0!important;padding:86px 20px 28px!important;overflow-y:auto!important;
+    overscroll-behavior:contain;background:linear-gradient(155deg,#171a38 0%,#0a0d21 100%)!important;
+    border:0!important;border-right:1px solid rgba(174,132,255,.3)!important;
+    border-radius:0 20px 20px 0!important;box-shadow:18px 0 55px rgba(0,0,0,.48)!important;
+    display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:4px!important;
+    transform:translateX(-105%)!important;visibility:hidden!important;pointer-events:none!important;
+    transition:transform .32s cubic-bezier(.22,.75,.25,1),visibility .32s ease!important;
+    z-index:2000!important;
+  }
+  .drawer-menu.is-open{transform:translateX(0)!important;visibility:visible!important;pointer-events:auto!important}
+  .drawer-menu[hidden]{display:none!important}
+  .drawer-menu a,.drawer-menu button{
+    display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;
+    min-height:49px!important;box-sizing:border-box!important;padding:12px 12px!important;
+    color:#f2efff!important;text-align:left!important;text-decoration:none!important;
+    font-size:15px!important;font-weight:650!important;line-height:1.35!important;
+    border:0!important;border-bottom:1px solid rgba(255,255,255,.075)!important;
+    border-radius:9px!important;background:transparent!important;
+  }
+  .drawer-menu a:active,.drawer-menu button:active{background:rgba(153,91,255,.16)!important}
+  .drawer-menu .nav-public,.drawer-menu .nav-account{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:4px}
+  .drawer-menu .nav-public.hidden,.drawer-menu .nav-account.hidden{display:none!important}
+  .drawer-menu .nav-actions{display:flex!important;flex-direction:column!important;gap:10px!important;padding-top:18px!important}
+  .drawer-menu .nav-actions .btn{width:100%!important;min-height:46px!important;justify-content:center!important}
+  .drawer-menu .menu-logout{margin-top:auto}
+  body.nexora-drawer-lock{overflow:hidden!important}
+  .topbar,.fb-header,.ig-header,.ff-header,.dash-topbar{position:sticky!important;top:0!important;z-index:1997!important}
+}
+@media(prefers-reduced-motion:reduce){.nexora-drawer-backdrop,.drawer-menu{transition:none!important}}
