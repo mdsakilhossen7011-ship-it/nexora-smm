@@ -135,6 +135,10 @@ app.get("/api/services",asyncRoute(async(_req,res)=>{
   const result=await pool.query("SELECT id,category,name,description,price_per_1000_minor,min_quantity,max_quantity FROM services WHERE enabled=true ORDER BY category,name");
   res.json({services:result.rows});
 }));
+app.get("/api/public/recent-orders",asyncRoute(async(_req,res)=>{
+ const result=await pool.query("SELECT s.name AS service_name,o.created_at FROM orders o JOIN services s ON s.id=o.service_id WHERE s.category='free_fire' AND o.status='completed' AND o.created_at>NOW()-INTERVAL '24 hours' ORDER BY o.created_at DESC LIMIT 8");
+ res.set("Cache-Control","public, max-age=30").json({orders:result.rows.map(row=>({service_name:row.service_name,time_label:Math.max(1,Math.floor((Date.now()-new Date(row.created_at).getTime())/60000))+" min ago"}))});
+}));
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const result=await pool.query("SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,s.name AS service_name FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 100",[req.user.id]);
   res.json({orders:result.rows});
@@ -150,7 +154,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
     if(!svc.rowCount) {await client.query("ROLLBACK");return res.status(404).json({error:"Service unavailable."});}
     const s=svc.rows[0],q=parsed.data.quantity;
     if(s.category==="free_fire"&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
-    if(q<s.min_quantity||q>s.max_quantity){await client.query("ROLLBACK");return res.status(400).json({error:"Quantity is outside the service limits."});}
+    if(s.category==="free_fire"?(q<s.min_quantity||q%s.min_quantity!==0||q>s.min_quantity*10):(q<s.min_quantity||q>s.max_quantity)){await client.query("ROLLBACK");return res.status(400).json({error:"Quantity is outside the service limits."});}
     const charge=BigInt(Math.ceil(Number(s.price_per_1000_minor)*q/1000));
     const wallet=await client.query("SELECT balance_minor FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
     if(BigInt(wallet.rows[0].balance_minor)<charge){await client.query("ROLLBACK");return res.status(400).json({error:"Insufficient wallet balance."});}
@@ -482,6 +486,7 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   // Seed requested Free Fire packages; order fulfilment remains globally disabled until a supplier is verified.
   .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire','25 Diamonds','Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',80000,0,25,25,NULL,TRUE WHERE NOT EXISTS (SELECT 1 FROM services WHERE category='free_fire' AND lower(name)=lower('25 Diamonds'))"))
   .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire','50 Diamonds','Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',80000,0,50,50,NULL,TRUE WHERE NOT EXISTS (SELECT 1 FROM services WHERE category='free_fire' AND lower(name)=lower('50 Diamonds'))"))
+  .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire',v.name,'Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',v.rate,0,v.qty,v.qty,NULL,TRUE FROM (VALUES ('100 Diamonds',80000,100),('210 Diamonds',76190,210),('530 Diamonds',75471,530),('1,060 Diamonds',75471,1060)) AS v(name,rate,qty) WHERE NOT EXISTS (SELECT 1 FROM services s WHERE s.category='free_fire' AND lower(s.name)=lower(v.name))"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
   .then(()=>app.listen(port,()=>console.log("NEXORA API listening on port "+port)))
