@@ -160,5 +160,31 @@ document.getElementById("sidebarToggle").addEventListener("click",()=>{const ope
 document.getElementById("sidebarScrim").addEventListener("click",()=>{document.getElementById("adminSidebar").classList.remove("open");document.getElementById("sidebarScrim").classList.remove("show");document.getElementById("sidebarToggle").setAttribute("aria-expanded","false");});
 const search=document.getElementById("adminSearch"),results=document.getElementById("searchResults");search.addEventListener("input",()=>{const q=search.value.trim().toLowerCase();results.textContent="";if(!q){results.hidden=true;return}const matches=Object.entries(titles).filter(([key,v])=>(key+" "+v.join(" ")).toLowerCase().includes(q));matches.forEach(([key,v])=>{const b=el("button","",v[0]+" — "+v[1]);b.addEventListener("click",()=>{showPage(key);search.value=""});results.append(b)});if(!matches.length)results.append(el("button","","No matching admin section"));results.hidden=false});
 document.addEventListener("click",e=>{if(!results.contains(e.target)&&e.target!==search)results.hidden=true});
+
+const smmexoFetchButton=document.getElementById("fetchSmmexoServices");
+if(smmexoFetchButton){
+ smmexoFetchButton.addEventListener("click",async()=>{
+  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
+  smmexoFetchButton.disabled=true;
+  status.textContent="Connecting to SMMEXO…";
+  list.replaceChildren();
+  try{
+   const response=await fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
+   status.textContent="Loaded "+data.count+" SMMEXO services · Currency: "+data.currency+" · Live supplier rates";
+   if(!Array.isArray(data.services)||!data.services.length){list.append(el("div","empty-admin","SMMEXO returned no services."));return;}
+   data.services.forEach(service=>{
+    const card=el("article","request-card"),head=el("div","request-head");
+    head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","$"+Number(service.rate).toFixed(4)+" / 1K"));
+    const meta=el("div","request-meta");
+    [["Category",service.category],["Type",service.type],["Minimum",service.min],["Maximum",service.max],["Refill",service.refill?"Yes":"No"],["Cancel",service.cancel?"Yes":"No"]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));
+    card.append(head,meta);list.append(card);
+   });
+  }catch(error){status.textContent="Could not load SMMEXO catalogue";list.append(el("div","empty-admin admin-error",error.message));}
+  finally{smmexoFetchButton.disabled=false;}
+ });
+}
+
 document.getElementById("adminLogout").addEventListener("click",async()=>{try{await request("/auth/logout",{method:"POST"})}finally{location.href="/#login"}});
 request("/me").then(d=>{if(d.user.role!=="admin"){document.getElementById("adminStatus").textContent="Access denied";document.getElementById("requestsList").textContent="Administrator access required. Your account is not an admin account.";document.getElementById("pendingCount").textContent="—";document.getElementById("totalCount").textContent="—";return}return loadFinance()}).catch(e=>{if(e.message==="Authentication required."||e.message==="Session expired or account unavailable."){location.replace("/?next=%2Fadmin.html#login");return}document.getElementById("adminStatus").textContent="Could not verify access";document.getElementById("requestsList").textContent=e.message;document.getElementById("pendingCount").textContent="—";document.getElementById("totalCount").textContent="—"});
