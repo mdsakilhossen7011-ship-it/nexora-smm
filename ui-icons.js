@@ -23,7 +23,7 @@ zap:'<path d="m13 2-3 8h7l-6 12 1-9H5l8-11Z"/>',
 clipboard:'<rect x="8" y="4" width="12" height="16" rx="2"/><path d="M16 4V3a1 1 0 0 0-1-1H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3"/>'
 };
 const maps={
-"/":[['#homeLogoutBtn','login'],['button[data-page="register"]','register'],['button[data-page="login"]','wallet']],
+"/":[['#homeLogoutBtn','login'],['button[data-page="register"]','register'],['button[data-page="login"]','wallet'],['#authSubmit','login']],
 "/dashboard.html":[['#editProfileBtn','edit'],['.nex-flat-btn[type="submit"]','save'],['#cancelProfileEdit','cancel'],['.nex-deposit-submit','wallet'],['#copyReferralLink','copy'],['#refreshSupport','refresh'],['#supportTicketForm button[type="submit"]','send'],['#replyForm button[type="submit"]','send'],['.support-ticket-row','message']],
 "/admin.html":[['#adminLogout','login'],['#refreshAdmin, #refreshUsers, #refreshOrders, #refreshServices, #refreshGrowth, #refreshAnnouncements, #refreshPaymentSettings, #refreshSystem, #refreshActivity','refresh'],['#saveService, #saveReferralSettings, #saveAnnouncement, #savePaymentSettings','save'],['#resetServiceForm','cancel'],['#fetchSmmexoServices','refresh'],['#importSmmexoSelected','layers'],['#applyBulkPricing, #selectAllServices','check'],['.request-actions .approve','check'],['.request-actions .reject','cancel']],
 "/support-admin.html":[['#supportLogout','login'],['#refreshTickets','refresh'],['#sendReply','send']],
