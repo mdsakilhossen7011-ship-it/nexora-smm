@@ -571,3 +571,19 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   .topbar > .brand { font-size: 16px !important; gap: 6px !important; }
   .topbar > .brand .brand-mark { flex-basis: 30px !important; width: 30px !important; height: 30px !important; }
 }
+
+/* Public navigation before login; account navigation after a valid session. */
+.nav-public{display:flex;align-items:center;gap:30px}
+.nav-account{display:flex;align-items:center;gap:16px;font-size:13px}
+.nav-account a{padding:12px 0}
+.nav-account a:hover{color:#c18bff}
+.nav-account button{border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:#191a35;color:#fff;font-weight:700;cursor:pointer}
+.nav-links.account-mode{gap:0}
+@media(max-width:600px){
+  .nav-links .nav-public,.nav-links .nav-account{width:100%;flex-direction:column;align-items:stretch;gap:0}
+  .nav-links .nav-public>a,.nav-links .nav-account>a{display:block;width:100%;padding:13px 8px;border-bottom:1px solid #ffffff12;font-size:14px}
+  .nav-links .nav-public .nav-actions{display:flex;width:100%;padding:14px 8px 2px;gap:10px}
+  .nav-links .nav-public .nav-actions .btn{flex:1 1 110px;min-height:42px}
+  .nav-links .nav-account button{width:100%;min-height:42px;margin-top:8px;text-align:left}
+  .nav-links .nav-account{padding-bottom:8px}
+}
