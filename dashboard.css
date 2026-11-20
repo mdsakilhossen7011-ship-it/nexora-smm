@@ -112,3 +112,67 @@
     overscroll-behavior:none;
   }
 }
+
+
+/* NEXORA user profile — strict flat 2D navy interface. */
+.nex-profile{width:100%;margin:0 0 18px;padding:0;background:#0b1730;border:1px solid #243654;border-radius:14px;overflow:hidden;color:#f7f9ff;box-shadow:none}
+.nex-profile *{box-shadow:none!important;text-shadow:none!important}
+.nex-profile-head{display:flex;align-items:center;gap:16px;padding:24px;background:#102344;border-bottom:1px solid #29415f}
+.nex-avatar-wrap{position:relative;display:grid;justify-items:center;flex:0 0 74px}
+.nex-crown{height:22px;color:#f1c75b;font-size:23px;line-height:1}
+.nex-avatar{width:58px;height:58px;border:2px solid #d7e2f2;border-radius:50%;display:grid;place-items:center;background:#263e62;color:#fff;font-size:26px;font-weight:800}
+.nex-identity{min-width:0;flex:1}
+.nex-identity h2{margin:0 0 6px;font-size:19px;font-weight:800;letter-spacing:.5px;color:#fff;overflow-wrap:anywhere}
+.nex-identity p{display:flex;flex-wrap:wrap;gap:8px;margin:0;color:#b9c8dc;font-size:11px}
+.nex-separator{color:#6f86a5}
+.nex-flat-btn,.nex-cancel-btn{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 16px;border:1px solid #8fa6c4;border-radius:5px;background:#25466f;color:#fff;font-size:12px;font-weight:750;text-decoration:none;cursor:pointer}
+.nex-edit-btn{background:#203b60;flex:0 0 auto}
+.nex-balance{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px;padding:20px 22px;background:#142b4d;border:1px solid #2d4b70;border-radius:8px}
+.nex-balance span{display:block;margin-bottom:8px;color:#c0cde0;font-size:12px}
+.nex-balance strong{display:block;color:#fff;font-size:clamp(25px,4vw,34px);font-weight:850;letter-spacing:.2px}
+.nex-topup-btn{background:#176caa;border-color:#3189c2;min-width:126px}
+.nex-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 16px 16px}
+.nex-flat-panel{min-width:0;padding:17px;background:#112440;border:1px solid #2a4262;border-radius:8px}
+.nex-flat-panel h3{margin:0 0 14px;color:#f3f6fc;font-size:14px;font-weight:750}
+.nex-flat-panel h3>span{margin-right:5px;color:#a9c5e7}
+.nex-activity #profileActivity{display:grid;gap:10px}
+.nex-activity-row{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid #263c59;font-size:11px;color:#e0e8f3}
+.nex-activity-row:last-child{border-bottom:0}
+.nex-activity-mark{width:20px;height:20px;flex:0 0 20px;display:grid;place-items:center;border-radius:50%;background:#1b604b;color:#8de2b8;font-weight:800}
+.nex-muted{margin:0;color:#a8b8ce;font-size:11px}
+.nex-label{margin:0 0 7px;color:#aebed2;font-size:11px}
+.nex-code-row{display:flex;align-items:center;gap:8px;min-width:0}
+.nex-code-row strong{flex:1;min-width:0;padding:10px;background:#0b1a31;border:1px solid #2c4565;border-radius:5px;color:#fff;font-size:13px;overflow-wrap:anywhere}
+.nex-code-row button{width:38px;height:38px;border:1px solid #55769d;border-radius:5px;background:#1e3d63;color:#fff;font-size:19px;cursor:pointer}
+.nex-ref-count{margin:12px 0 0;color:#c2d0e2;font-size:11px}.nex-ref-count strong{color:#fff}
+.nex-security>p{display:flex;align-items:center;gap:10px;margin:10px 0 0;color:#e7edf6;font-size:11px}
+.nex-security>p>span:last-child{display:grid;gap:3px}
+.nex-security small{color:#aebed2;font-size:10px}
+.nex-status-icon{width:24px;height:24px;display:grid;place-items:center;border-radius:4px;font-size:14px;font-weight:800}
+.nex-green{background:#164b3d;color:#75e0ac}.nex-blue{background:#1d4268;color:#a7d4ff}
+.nex-tier-row{display:flex;justify-content:space-between;align-items:center;gap:8px;color:#fff;font-size:11px}
+.nex-tier-row span{color:#b8c9dd;font-size:10px;text-align:right}
+.nex-progress{height:9px;margin:13px 0 9px;background:#07172c;border:1px solid #29415e;border-radius:2px;overflow:hidden}
+.nex-progress span{display:block;width:0;height:100%;background:#4b8fc4}
+.nex-membership>p{margin:0;color:#9fb2ca;font-size:10px;line-height:1.5}
+.nex-profile-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0 16px 17px}
+.nex-profile-actions a{display:flex;align-items:center;justify-content:center;min-height:42px;padding:8px 5px;background:#203e64;border:1px solid #385b83;border-radius:7px;color:#fff;text-decoration:none;font-size:12px;font-weight:750;text-align:center}
+.nex-profile-actions a:first-child{background:#1c5b8d;border-color:#3278a8}
+.nex-profile-details{display:none}
+.nex-edit-form{padding:16px;background:#0d1d36;border-top:1px solid #29415f}
+.nex-edit-form label{display:grid;gap:6px;margin-bottom:10px;color:#c4d1e2;font-size:11px}
+.nex-edit-form input{width:100%;padding:10px;border:1px solid #395574;border-radius:5px;background:#08172c;color:#fff;font:inherit}
+.nex-edit-actions{display:flex;gap:8px}.nex-cancel-btn{background:#1a2b44;border-color:#536783}
+.nex-edit-form p{margin:8px 0 0;color:#c4d1e2;font-size:11px}
+.nex-settings-panel{margin:0 16px 16px}
+@media(max-width:700px){
+ .nex-profile-head{gap:10px;padding:17px 13px;flex-wrap:wrap}
+ .nex-avatar-wrap{flex-basis:60px}.nex-avatar{width:50px;height:50px}
+ .nex-identity h2{font-size:15px}.nex-identity p{font-size:9px;gap:5px}
+ .nex-edit-btn{min-height:33px;padding:0 10px;font-size:10px}
+ .nex-balance{margin:10px;padding:15px 13px;gap:8px}.nex-topup-btn{min-width:106px;padding:0 9px;font-size:10px}
+ .nex-profile-grid{grid-template-columns:1fr;gap:9px;padding:0 10px 10px}
+ .nex-flat-panel{padding:14px}
+ .nex-profile-actions{gap:7px;padding:0 10px 12px}
+ .nex-profile-actions a{font-size:10px;min-height:40px}
+}
