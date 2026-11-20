@@ -368,7 +368,7 @@ app.use((err,_req,res,_next)=>{
 const port=Number(process.env.PORT||4000);
 pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)")
  .then(()=>pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES users(id) ON DELETE SET NULL"))
- .then(()=>pool.query("UPDATE users SET referral_code=chr(78)||chr(88)||upper(substr(replace(id::text,chr(45),chr(0)),1,10)) WHERE referral_code IS NULL"))
+ .then(()=>pool.query("UPDATE users SET referral_code=chr(78)||chr(88)||upper(substr(id::text,1,8)||substr(id::text,10,2)) WHERE referral_code IS NULL"))
  .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_unique ON users(upper(referral_code))"))
  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS users_referred_by_idx ON users(referred_by)"))
  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS referral_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE), commission_percent NUMERIC(5,2) NOT NULL DEFAULT 5.00 CHECK(commission_percent>=0 AND commission_percent<=50), enabled BOOLEAN NOT NULL DEFAULT FALSE, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
