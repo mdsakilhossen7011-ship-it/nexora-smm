@@ -1,4 +1,4 @@
-/* Icons inherit the existing control typography and never set button dimensions. */
-.nexora-iconized{vertical-align:middle}
-.nexora-ui-icon{display:inline-block;width:1em;height:1em;vertical-align:-.16em;margin-right:.32em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+/* Decorative SVG icons are absolutely positioned: they do not participate in layout or change control dimensions. */
+.nexora-iconized{position:relative}
+.nexora-ui-icon{position:absolute;left:.72em;top:50%;transform:translateY(-50%);display:block;width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;z-index:1}
 .admin-nav .nexora-ui-icon,.quick-grid .nexora-ui-icon{color:#c4a2ff}
