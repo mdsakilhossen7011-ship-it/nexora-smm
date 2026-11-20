@@ -372,3 +372,82 @@
 #withdraw .money-select-wrap .money-upay-logo{color:#b8e85c}
 .quick-actions a.quick-active{border-color:#a64bff!important;background:linear-gradient(110deg,#7627ff,#b72ce9)!important;color:#fff!important;box-shadow:0 0 18px #8b2cff66,inset 0 1px #ffffff55!important}
 @media(max-width:700px){#withdraw .money-card{padding:19px 14px 15px}}
+
+
+/* Clean, ordered NEXORA account navigation */
+.account-menu{
+  width:224px;
+  padding:9px;
+  gap:3px;
+  background:linear-gradient(155deg,#171a38 0%,#0d1025 100%);
+  border:1px solid #8c5bff55;
+  border-radius:16px;
+  box-shadow:0 18px 48px #000b,0 0 24px #762cff22;
+  transform-origin:top right;
+  animation:accountMenuIn .16s ease-out;
+}
+.account-menu a,
+.account-menu button{
+  min-height:44px;
+  gap:13px;
+  padding:10px 13px;
+  border:1px solid transparent;
+  border-radius:10px;
+  color:#e9eaff;
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:.1px;
+  transition:background .18s ease,border-color .18s ease,transform .18s ease;
+}
+.account-menu a:hover,
+.account-menu button:hover{
+  background:linear-gradient(100deg,#792cff30,#258bff20);
+  border-color:#9b64ff44;
+  color:#fff;
+  transform:translateX(2px);
+}
+.account-menu .menu-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 22px;
+  width:22px;
+  height:22px;
+  border-radius:7px;
+  background:#8b5cff1c;
+  color:#bd91ff;
+  font-size:16px;
+  line-height:1;
+}
+.account-menu .menu-logout{
+  margin-top:7px;
+  padding-top:13px;
+  border:0;
+  border-top:1px solid #ffffff20;
+  border-radius:0 0 10px 10px;
+  color:#ff929f;
+}
+.account-menu .menu-logout .menu-icon{
+  background:#ff52631b;
+  color:#ff929f;
+}
+.account-menu .menu-logout:hover{
+  background:#ff52631a;
+  border-color:transparent;
+  color:#ffb2bb;
+  transform:none;
+}
+@keyframes accountMenuIn{
+  from{opacity:0;transform:translateY(-5px) scale(.98)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@media(max-width:700px){
+  .account-menu{
+    top:49px;
+    right:0;
+    width:min(248px,calc(100vw - 28px));
+    padding:10px;
+    border-radius:17px;
+  }
+  .account-menu a,.account-menu button{min-height:46px;padding:11px 13px}
+}
