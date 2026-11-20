@@ -10,6 +10,7 @@ const menuToggle = document.getElementById("menuToggle");
 const navLinks = document.getElementById("navLinks");
 const publicNav = document.getElementById("publicNav");
 const accountNav = document.getElementById("accountNav");
+const requestedDestination = new URLSearchParams(window.location.search).get("next");
 
 function setSignedIn(signedIn) {
   publicNav.classList.toggle("hidden", signedIn);
@@ -121,8 +122,7 @@ authForm.addEventListener("submit", async (event) => {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || "Request failed.");
     authNotice.textContent = registering ? "Account created successfully." : "Login successful.";
-    const next = new URLSearchParams(window.location.search).get("next");
-    window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    window.location.href = requestedDestination && requestedDestination.startsWith("/") && !requestedDestination.startsWith("//") ? requestedDestination : "/";
   } catch (error) {
     authNotice.textContent = error.message.includes("Failed to fetch")
       ? "The secure API is not deployed or configured yet. Your details were not saved."
