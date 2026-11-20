@@ -1,1 +1,4 @@
-.nexora-iconized{display:inline-flex!important;align-items:center;justify-content:center;gap:9px}.nexora-ui-icon{width:17px;height:17px;flex:0 0 17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}.admin-nav .nexora-ui-icon,.quick-grid .nexora-ui-icon{width:18px;height:18px;flex-basis:18px;color:#c4a2ff}.nexora-iconized:disabled .nexora-ui-icon{opacity:.6}@media(max-width:600px){.nexora-iconized{gap:7px}.nexora-ui-icon{width:16px;height:16px;flex-basis:16px}}
+/* Icons inherit the existing control typography and never set button dimensions. */
+.nexora-iconized{vertical-align:middle}
+.nexora-ui-icon{display:inline-block;width:1em;height:1em;vertical-align:-.16em;margin-right:.32em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.admin-nav .nexora-ui-icon,.quick-grid .nexora-ui-icon{color:#c4a2ff}
