@@ -353,9 +353,63 @@ app.get("/api/admin/money-requests",requireAuth,requireAdmin,asyncRoute(async(re
   res.json({requests:r.rows});
 }));
 
+
+/* Support Center: private user tickets and separate administrator inbox. */
+app.get("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
+ const r=await pool.query("SELECT t.id,t.subject,t.status,t.created_at,t.updated_at,(SELECT COUNT(*)::int FROM ticket_messages m WHERE m.ticket_id=t.id) AS message_count,(SELECT message FROM ticket_messages m WHERE m.ticket_id=t.id ORDER BY m.created_at DESC LIMIT 1) AS last_message FROM support_tickets t WHERE t.user_id=$1 ORDER BY t.updated_at DESC LIMIT 100",[req.user.id]);
+ res.json({tickets:r.rows});
+}));
+app.post("/api/support/tickets",requireAuth,asyncRoute(async(req,res)=>{
+ const parsed=z.object({subject:z.string().trim().min(4).max(180),message:z.string().trim().min(2).max(5000)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Enter a subject and a message (maximum 5,000 characters)."});
+ const client=await pool.connect();
+ try{await client.query("BEGIN");
+ const t=await client.query("INSERT INTO support_tickets(user_id,subject,status) VALUES($1,$2,'open') RETURNING id,subject,status,created_at,updated_at",[req.user.id,parsed.data.subject]);
+ await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3)",[t.rows[0].id,req.user.id,parsed.data.message]);
+ await client.query("COMMIT");res.status(201).json({ticket:t.rows[0]});
+ }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+app.get("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,res)=>{
+ const t=await pool.query("SELECT id,user_id FROM support_tickets WHERE id=$1",[req.params.id]);
+ if(!t.rowCount)return res.status(404).json({error:"Ticket not found."});
+ if(t.rows[0].user_id!==req.user.id&&req.user.role!=="admin")return res.status(403).json({error:"You cannot view this ticket."});
+ const r=await pool.query("SELECT m.id,m.message,m.created_at,m.sender_id,u.username,u.full_name,u.role FROM ticket_messages m JOIN users u ON u.id=m.sender_id WHERE m.ticket_id=$1 ORDER BY m.created_at ASC",[req.params.id]);
+ res.json({messages:r.rows});
+}));
+app.post("/api/support/tickets/:id/messages",requireAuth,asyncRoute(async(req,res)=>{
+ const parsed=z.object({message:z.string().trim().min(1).max(5000)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Message must contain 1–5,000 characters."});
+ const client=await pool.connect();
+ try{await client.query("BEGIN");
+ const t=await client.query("SELECT id,user_id,status FROM support_tickets WHERE id=$1 FOR UPDATE",[req.params.id]);
+ if(!t.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Ticket not found."});}
+ if(t.rows[0].user_id!==req.user.id&&req.user.role!=="admin"){await client.query("ROLLBACK");return res.status(403).json({error:"You cannot reply to this ticket."});}
+ if(t.rows[0].status==="closed"){await client.query("ROLLBACK");return res.status(409).json({error:"This ticket is closed."});}
+ await client.query("INSERT INTO ticket_messages(ticket_id,sender_id,message) VALUES($1,$2,$3)",[req.params.id,req.user.id,parsed.data.message]);
+ const nextStatus=req.user.role==="admin"?"answered":"open";
+ await client.query("UPDATE support_tickets SET status=$1,updated_at=NOW() WHERE id=$2",[nextStatus,req.params.id]);
+ await client.query("COMMIT");res.status(201).json({ok:true,status:nextStatus});
+ }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+app.get("/api/admin/support/tickets",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const allowed=["open","in_progress","answered","resolved","closed"],status=allowed.includes(req.query.status)?req.query.status:null;
+ const q=String(req.query.search||"").trim().slice(0,100),term=q?"%"+q+"%":null;
+ const r=await pool.query("SELECT t.id,t.subject,t.status,t.created_at,t.updated_at,u.id AS user_id,u.full_name,u.username,u.email,(SELECT COUNT(*)::int FROM ticket_messages m WHERE m.ticket_id=t.id) AS message_count,(SELECT message FROM ticket_messages m WHERE m.ticket_id=t.id ORDER BY m.created_at DESC LIMIT 1) AS last_message FROM support_tickets t JOIN users u ON u.id=t.user_id WHERE ($1::text IS NULL OR t.status=$1) AND ($2::text IS NULL OR t.subject ILIKE $2 OR u.full_name ILIKE $2 OR u.username ILIKE $2 OR u.email ILIKE $2 OR t.id::text ILIKE $2) ORDER BY CASE WHEN t.status IN ('open','in_progress') THEN 0 ELSE 1 END,t.updated_at DESC LIMIT 250",[status,term]);
+ res.json({tickets:r.rows});
+}));
+app.patch("/api/admin/support/tickets/:id/status",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({status:z.enum(["open","in_progress","answered","resolved","closed"])}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Invalid ticket status."});
+ const r=await pool.query("UPDATE support_tickets SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,status",[parsed.data.status,req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Ticket not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'support_ticket_status_changed','support_ticket',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({status:parsed.data.status})]);
+ res.json({ok:true,status:r.rows[0].status});
+}));
+
 // Serve only the public website files from the same origin as the API.
-const publicFiles = new Set(["styles.css","app.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js"]);
+const publicFiles = new Set(["styles.css","app.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js","support-admin.html","support-admin.css","support-admin.js"]);
 app.get("/", (_req,res) => res.sendFile(path.join(__dirname,"..","index.html")));
+app.get("/support-admin", (_req,res) => res.sendFile(path.join(__dirname,"..","support-admin.html")));
 app.get("/:asset", (req,res,next) => {
   if (!publicFiles.has(req.params.asset)) return next();
   res.sendFile(path.join(__dirname,"..",req.params.asset));
@@ -374,7 +428,13 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS users_referred_by_idx ON users(referred_by)"))
  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS referral_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE), commission_percent NUMERIC(5,2) NOT NULL DEFAULT 5.00 CHECK(commission_percent>=0 AND commission_percent<=50), enabled BOOLEAN NOT NULL DEFAULT FALSE, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
  .then(()=>pool.query("INSERT INTO referral_settings(id,commission_percent,enabled) VALUES(TRUE,5.00,FALSE) ON CONFLICT(id) DO NOTHING"))
- .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)")).then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+ .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_tickets (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES users(id),subject VARCHAR(180) NOT NULL,status VARCHAR(16) NOT NULL DEFAULT 'open',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS ticket_messages (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),ticket_id UUID NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,sender_id UUID NOT NULL REFERENCES users(id),message TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("ALTER TABLE support_tickets DROP CONSTRAINT IF EXISTS support_tickets_status_check"))
+  .then(()=>pool.query("ALTER TABLE support_tickets ADD CONSTRAINT support_tickets_status_check CHECK(status IN ('open','in_progress','answered','resolved','closed'))"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS support_tickets_user_updated_idx ON support_tickets(user_id,updated_at DESC)"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS ticket_messages_ticket_date_idx ON ticket_messages(ticket_id,created_at)"))
+  .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)")).then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
   .then(()=>app.listen(port,()=>console.log("NEXORA API listening on port "+port)))
   .catch(error=>{console.error("Database initialization failed",error);process.exit(1);});
