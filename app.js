@@ -53,9 +53,35 @@ document.addEventListener("click", (event) => {
 
 menuToggle.addEventListener("click", () => navLinks.classList.toggle("open"));
 
-authForm.addEventListener("submit", (event) => {
+authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  authNotice.textContent = "Not connected yet: no account data was sent or saved. Backend authentication must be implemented before this form can be used.";
+  const registering = !document.getElementById("confirmField").classList.contains("hidden");
+  const form = new FormData(authForm);
+  const payload = registering
+    ? { fullName: form.get("fullName"), username: form.get("username"), email: form.get("email"), phone: form.get("phone"), password: form.get("password") }
+    : { login: form.get("username"), password: form.get("password") };
+  if (registering && payload.password !== form.get("confirmPassword")) {
+    authNotice.textContent = "Passwords do not match.";
+    return;
+  }
+  authSubmit.disabled = true;
+  authSubmit.textContent = registering ? "Creating account…" : "Signing in…";
+  try {
+    const response = await fetch((window.NEXORA_API_URL || "/api") + (registering ? "/auth/register" : "/auth/login"), {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Request failed.");
+    authNotice.textContent = registering ? "Account created successfully." : "Login successful.";
+    window.location.href = "/dashboard.html";
+  } catch (error) {
+    authNotice.textContent = error.message.includes("Failed to fetch")
+      ? "The secure API is not deployed or configured yet. Your details were not saved."
+      : error.message;
+  } finally {
+    authSubmit.disabled = false;
+    authSubmit.textContent = registering ? "Create Account" : "Login";
+  }
 });
 
 const themeButton = document.createElement("button");
