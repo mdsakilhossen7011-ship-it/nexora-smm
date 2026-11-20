@@ -8,6 +8,11 @@ const authSwitch = document.getElementById("authSwitch");
 const authNotice = document.getElementById("authNotice");
 const menuToggle = document.getElementById("menuToggle");
 const navLinks = document.getElementById("navLinks");
+const navActions = document.querySelector(".nav-actions");
+
+// Keep mobile navigation in one collapsible panel so the brand never competes
+// with Login/Register controls for the same narrow row.
+navLinks.append(navActions);
 
 function setAuthPage(page) {
   const registering = page === "register";
@@ -44,6 +49,9 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     setAuthPage(pageButton.dataset.page);
     navLinks.classList.remove("open");
+    menuToggle.setAttribute("aria-expanded", "false");
+    menuToggle.setAttribute("aria-label", "Open navigation menu");
+    menuToggle.querySelector("span").textContent = "☰";
   }
   if (event.target.closest('a[href="#home"]')) {
     showHome();
@@ -51,7 +59,12 @@ document.addEventListener("click", (event) => {
   }
 });
 
-menuToggle.addEventListener("click", () => navLinks.classList.toggle("open"));
+menuToggle.addEventListener("click", () => {
+  const isOpen = navLinks.classList.toggle("open");
+  menuToggle.setAttribute("aria-expanded", String(isOpen));
+  menuToggle.setAttribute("aria-label", isOpen ? "Close navigation menu" : "Open navigation menu");
+  menuToggle.querySelector("span").textContent = isOpen ? "×" : "☰";
+});
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
