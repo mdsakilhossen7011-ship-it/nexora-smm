@@ -116,7 +116,6 @@
 
 /* NEXORA user profile — strict flat 2D navy interface. */
 .nex-profile{width:100%;margin:0 0 18px;padding:0;background:#0b1730;border:1px solid #243654;border-radius:14px;overflow:hidden;color:#f7f9ff;box-shadow:none}
-.nex-profile *{box-shadow:none!important;text-shadow:none!important}
 .nex-profile-head{display:flex;align-items:center;gap:16px;padding:24px;background:#102344;border-bottom:1px solid #29415f}
 .nex-avatar-wrap{position:relative;display:grid;justify-items:center;flex:0 0 74px}
 .nex-crown{height:22px;color:#f1c75b;font-size:23px;line-height:1}
@@ -178,3 +177,71 @@
 }
 
 @media(min-width:701px){.dash-columns:has(>.nex-profile:not(.dash-view-hidden)){grid-template-columns:minmax(0,1fr)}}
+
+
+/* NEXORA CYBER PROFILE RESTORE — premium 2D neon identity */
+.dash-topbar{height:76px!important;padding:0 max(4vw,22px)!important;gap:16px}
+.dash-topbar>.brand{display:inline-flex!important;align-items:center!important;gap:11px!important;font-size:22px!important;font-weight:850!important;letter-spacing:-.8px!important;white-space:nowrap!important;color:#f8f3ff!important;text-shadow:0 0 14px rgba(175,77,255,.38)}
+.dash-topbar>.brand .brand-mark{display:grid!important;place-items:center!important;width:42px!important;height:42px!important;flex:0 0 42px!important;border:1px solid #b96cff!important;border-radius:13px!important;background:linear-gradient(140deg,#29aaff 0%,#813cff 52%,#d52bff 100%)!important;color:#fff!important;font-size:29px!important;font-weight:950!important;font-style:italic!important;box-shadow:0 0 0 3px rgba(157,70,255,.12),0 0 22px rgba(154,60,255,.42)!important}
+.dash-topbar>.brand b{color:#d79aff!important;text-shadow:0 0 12px rgba(190,80,255,.62)}
+.account-menu-toggle{display:grid!important;align-content:center!important;justify-items:center!important;gap:5px!important;width:46px!important;height:44px!important;padding:0!important;border:1px solid #8f56df!important;border-radius:12px!important;background:#171735!important;color:#fff!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),0 0 16px rgba(134,62,255,.18)!important}
+.account-menu-toggle span{display:block!important;width:21px!important;height:2px!important;border-radius:3px!important;background:#e8d7ff!important;box-shadow:0 0 7px rgba(182,104,255,.6)!important}
+.nex-profile{background:#0a1027!important;border:1px solid #7540bc!important;border-radius:17px!important;overflow:hidden!important;color:#f7f4ff!important;box-shadow:0 0 0 1px rgba(125,65,205,.14),0 12px 34px rgba(0,0,0,.2)!important}
+.nex-profile-head{position:relative!important;gap:17px!important;padding:23px!important;background:#111a3b!important;border-bottom:1px solid #7540bc!important}
+.nex-profile-head:after{content:"";position:absolute;left:0;bottom:0;width:100%;height:2px;background:#a34bff}
+.nex-avatar-wrap{position:relative!important;isolation:isolate!important;display:grid!important;justify-items:center!important;flex:0 0 82px!important;min-height:92px!important;padding-top:1px}
+.nex-crown{position:relative!important;z-index:3!important;height:27px!important;color:#ffd76b!important;font-size:27px!important;line-height:1!important;filter:drop-shadow(0 0 7px rgba(255,194,67,.68))!important}
+.nex-avatar{position:relative!important;z-index:2!important;width:64px!important;height:64px!important;border:2px solid #bd7aff!important;border-radius:19px!important;display:grid!important;place-items:center!important;overflow:hidden!important;background:#18245a!important;color:#fff!important;font-size:31px!important;font-weight:950!important;font-style:italic!important;box-shadow:0 0 0 3px #4c2c83,0 0 22px rgba(147,67,255,.5)!important;transform:rotate(-4deg)}
+.nex-avatar:before{content:"";position:absolute;inset:5px;border:1px solid rgba(183,133,255,.45);border-radius:13px;pointer-events:none}
+.nex-avatar:after{content:"";position:absolute;inset:auto 0 0;height:4px;background:#42baff}
+.nex-avatar>span{position:relative;z-index:1;background:linear-gradient(135deg,#8be3ff,#fff 45%,#d9a1ff);color:transparent;background-clip:text;-webkit-background-clip:text}
+.nex-avatar-orbit{position:absolute;z-index:1;left:7px;top:31px;width:68px;height:54px;border:1px solid rgba(93,157,255,.6);border-radius:50%;transform:rotate(-28deg);pointer-events:none}
+.nex-identity h2{color:#fff!important;letter-spacing:.8px!important;text-shadow:0 0 12px rgba(167,96,255,.28)}
+.nex-identity p{color:#bfc4e9!important}
+.nex-flat-btn,.nex-cancel-btn{min-height:39px!important;border:1px solid #9958e8!important;border-radius:10px!important;background:#39216a!important;color:#fff!important;font-weight:800!important}
+.nex-edit-btn{background:#211b48!important;border-color:#8051c8!important}
+.nex-balance{margin:16px!important;padding:20px 22px!important;background:#111d42!important;border:1px solid #5268d5!important;border-left:3px solid #a34bff!important;border-radius:13px!important}
+.nex-balance span{color:#c6c8ee!important}
+.nex-balance strong{color:#fff!important;text-shadow:0 0 15px rgba(99,133,255,.22)}
+.nex-topup-btn{background:#5123a0!important;border-color:#ad69ff!important}
+.nex-profile-grid{gap:13px!important}
+.nex-flat-panel{background:#101a39!important;border:1px solid #4b3b87!important;border-radius:13px!important;position:relative!important;overflow:hidden!important}
+.nex-flat-panel:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#8f4ce3}
+.nex-flat-panel h3{display:flex!important;align-items:center!important;gap:8px!important;color:#f6f1ff!important;font-size:14px!important}
+.nex-flat-panel h3>span{display:inline-grid!important;place-items:center!important;width:25px!important;height:25px!important;margin:0!important;border:1px solid #7850bc!important;border-radius:8px!important;background:#241b4b!important;color:#d7a7ff!important;font-size:15px!important}
+.nex-code-row strong{background:#0a122b!important;border:1px solid #6b4ba7!important;border-radius:9px!important;color:#fff!important;letter-spacing:.4px}
+.nex-code-row button{width:42px!important;height:42px!important;border:1px solid #a66af0!important;border-radius:10px!important;background:#352064!important;color:#f4eaff!important;font-size:0!important;position:relative!important}
+.nex-code-row button:before{content:"";position:absolute;width:12px;height:14px;left:13px;top:11px;border:1.7px solid #f4eaff;border-radius:3px}
+.nex-code-row button:after{content:"";position:absolute;width:12px;height:14px;left:17px;top:15px;border:1.7px solid #f4eaff;border-radius:3px;background:#352064}
+.nex-activity-row{border-bottom:1px solid #39305f!important}
+.nex-activity-mark{border:1px solid #3b9e87!important;background:#123d46!important;color:#81f5d0!important}
+.nex-muted{display:flex;align-items:center;gap:9px;color:#b7b5dc!important}
+.nex-muted:before{content:"";width:13px;height:13px;flex:0 0 13px;border:2px solid #7650c8;border-top-color:#d59bff;border-radius:50%;animation:nexoraSpin .8s linear infinite}
+@keyframes nexoraSpin{to{transform:rotate(360deg)}}
+.nex-security>p{padding:9px 10px;border:1px solid #3e3971;border-radius:9px;background:#0c1530}
+.nex-green{background:#123e3b!important;color:#70f0c1!important;border:1px solid #278b75}
+.nex-blue{background:#20275a!important;color:#a9c7ff!important;border:1px solid #5268c6}
+.nex-tier-row strong{color:#e4c4ff}
+.nex-progress{height:9px!important;border:1px solid #58438e!important;border-radius:20px!important;background:#080f25!important}
+.nex-progress span{background:#a44cff!important}
+.nex-profile-actions a{background:#211b48!important;border:1px solid #8051c8!important;border-radius:10px!important}
+.nex-profile-actions a:first-child{background:#39206c!important;border-color:#b16cff!important}
+.nex-edit-form{background:#0e1733!important;border-top:1px solid #7650b7!important}
+.nex-edit-form input{border:1px solid #7452b2!important;border-radius:9px!important;background:#090f25!important;color:#fff!important}
+.nex-settings-panel{border-color:#7b4bc1!important}
+@media(max-width:700px){
+ .dash-topbar{height:66px!important;min-height:66px!important;padding:0 14px!important}
+ .dash-topbar>.brand{font-size:17px!important;gap:8px!important}
+ .dash-topbar>.brand .brand-mark{width:36px!important;height:36px!important;flex-basis:36px!important;font-size:25px!important;border-radius:11px!important}
+ .account-menu-toggle{width:42px!important;height:40px!important;gap:4px!important}
+ .account-menu-toggle span{width:19px!important}
+ .nex-profile-head{gap:10px!important;padding:17px 13px!important;flex-wrap:nowrap!important}
+ .nex-avatar-wrap{flex:0 0 66px!important;min-height:80px!important}
+ .nex-avatar{width:54px!important;height:54px!important;font-size:27px!important;border-radius:16px!important}
+ .nex-avatar-orbit{left:5px!important;top:29px!important;width:58px!important;height:46px!important}
+ .nex-crown{font-size:23px!important;height:23px!important}
+ .nex-identity h2{font-size:14px!important}
+ .nex-edit-btn{min-height:32px!important;padding:0 9px!important;font-size:10px!important}
+ .nex-balance{margin:10px!important;padding:14px 12px!important}
+ .nex-profile-grid{grid-template-columns:1fr!important}
+}
