@@ -441,6 +441,21 @@ app.patch("/api/admin/services/:id",requireAuth,requireAdmin,asyncRoute(async(re
  await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'service_updated','service',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({category:d.category,name:d.name,price:d.price,cost:d.cost})]);
  res.json({ok:true});
 }));
+
+app.patch("/api/admin/services/bulk-pricing",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({serviceIds:z.array(z.string().uuid()).min(1).max(500),price:z.number().finite().min(0).max(10000000),cost:z.number().finite().min(0).max(10000000)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Select 1–500 services and enter valid BDT prices."});
+ const d=parsed.data,price=Math.round(d.price*100),cost=Math.round(d.cost*100),client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const updated=await client.query("UPDATE services SET price_per_1000_minor=$1,cost_per_1000_minor=$2,updated_at=NOW() WHERE id=ANY($3::uuid[]) RETURNING id,name",[price,cost,d.serviceIds]);
+  if(updated.rowCount!==d.serviceIds.length){await client.query("ROLLBACK");return res.status(404).json({error:"Some selected services were not found. No prices were changed; refresh the list and try again."});}
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'services_bulk_pricing_updated','service',$2::jsonb)",[req.user.id,JSON.stringify({service_ids:d.serviceIds,count:updated.rowCount,price_per_1000_minor:price,cost_per_1000_minor:cost})]);
+  await client.query("COMMIT");
+  res.json({ok:true,updatedCount:updated.rowCount});
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
 app.patch("/api/admin/services/:id/status",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const parsed=z.object({enabled:z.boolean()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid service status."});
