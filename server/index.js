@@ -68,6 +68,7 @@ app.post("/api/auth/register", asyncRoute(async (req,res) => {
       [fullName,username,email.toLowerCase(),phone||null,passwordHash]
     );
     await client.query("INSERT INTO wallet_accounts(user_id) VALUES($1)",[user.rows[0].id]);
+    await client.query("INSERT INTO commission_accounts(user_id) VALUES($1)",[user.rows[0].id]);
     const raw=newToken();
     await client.query("INSERT INTO sessions(user_id,token_hash,expires_at) VALUES($1,$2,NOW()+INTERVAL '7 days')",[user.rows[0].id,hashToken(raw)]);
     await client.query("COMMIT");
@@ -129,6 +130,63 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
     res.status(201).json({order:order.rows[0],message:"Order accepted into the panel queue. Provider fulfilment is not enabled until a verified provider adapter is configured."});
   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }));
+
+app.get("/api/money-requests",requireAuth,asyncRoute(async(req,res)=>{
+  await pool.query("INSERT INTO commission_accounts(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+  const [requests,commission]=await Promise.all([
+    pool.query("SELECT id,request_type,method,amount_minor,trx_id,account_number,status,review_note,created_at,reviewed_at FROM money_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100",[req.user.id]),
+    pool.query("SELECT balance_minor FROM commission_accounts WHERE user_id=$1",[req.user.id])
+  ]);
+  res.json({requests:requests.rows,commission_balance_minor:commission.rows[0].balance_minor});
+}));
+app.post("/api/money-requests/deposit",requireAuth,asyncRoute(async(req,res)=>{
+  const parsed=z.object({method:z.enum(["bkash","nagad","rocket","upay"]),amount:z.number().int().min(100).max(50000),trxId:z.string().trim().min(6).max(120),accountNumber:z.string().trim().min(10).max(32)}).safeParse(req.body);
+  if(!parsed.success)return res.status(400).json({error:"Enter a valid amount, sender number and TrxID. Minimum deposit is ৳100."});
+  const d=parsed.data;
+  const r=await pool.query("INSERT INTO money_requests(user_id,request_type,method,amount_minor,trx_id,account_number) VALUES($1,'deposit',$2,$3,$4,$5) RETURNING id,status,created_at",[req.user.id,d.method,d.amount*100,d.trxId,d.accountNumber]);
+  res.status(201).json({request:r.rows[0],message:"Deposit request submitted. Balance will be added only after admin verifies the TrxID."});
+}));
+app.post("/api/money-requests/withdraw",requireAuth,asyncRoute(async(req,res)=>{
+  const parsed=z.object({method:z.enum(["bkash","nagad","rocket","upay"]),amount:z.number().int().min(100).max(50000),accountNumber:z.string().trim().min(10).max(32)}).safeParse(req.body);
+  if(!parsed.success)return res.status(400).json({error:"Enter a valid withdrawal amount and payout number. Minimum withdrawal is ৳100."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    await client.query("INSERT INTO commission_accounts(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    const wallet=await client.query("SELECT balance_minor FROM commission_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
+    const amount=BigInt(parsed.data.amount)*100n;
+    if(BigInt(wallet.rows[0].balance_minor)<amount){await client.query("ROLLBACK");return res.status(400).json({error:"Insufficient available commission balance. Wallet deposit balance cannot be withdrawn."});}
+    const r=await client.query("INSERT INTO money_requests(user_id,request_type,method,amount_minor,account_number) VALUES($1,'withdrawal',$2,$3,$4) RETURNING id,status,created_at",[req.user.id,parsed.data.method,amount.toString(),parsed.data.accountNumber]);
+    await client.query("UPDATE commission_accounts SET balance_minor=balance_minor-$1,updated_at=NOW() WHERE user_id=$2",[amount.toString(),req.user.id]);
+    await client.query("COMMIT");
+    res.status(201).json({request:r.rows[0],message:"Withdrawal request submitted for admin review."});
+  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+app.post("/api/admin/money-requests/:id/review",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const parsed=z.object({decision:z.enum(["approved","rejected"]),note:z.string().trim().max(500).optional()}).safeParse(req.body);
+  if(!parsed.success)return res.status(400).json({error:"Choose approve or reject."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const found=await client.query("SELECT * FROM money_requests WHERE id=$1 FOR UPDATE",[req.params.id]);
+    if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Money request not found."});}
+    const m=found.rows[0];
+    if(m.status!=="pending"){await client.query("ROLLBACK");return res.status(409).json({error:"This request has already been reviewed."});}
+    if(parsed.data.decision==="approved"&&m.request_type==="deposit"){
+      await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,updated_at=NOW() WHERE user_id=$2",[m.amount_minor,m.user_id]);
+      await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note,created_by) VALUES($1,$2,'deposit',$3,$4,$5)",[m.user_id,m.amount_minor,m.id,"Verified manual deposit",req.user.id]);
+    }
+    if(parsed.data.decision==="rejected"&&m.request_type==="withdrawal"){
+      await client.query("INSERT INTO commission_accounts(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING",[m.user_id]);
+      await client.query("UPDATE commission_accounts SET balance_minor=balance_minor+$1,updated_at=NOW() WHERE user_id=$2",[m.amount_minor,m.user_id]);
+    }
+    await client.query("UPDATE money_requests SET status=$1,reviewed_by=$2,review_note=$3,reviewed_at=NOW() WHERE id=$4",[parsed.data.decision,req.user.id,parsed.data.note||null,m.id]);
+    await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'money_request',$3,$4::jsonb)",[req.user.id,"money_request_"+parsed.data.decision,m.id,JSON.stringify({request_type:m.request_type,amount_minor:m.amount_minor})]);
+    await client.query("COMMIT");
+    res.json({ok:true,status:parsed.data.decision});
+  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+
 app.get("/api/wallet/ledger",requireAuth,asyncRoute(async(req,res)=>{
   const r=await pool.query("SELECT id,amount_minor,entry_type,reference_id,note,created_at FROM wallet_ledger WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100",[req.user.id]);
   res.json({entries:r.rows});
@@ -156,4 +214,4 @@ app.use((err,_req,res,_next)=>{
   res.status(500).json({error:"Internal server error."});
 });
 const port=Number(process.env.PORT||4000);
-app.listen(port,()=>console.log("NEXORA API listening on port "+port));
+pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())").then(()=>app.listen(port,()=>console.log("NEXORA API listening on port "+port))).catch(error=>{console.error("Database initialization failed",error);process.exit(1);});
