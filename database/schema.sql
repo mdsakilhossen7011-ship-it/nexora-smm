@@ -107,10 +107,11 @@ CREATE TABLE IF NOT EXISTS support_tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id),
   subject VARCHAR(180) NOT NULL,
-  status VARCHAR(16) NOT NULL DEFAULT 'open' CHECK (status IN ('open','answered','closed')),
+  status VARCHAR(16) NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','answered','resolved','closed')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS support_tickets_user_updated_idx ON support_tickets(user_id, updated_at DESC);
 CREATE TABLE IF NOT EXISTS ticket_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticket_id UUID NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
@@ -118,6 +119,8 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
   message TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS ticket_messages_ticket_date_idx ON ticket_messages(ticket_id, created_at);
 
 CREATE TABLE IF NOT EXISTS announcements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
