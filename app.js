@@ -56,6 +56,9 @@ document.addEventListener("click", (event) => {
   if (event.target.closest('a[href="#home"]')) {
     showHome();
     navLinks.classList.remove("open");
+    menuToggle.setAttribute("aria-expanded", "false");
+    menuToggle.setAttribute("aria-label", "Open navigation menu");
+    menuToggle.querySelector("span").textContent = "☰";
   }
 });
 
