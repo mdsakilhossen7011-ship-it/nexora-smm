@@ -280,3 +280,13 @@
   #packageList .ff-package>.ff-package-copy>b{font-size:11px!important}
   #packageList .ff-package>.ff-cart{width:17px!important;height:17px!important;min-width:17px!important}
 }
+
+
+/* Official Garena wallpaper backdrop; keep the character and text above it. */
+.ff-hero{isolation:isolate;background:#080d25!important}
+.ff-background{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.ff-background img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 42%;opacity:.78;filter:saturate(1.08) contrast(1.04)}
+.ff-background:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,8,24,.15) 0%,rgba(5,8,24,.55) 48%,rgba(5,8,24,.72) 100%),linear-gradient(0deg,rgba(5,8,24,.35),transparent 45%)}
+.ff-character{z-index:1}
+.ff-banner-copy,.ff-banner-gem{z-index:3}
+@media(max-width:600px){.ff-background img{object-position:center center;opacity:.72}.ff-background:after{background:linear-gradient(90deg,rgba(5,8,24,.1),rgba(5,8,24,.6) 56%,rgba(5,8,24,.7)),linear-gradient(0deg,rgba(5,8,24,.35),transparent 50%)}}
