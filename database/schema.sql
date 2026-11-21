@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS services (
   name VARCHAR(160) NOT NULL,
   description TEXT,
   price_per_1000_minor BIGINT NOT NULL CHECK (price_per_1000_minor >= 0),
+  cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK (cost_per_1000_minor >= 0),
+  supplier_rate_usd_per_1000 NUMERIC(18,8) NOT NULL DEFAULT 0 CHECK (supplier_rate_usd_per_1000 >= 0),
   min_quantity INTEGER NOT NULL DEFAULT 1 CHECK (min_quantity > 0),
   max_quantity INTEGER NOT NULL DEFAULT 1000000 CHECK (max_quantity >= min_quantity),
   provider_service_id VARCHAR(120),
