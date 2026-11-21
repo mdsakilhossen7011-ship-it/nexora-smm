@@ -533,3 +533,8 @@
 
 /* Bright, slightly raised Deposit method heading */
 .nex-deposit-form .deposit-method-field>span:first-child{display:inline-block;position:relative;top:-3px;margin-bottom:-2px;font-size:12px;font-weight:900;letter-spacing:.2px;background:linear-gradient(90deg,#ff72b6 0%,#b58cff 48%,#57d9ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 12px #a66cff35}
+
+/* Payment Gateway Partners — embedded SVG brand artwork */
+.money-partner-card{overflow:hidden}
+.money-partner-card .money-partner-logo-svg{display:block;width:100%;max-width:142px;height:34px;overflow:visible}
+@media(max-width:380px){.money-partner-grid{gap:5px}.money-partner-card{padding:6px 2px;min-height:46px}.money-partner-card .money-partner-logo-svg{height:29px}}
