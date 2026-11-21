@@ -361,7 +361,7 @@ async function syncFFResellerOrder(orderId,userId){
  // Network lookup is deliberately outside the DB transaction/row lock.
  const found=await pool.query("SELECT o.provider_order_id,o.status,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
  if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_service_id||"").startsWith("ffreseller:")||String(found.rows[0].provider_service_id).startsWith("ffreseller:U")||!found.rows[0].provider_order_id)return;
- let data;try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(found.rows[0].provider_order_id));}catch(error){return;}
+ let data;try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(found.rows[0].provider_order_id));}catch(error){if(error.providerRejected)await refundFFResellerOrder(orderId,userId,"Automatic refund: "+error.message);return;}
  const state=ffProviderStatus(data);
  if(state==="failed"){await refundFFResellerOrder(orderId,userId,"Automatic refund: FF Reseller order failed");return;}
  if(state==="completed")await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
