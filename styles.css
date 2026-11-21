@@ -1193,11 +1193,11 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 @media(prefers-reduced-motion:reduce){#homePage > .activity-ticker .activity-track{animation:none!important}#homePage > .services-section .service-card{transition:none!important}}
 
 
-/* Image layering fix: keep service artwork above the card background and below readable content. */
-#homePage > .services-section .service-card{isolation:isolate!important;}
-#homePage > .services-section .service-card-art{z-index:0!important;}
-#homePage > .services-section .service-card::after{z-index:1!important;}
+/* Verified service artwork layering: image visible, gradient subtle, text above it. */
+#homePage > .services-section .service-card{isolation:isolate!important;position:relative!important;}
+#homePage > .services-section .service-card-art{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;z-index:0!important;opacity:.82!important;display:block!important;}
+#homePage > .services-section .service-card::after{z-index:1!important;background:linear-gradient(105deg,rgba(5,8,24,.48) 0%,rgba(9,11,31,.24) 52%,rgba(8,12,34,.08) 100%),linear-gradient(0deg,rgba(6,8,24,.34),transparent 82%)!important;}
 #homePage > .services-section .service-card > .service-symbol,
 #homePage > .services-section .service-card > h3,
 #homePage > .services-section .service-card > p,
-#homePage > .services-section .service-card > .service-card-cta{position:relative;z-index:2;}
+#homePage > .services-section .service-card > .service-card-cta{position:relative!important;z-index:2!important;}
