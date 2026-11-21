@@ -1241,3 +1241,69 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     animation: none !important;
   }
 }
+
+
+/* FINAL homepage service-card fix: fixed position, compact CTA, custom local artwork */
+#homePage > .services-section .service-card,
+#homePage > .services-section .service-card *,
+#homePage > .services-section .service-card::before,
+#homePage > .services-section .service-card::after {
+  animation: none !important;
+  transition: none !important;
+}
+#homePage > .services-section .service-card:hover,
+#homePage > .services-section .service-card:focus,
+#homePage > .services-section .service-card:focus-visible,
+#homePage > .services-section .service-card:active {
+  transform: none !important;
+  translate: none !important;
+}
+#homePage > .services-section .service-card:hover .service-card-art,
+#homePage > .services-section .service-card:focus .service-card-art,
+#homePage > .services-section .service-card:focus-visible .service-card-art,
+#homePage > .services-section .service-card:active .service-card-art {
+  transform: none !important;
+  scale: none !important;
+  opacity: .82 !important;
+}
+#homePage > .services-section .service-card-art {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  z-index: 0 !important;
+  opacity: .82 !important;
+}
+#homePage > .services-section .service-card-cta {
+  display: inline-flex !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 25px !important;
+  height: 25px !important;
+  margin: 0 !important;
+  padding: 4px 9px !important;
+  gap: 5px !important;
+  border-radius: 8px !important;
+  font-size: 8.5px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+}
+#homePage > .services-section .service-card-cta span {
+  font-size: 11px !important;
+}
+@media (max-width: 600px) {
+  #homePage > .services-section .service-card-cta {
+    width: max-content !important;
+    min-height: 23px !important;
+    height: 23px !important;
+    padding: 4px 7px !important;
+    font-size: 7.5px !important;
+    justify-self: start !important;
+    align-self: flex-start !important;
+    margin-top: auto !important;
+  }
+}
