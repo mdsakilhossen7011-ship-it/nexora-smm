@@ -9,6 +9,7 @@
 <a href="#orders"><span class="menu-icon" aria-hidden="true">▤</span><span>Orders</span></a>
 <a href="#money-history"><span class="menu-icon" aria-hidden="true">◷</span><span>History</span></a>
 <a href="#live-chat"><span class="menu-icon" aria-hidden="true">▣</span><span>Support</span></a>
+<a href="#developer-api"><span class="menu-icon" aria-hidden="true">⌘</span><span>Developer API</span></a>
 <button class="menu-logout" type="button" id="logoutBtn"><span class="menu-icon" aria-hidden="true">↪</span><span>Logout</span></button>
 </nav></div></header>
 <main class="dash-wrap" id="dashboard">
@@ -89,4 +90,25 @@
 </section></div>
 <div class="dash-columns menu-destination-panels"><section class="dash-panel" id="referral"><div class="panel-heading"><h2>Referral</h2></div><p class="menu-feature-note">Share your referral link. New accounts created with this link will be counted under your referrals.</p><div class="referral-share"><label>Your referral code<input id="myReferralCode" readonly value="Loading…"></label><label>Referral link<input id="myReferralLink" readonly value="Loading…"></label><button class="btn btn-primary" type="button" id="copyReferralLink">Copy referral link</button></div><p class="menu-feature-note" id="referralCount">Referred customers: —</p><p class="menu-feature-note">Commission crediting stays disabled until verified supplier order completion is connected.</p></section><section class="dash-panel" id="top-leaders"><div class="panel-heading"><h2>Top Leaders</h2></div><div id="referralLeaders" class="empty-state">Loading leaderboard…</div></section></div>
 <section class="dash-panel" id="live-chat"><div class="panel-heading"><h2>Support Center</h2><span class="muted">Private support tickets</span></div><p class="menu-feature-note">Create a ticket and continue the conversation here. Your messages are private to your account and NEXORA support staff.</p><form id="supportTicketForm" class="money-form"><label>Subject<input name="subject" minlength="4" maxlength="180" required placeholder="What do you need help with?"></label><label>Message<textarea name="message" rows="4" minlength="2" maxlength="5000" required placeholder="Explain your issue…"></textarea></label><label>Attach images (up to 4; auto-compressed to 200 KB each)<input id="newTicketImages" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><button class="btn btn-primary" type="submit">Create support ticket</button><p class="form-feedback" id="supportFeedback" role="status"></p></form><div class="panel-heading"><h2>Your conversations</h2><button class="btn btn-outline" type="button" id="refreshSupport">Refresh</button></div><div id="supportTicketList" class="empty-state">Loading support tickets…</div><div id="supportThread" hidden><div id="supportMessages"></div><form id="supportReplyForm" class="money-form"><label>Reply<textarea name="message" rows="3" maxlength="5000" placeholder="Write a reply…"></textarea></label><label>Attach images (up to 4; auto-compressed to 200 KB each)<input id="replyTicketImages" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><button class="btn btn-primary" type="submit">Send reply</button><p class="form-feedback" id="supportReplyFeedback" role="status"></p></form></div></section>
-<p class="api-warning" id="dashMessage" role="status">Connecting securely…</p></main><script src="dashboard.js?v=money-limits-20261122-1"></script><script src="/drawer.js?v=shared-drawer-20261120-6"></script><script src="/ui-icons.js?v=icons-fix-20261121-5"></script></body></html>
+<section class="dash-panel developer-api-panel" id="developer-api">
+ <div class="panel-heading"><div><h2>Developer API</h2><span class="muted">Connect your NEXORA account to another website or SMM panel.</span></div><span class="developer-api-pill">API v2</span></div>
+ <p class="menu-feature-note">Generate a private API key, then use the API from your website's server. Your API orders use your NEXORA wallet balance and appear in your normal order history.</p>
+ <div class="developer-api-keybox"><div><strong>Your API Key</strong><p id="developerApiKeyStatus" role="status">Checking API key…</p></div><code id="developerApiKeyPrefix">Not generated</code></div>
+ <div class="developer-api-actions"><button class="btn btn-primary" type="button" id="generateDeveloperApiKey">Generate API Key</button><button class="btn btn-outline" type="button" id="revokeDeveloperApiKey" disabled>Revoke Key</button></div>
+ <label class="developer-api-field">New API key (shown only once)<textarea id="developerApiKeyValue" rows="2" readonly placeholder="Generate a key to see it here"></textarea></label>
+ <p class="developer-api-warning">Keep this key secret. Never put it in public HTML, browser JavaScript, or share it with anyone. If exposed, revoke it and generate a new one.</p>
+ <div class="developer-api-docs"><h3>Connection details</h3>
+  <label>API URL<input id="developerApiUrl" readonly value="/api/v2"></label>
+  <p>Method: <strong>POST</strong> · Content-Type: <code>application/x-www-form-urlencoded</code> or <code>application/json</code></p>
+  <h3>Supported actions</h3><ul><li><code>services</code> — list enabled services, IDs, rates and limits.</li><li><code>balance</code> — check your wallet balance in BDT.</li><li><code>add</code> — place an order using <code>service</code>, <code>link</code> and <code>quantity</code>.</li><li><code>status</code> — check an order using its <code>order</code> ID.</li></ul>
+  <h3>Example: list services</h3><pre><code>curl -X POST "/api/v2" \
+  -d "key=YOUR_API_KEY" \
+  -d "action=services"</code></pre>
+  <h3>Example: place an order</h3><pre><code>curl -X POST "/api/v2" \
+  -d "key=YOUR_API_KEY" \
+  -d "action=add" \
+  -d "service=SERVICE_ID" \
+  -d "link=POST_URL_OR_PLAYER_UID" \
+  -d "quantity=100"</code></pre>
+  <p class="menu-feature-note">The service ID is the UUID returned by the services action. Rates are BDT per 1,000 units. Free Fire services use the player's UID in the link field and the package quantity shown in the service limits. Orders are subject to service availability, account balance and NEXORA order fulfilment settings.</p>
+ </div></section><p class="api-warning" id="dashMessage" role="status">Connecting securely…</p></main><script src="dashboard.js?v=customer-api-20261122-1"></script><script src="/drawer.js?v=shared-drawer-20261120-6"></script><script src="/ui-icons.js?v=icons-fix-20261121-5"></script></body></html>
