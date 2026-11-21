@@ -1,13 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
-<defs>
- <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#11172b"/><stop offset=".55" stop-color="#20213c"/><stop offset="1" stop-color="#0b0d18"/></linearGradient>
- <radialGradient id="halo"><stop stop-color="#637de8" stop-opacity=".52"/><stop offset=".65" stop-color="#5938a9" stop-opacity=".16"/><stop offset="1" stop-color="#5938a9" stop-opacity="0"/></radialGradient>
- <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="22"/></filter>
-</defs>
-<rect width="900" height="600" fill="url(#bg)"/>
-<ellipse cx="450" cy="300" rx="300" ry="280" fill="url(#halo)"/>
-<ellipse cx="450" cy="530" rx="190" ry="24" fill="#050713" opacity=".8" filter="url(#shadow)"/>
-<rect x="277" y="72" width="346" height="456" rx="54" fill="#738bff" opacity=".22" filter="url(#shadow)"/>
-<image href="https://play-lh.googleusercontent.com/hnnIRd5AAf7T2gWzwki00aA9aWMX9JUbr8N42WjGqSVEq36Ey5_T0GCvyekeBkn_rSknR3vXvF4zTkZh4j-KRw%3Dw240-h480" x="285" y="82" width="330" height="436" preserveAspectRatio="xMidYMid slice" />
-<rect x="285" y="82" width="330" height="436" rx="42" fill="none" stroke="#b8c8ff" stroke-opacity=".6" stroke-width="5"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600"><defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#25151b"/><stop offset=".55" stop-color="#3b2023"/><stop offset="1" stop-color="#11101a"/></linearGradient><radialGradient id="glow"><stop stop-color="#ff8b2a" stop-opacity=".35"/><stop offset="1" stop-color="#ff8b2a" stop-opacity="0"/></radialGradient></defs><rect width="900" height="600" fill="url(#bg)"/><ellipse cx="450" cy="300" rx="390" ry="260" fill="url(#glow)"/><path d="M0 490Q180 430 330 490T650 490T900 470" fill="none" stroke="#ff8a32" stroke-opacity=".35" stroke-width="4"/></svg>
