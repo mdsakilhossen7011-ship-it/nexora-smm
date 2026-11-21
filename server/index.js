@@ -353,9 +353,18 @@ async function refundFFResellerOrder(orderId,userId,note){
  try{
   await client.query("BEGIN");
   const updated=await client.query("UPDATE orders SET status='refunded',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing' RETURNING charge_minor",[orderId,userId]);
-  if(updated.rowCount){const amount=updated.rows[0].charge_minor;await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount,userId]);await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,$4)",[userId,amount,orderId,note||"Automatic refund: FF Reseller rejected order"]);}
+  if(!updated.rowCount){await client.query("COMMIT");return false;}
+  const amount=updated.rows[0].charge_minor;
+  const wallet=await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount,userId]);
+  if(wallet.rowCount!==1)throw new Error("Wallet account missing; refund transaction rolled back.");
+  await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,$4)",[userId,amount,orderId,note||"Automatic refund: FF Reseller rejected order"]);
   await client.query("COMMIT");
- }catch(error){await client.query("ROLLBACK");console.error("FF Reseller refund failed:",error.message);}finally{client.release();}
+  return true;
+ }catch(error){
+  await client.query("ROLLBACK");
+  console.error("FF Reseller refund failed:",error.message);
+  throw error;
+ }finally{client.release();}
 }
 async function syncFFResellerOrder(orderId,userId){
  // Network lookup is deliberately outside the DB transaction/row lock.
