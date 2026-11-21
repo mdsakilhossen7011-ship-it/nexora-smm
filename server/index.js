@@ -341,7 +341,7 @@ app.patch("/api/me",requireAuth,asyncRoute(async(req,res)=>{
  res.json({user:updated.rows[0]});
 }));
 app.get("/api/services",asyncRoute(async(_req,res)=>{
-  const result=await pool.query("SELECT id,category,name,description,price_per_1000_minor,min_quantity,max_quantity FROM services WHERE enabled=true ORDER BY category,name");
+  const result=await pool.query("SELECT id,category,name,description,price_per_1000_minor,min_quantity,max_quantity,provider_service_id FROM services WHERE enabled=true ORDER BY category,name");
   res.json({services:result.rows});
 }));
 app.get("/api/public/recent-orders",asyncRoute(async(_req,res)=>{
@@ -414,7 +414,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
       :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:parsed.data.target},selectedPackage:{id:1,tag_line:tag},quantity:packageCount,order_id:orderId});
     providerState=ffProviderStatus(providerData);
     if(providerState==="failed")throw Object.assign(new Error(providerData?.message||providerData?.error||"FF Reseller rejected this order."),{status:502});
-    if(isVoucher&&(Array.isArray(providerData?.codes)&&providerData.codes.length||typeof providerData?.content==="string"&&providerData.content.trim()))providerState="completed";
+    if(isVoucher)providerState=(Array.isArray(providerData?.codes)&&providerData.codes.length||typeof providerData?.content==="string"&&providerData.content.trim())?"completed":"processing";
    }catch(error){await client.query("ROLLBACK");return res.status(error.status||502).json({error:error.message,noBalanceDeducted:true,checkProviderIfRequestTimedOut:Boolean(error.uncertain)});}
   }
   const voucherPayload=isVoucher?(Array.isArray(providerData?.codes)?providerData.codes.join("\\n"):String(providerData?.content||"")):"";
