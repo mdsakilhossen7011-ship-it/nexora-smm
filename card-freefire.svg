@@ -8,6 +8,6 @@
 <ellipse cx="450" cy="300" rx="300" ry="280" fill="url(#halo)"/>
 <ellipse cx="450" cy="530" rx="190" ry="24" fill="#050713" opacity=".8" filter="url(#shadow)"/>
 <rect x="277" y="72" width="346" height="456" rx="54" fill="#738bff" opacity=".22" filter="url(#shadow)"/>
-<image href="https://play-lh.googleusercontent.com/hnnIRd5AAf7T2gWzwki00aA9aWMX9JUbr8N42WjGqSVEq36Ey5_T0GCvyekeBkn_rSknR3vXvF4zTkZh4j-KRw=w512-h512" x="285" y="82" width="330" height="436" preserveAspectRatio="xMidYMid slice" />
+<image href="https://play-lh.googleusercontent.com/hnnIRd5AAf7T2gWzwki00aA9aWMX9JUbr8N42WjGqSVEq36Ey5_T0GCvyekeBkn_rSknR3vXvF4zTkZh4j-KRw%3Dw240-h480" x="285" y="82" width="330" height="436" preserveAspectRatio="xMidYMid slice" />
 <rect x="285" y="82" width="330" height="436" rx="42" fill="none" stroke="#b8c8ff" stroke-opacity=".6" stroke-width="5"/>
 </svg>
