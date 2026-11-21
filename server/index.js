@@ -18,7 +18,15 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
 app.disable("x-powered-by");
 // Render terminates HTTPS at its proxy; trust the proxy so secure cookies and client IP handling work correctly.
 app.set("trust proxy", 1);
-app.use(helmet());
+// Permit only the external image hosts used by NEXORA's homepage and Free Fire banner.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "img-src": ["'self'", "data:", "https://images.unsplash.com", "https://dl.dir.freefiremobile.com"]
+    }
+  }
+}));
 app.use(cors({ origin: (process.env.APP_ORIGIN || "").split(",").filter(Boolean), credentials: true }));
 app.use(express.json({ limit: "1.2mb" }));
 app.use("/api/auth", rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
