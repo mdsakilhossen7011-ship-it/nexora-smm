@@ -462,3 +462,27 @@
 .deposit-receiver-copy.copied{color:#8df0b1;border-color:rgba(141,240,177,.5)}
 
 .ff-delivery-help{display:block;margin-top:7px;color:#c8c3e8;font-size:12px;line-height:1.6}.ff-delivery-help a{color:#c99cff;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+
+
+/* Clean, card-based Order History */
+#ordersList{display:grid;gap:11px;padding:2px 0}
+.order-history-card{min-width:0;padding:15px 16px;border:1px solid rgba(143,157,220,.17);border-radius:14px;background:linear-gradient(135deg,rgba(35,42,78,.72),rgba(17,22,46,.92));box-shadow:0 5px 18px rgba(0,0,0,.12);transition:border-color .18s ease,transform .18s ease}
+.order-history-card:hover{border-color:rgba(139,157,255,.42);transform:translateY(-1px)}
+.order-history-top,.order-history-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.order-history-identity{display:flex;align-items:center;gap:10px;min-width:0}
+.order-history-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid rgba(133,153,255,.22);border-radius:11px;background:rgba(95,113,220,.13);color:#b9c5ff;font-size:16px}
+.order-history-title{min-width:0;color:#f1f3ff;font-size:13px;font-weight:750;line-height:1.45;overflow-wrap:anywhere}
+.order-history-status{flex:0 0 auto;padding:5px 9px;border:1px solid rgba(255,255,255,.1);border-radius:30px;background:rgba(255,255,255,.06);color:#d4d8ed;font-size:10px;font-weight:750;text-transform:capitalize}
+.order-history-status.status-completed{border-color:rgba(80,210,143,.25);background:rgba(38,160,99,.13);color:#85e7b0}
+.order-history-status.status-processing,.order-history-status.status-pending{border-color:rgba(255,190,93,.24);background:rgba(210,142,39,.12);color:#ffd18b}
+.order-history-status.status-failed,.order-history-status.status-cancelled,.order-history-status.status-refunded{border-color:rgba(255,112,127,.24);background:rgba(200,65,83,.12);color:#ff9da8}
+.order-history-meta{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}
+.order-history-meta span{min-width:0;color:#aeb7d2;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.order-history-meta strong{flex:0 0 auto;color:#f2f4ff;font-size:13px;font-weight:800}
+.order-history-support{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-top:11px;padding:9px 11px;border:1px solid rgba(91,190,145,.17);border-radius:9px;background:rgba(34,126,83,.09);font-size:11px}
+.order-history-support a{color:#9be8bd;text-decoration:none;font-weight:800}
+.order-history-support a:hover{text-decoration:underline;text-underline-offset:3px}
+.order-history-empty{display:grid;justify-items:center;gap:7px;padding:30px 12px;text-align:center;color:#aeb7d2}
+.order-empty-icon{display:grid;place-items:center;width:44px;height:44px;border:1px solid rgba(143,157,220,.2);border-radius:13px;background:rgba(95,113,220,.12);color:#b9c5ff;font-size:22px}
+.order-history-empty strong{color:#f1f3ff;font-size:13px}.order-history-empty small{font-size:11px}
+@media(max-width:480px){.order-history-card{padding:13px}.order-history-title{font-size:12px}.order-history-meta span{font-size:9px}.order-history-meta strong{font-size:12px}.order-history-icon{width:33px;height:33px;flex-basis:33px}}
