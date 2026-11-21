@@ -543,7 +543,7 @@ app.get("/api/money-requests",requireAuth,asyncRoute(async(req,res)=>{
 }));
 app.post("/api/money-requests/deposit",requireAuth,asyncRoute(async(req,res)=>{
   const parsed=z.object({method:z.enum(["bkash","nagad","usdt_bep20","binance_pay"]),amount:z.number().positive().max(50000),trxId:z.string().trim().min(6).max(120),accountNumber:z.string().trim().min(3).max(120)}).safeParse(req.body);
-  if(!parsed.success)return res.status(400).json({error:"Enter valid deposit details. Minimum deposit is ৳100 equivalent."});
+  if(!parsed.success)return res.status(400).json({error:"Enter valid deposit details."});
   const d=parsed.data;let bdt=d.amount,usdt=null,rate=null;
   if((d.method==="bkash"||d.method==="nagad")&&!Number.isInteger(d.amount))return res.status(400).json({error:"Mobile wallet deposits must be whole BDT amounts."});
   if(d.method==="usdt_bep20"||d.method==="binance_pay"){const c=await pool.query("SELECT bep20_address,binance_pay_id,usdt_bdt_rate FROM crypto_payment_settings WHERE id=TRUE");const cfg=c.rows[0];if(!cfg||!Number(cfg.usdt_bdt_rate)||!(d.method==="usdt_bep20"?cfg.bep20_address:cfg.binance_pay_id))return res.status(400).json({error:"This crypto deposit method is not configured yet."});if(!/^\d+(?:\.\d{1,6})?$/.test(String(d.amount)))return res.status(400).json({error:"Enter USDT up to 6 decimal places."});usdt=d.amount;rate=Number(cfg.usdt_bdt_rate);bdt=Math.round(usdt*rate*100)/100;}
