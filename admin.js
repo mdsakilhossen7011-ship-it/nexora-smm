@@ -82,6 +82,7 @@ async function loadOrders(){
    if(o.status==="processing"&&o.category==="free_fire"&&o.provider_order_id){
     const reconcile=el("button","user-action","FF delivery check");
     reconcile.addEventListener("click",async()=>{
+     if(!detailBox.hidden){detailBox.hidden=true;reconcile.textContent="FF delivery check";return}
      reconcile.disabled=true;reconcile.textContent="Checking…";
      try{
       const d=await request("/admin/orders/"+encodeURIComponent(o.id)+"/ff-reconciliation");
