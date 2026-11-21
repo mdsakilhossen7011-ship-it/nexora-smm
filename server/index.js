@@ -376,8 +376,8 @@ async function syncFFResellerOrder(orderId,userId){
  const state=ffProviderStatus(data);
  if(state==="failed"){await refundFFResellerOrder(orderId,userId,"Automatic refund: FF Reseller order failed");return;}
  if(state==="completed"){
-  const updated=await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
-  console.info("FF Reseller order status synced:",{orderId,state,updated:updated.rowCount===1});
+  await pool.query("INSERT INTO ff_reseller_webhook_events(order_id,provider_order_id,status,payload) SELECT $1,$2,'completed',$3::jsonb WHERE NOT EXISTS (SELECT 1 FROM ff_reseller_webhook_events WHERE order_id=$1 AND status='completed' AND created_at>NOW()-INTERVAL '1 day')",[orderId,found.rows[0].provider_order_id,JSON.stringify({source:"supplier_status_api"})]);
+  console.info("FF Reseller supplier reports completed; awaiting customer confirmation:",{orderId});
   return;
  }
  const statusKeys=[];
