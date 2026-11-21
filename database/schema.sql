@@ -174,3 +174,14 @@ CREATE TABLE IF NOT EXISTS money_request_settings (
  updated_by UUID REFERENCES users(id) ON DELETE SET NULL
 );
 INSERT INTO money_request_settings(id) VALUES(TRUE) ON CONFLICT(id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS user_api_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key_hash TEXT NOT NULL UNIQUE,
+  key_prefix VARCHAR(24) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS user_api_keys_user_active_idx ON user_api_keys(user_id, created_at DESC) WHERE revoked_at IS NULL;
