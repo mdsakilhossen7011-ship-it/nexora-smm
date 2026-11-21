@@ -352,27 +352,56 @@ app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const result=await pool.query("SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,s.name AS service_name FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 100",[req.user.id]);
   res.json({orders:result.rows});
 }));
+async function ffResellerRequest(path,body){
+ const key=process.env.FF_RESELLER_API_KEY;
+ if(!key)throw Object.assign(new Error("FF_RESELLER_API_KEY is not configured in Render."),{status:503});
+ let response;
+ try{response=await fetch("https://buildspare.site"+path,{method:body?"POST":"GET",headers:{"Authorization":"Bearer "+key,"Accept":"application/json",...(body?{"Content-Type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(20000)});}
+ catch(error){throw Object.assign(new Error("FF Reseller did not respond. Check order status before retrying."),{status:502,uncertain:true});}
+ const raw=await response.text();let data;try{data=raw?JSON.parse(raw):{};}catch{data={message:raw.slice(0,500)};}
+ if(!response.ok)throw Object.assign(new Error(data?.message||data?.error||("FF Reseller HTTP "+response.status)),{status:502,provider:data});
+ const message=String(data?.message||data?.error||"");
+ if(/insufficient balance|stock is not available|package not found|unauthorized|invalid|not found/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data});
+ return data;
+}
+function ffProviderStatus(data){const raw=String(data?.status??data?.data?.status??data?.order?.status??"").toLowerCase();if(["success","successful","completed","complete","delivered"].includes(raw))return"completed";if(["failed","failure","error","cancelled","canceled","rejected"].includes(raw))return"failed";return"processing";}
 app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
-  if (process.env.ORDER_FULFILMENT_ENABLED !== "true") return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});
-  const parsed=z.object({serviceId:z.string().uuid(),target:z.string().trim().min(2).max(500),quantity:z.number().int().positive()}).safeParse(req.body);
-  if(!parsed.success) return res.status(400).json({error:"Invalid order details."});
-  const client=await pool.connect();
-  try{
-    await client.query("BEGIN");
-    const svc=await client.query("SELECT * FROM services WHERE id=$1 AND enabled=true FOR UPDATE",[parsed.data.serviceId]);
-    if(!svc.rowCount) {await client.query("ROLLBACK");return res.status(404).json({error:"Service unavailable."});}
-    const s=svc.rows[0],q=parsed.data.quantity;
-    if(s.category==="free_fire"&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
-    if(s.category==="free_fire"?(q<s.min_quantity||q%s.min_quantity!==0||q>s.min_quantity*10):(q<s.min_quantity||q>s.max_quantity)){await client.query("ROLLBACK");return res.status(400).json({error:"Quantity is outside the service limits."});}
-    const charge=BigInt(Math.ceil(Number(s.price_per_1000_minor)*q/1000));
-    const wallet=await client.query("SELECT balance_minor FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
-    if(BigInt(wallet.rows[0].balance_minor)<charge){await client.query("ROLLBACK");return res.status(400).json({error:"Insufficient wallet balance."});}
-    const order=await client.query("INSERT INTO orders(user_id,service_id,target,quantity,charge_minor) VALUES($1,$2,$3,$4,$5) RETURNING id,status,charge_minor,created_at",[req.user.id,s.id,parsed.data.target,q,charge.toString()]);
-    await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor-$1,total_spent_minor=total_spent_minor+$1,updated_at=NOW() WHERE user_id=$2",[charge.toString(),req.user.id]);
-    await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'order_charge',$3,$4)",[req.user.id,(-charge).toString(),order.rows[0].id,"Order charge"]);
-    await client.query("COMMIT");
-    res.status(201).json({order:order.rows[0],message:"Order accepted into the panel queue. Provider fulfilment is not enabled until a verified provider adapter is configured."});
-  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+ const parsed=z.object({serviceId:z.string().uuid(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Invalid order details."});
+ const client=await pool.connect();let committed=false;
+ try{
+  await client.query("BEGIN");
+  const svc=await client.query("SELECT * FROM services WHERE id=$1 AND enabled=true FOR UPDATE",[parsed.data.serviceId]);
+  if(!svc.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Service unavailable."});}
+  const s=svc.rows[0],q=parsed.data.quantity,isFF=s.category==="free_fire",providerId=String(s.provider_service_id||"");
+  const isFFReseller=isFF&&providerId.startsWith("ffreseller:");
+  if(isFFReseller){if(process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}}
+  else if(process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
+  const isVoucher=isFFReseller&&providerId.startsWith("ffreseller:U");
+  if(isFFReseller&&!isVoucher&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
+  if(!isFFReseller&&isFF&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
+  if(isFF?(q<s.min_quantity||q%s.min_quantity!==0||q>s.min_quantity*10):(q<s.min_quantity||q>s.max_quantity)){await client.query("ROLLBACK");return res.status(400).json({error:"Quantity is outside the service limits."});}
+  const packageCount=isFF?Math.floor(q/s.min_quantity):q;
+  const charge=BigInt(Math.ceil(Number(s.price_per_1000_minor)*q/1000));
+  const wallet=await client.query("SELECT balance_minor FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
+  if(!wallet.rowCount||BigInt(wallet.rows[0].balance_minor)<charge){await client.query("ROLLBACK");return res.status(400).json({error:"Insufficient wallet balance."});}
+  const orderId=crypto.randomUUID();let providerData=null,providerState="processing";
+  if(isFFReseller){
+   const tag=providerId.slice("ffreseller:".length);
+   try{
+    providerData=isVoucher
+      ?await ffResellerRequest("/api/resaleorder/bulk",{items:[{tag_line:tag,quantity:packageCount}]})
+      :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:parsed.data.target},selectedPackage:{id:1,tag_line:tag},quantity:packageCount,order_id:orderId});
+    providerState=ffProviderStatus(providerData);
+   }catch(error){await client.query("ROLLBACK");return res.status(error.status||502).json({error:error.message,noBalanceDeducted:true,checkProviderIfRequestTimedOut:Boolean(error.uncertain)});}
+  }
+  const order=await client.query("INSERT INTO orders(id,user_id,service_id,target,quantity,charge_minor,status,provider_order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,status,charge_minor,created_at",[orderId,req.user.id,s.id,isVoucher?"UNIPIN VOUCHER":parsed.data.target,q,charge.toString(),providerState==="completed"?"completed":"processing",isFFReseller?orderId:null]);
+  await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor-$1,total_spent_minor=total_spent_minor+$1,updated_at=NOW() WHERE user_id=$2",[charge.toString(),req.user.id]);
+  await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'order_charge',$3,$4)",[req.user.id,(-charge).toString(),orderId,"Order charge"]);
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'ff_reseller_order_submitted','order',$2,$3::jsonb)",[req.user.id,orderId,JSON.stringify({provider:"FF_RESELLER",tag,isVoucher,providerStatus:providerState})]);
+  await client.query("COMMIT");committed=true;
+  res.status(201).json({order:order.rows[0],message:providerState==="completed"?"Order completed successfully.":"Order submitted to FF Reseller. Status: processing.",providerStatus:providerState,providerResult:providerData?.codes||providerData?.content||undefined});
+ }catch(error){if(!committed)await client.query("ROLLBACK");throw error;}finally{client.release();}
 }));
 
 app.get("/api/public/payment-settings",asyncRoute(async(_req,res)=>{const r=await pool.query("SELECT method,account_number,account_type FROM payment_settings WHERE active=TRUE");const settings={};for(const x of r.rows)settings[x.method]={number:x.account_number,type:x.account_type};res.set("Cache-Control","no-store").json({settings});}));
