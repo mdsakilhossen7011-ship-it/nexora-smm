@@ -52,7 +52,7 @@
  const noticeCount=bell.querySelector(".nexora-notification-count");
  const noticeKey="nexora_read_announcements_v1";
  let noticeItems=[];
- const readIds=()=>{try{return new Set(JSON.parse(localStorage.getItem(noticeKey)||"[]"))}catch{return new Set()}};
+ const readIds=()=>{try{const value=JSON.parse(localStorage.getItem(noticeKey)||"[]");return new Set(Array.isArray(value)?value:[])}catch{return new Set()}};
  const updateNoticeBadge=()=>{const read=readIds(),count=noticeItems.filter(x=>!read.has(x.id)).length;noticeCount.textContent=count>99?"99+":String(count);noticeCount.hidden=count===0;bell.classList.toggle("has-unread",count>0);};
  const renderNotices=()=>{
    noticeList.replaceChildren();
