@@ -380,7 +380,7 @@ async function ffResellerRequest(path,body){
  catch(error){throw Object.assign(new Error("FF Reseller did not respond. Check order status before retrying."),{status:502,uncertain:true});}
  const raw=await response.text();let data;try{data=raw?JSON.parse(raw):{};}catch{data={message:raw.slice(0,500)};}
  if(!response.ok)throw Object.assign(new Error(data?.message||data?.error||("FF Reseller HTTP "+response.status)),{status:502,provider:data});
- const message=String(data?.message||data?.error||"");
+ const message=String(typeof data==="string"?data:(data?.message||data?.error||""));
  if(/insufficient balance|stock is not available|package not found|unauthorized|invalid|not found/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data});
  return data;
 }
