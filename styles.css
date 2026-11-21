@@ -603,7 +603,11 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   }
   .topbar > .brand { font-size: 17px !important; gap: 8px !important; }
   .topbar > .brand .brand-mark {
-    display: none !important;
+    display: grid !important;
+    flex: 0 0 30px !important;
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 21px !important;
   }
   .topbar > .brand > span:last-child {
     display: inline !important; overflow: visible !important;
