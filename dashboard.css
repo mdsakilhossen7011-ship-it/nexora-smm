@@ -486,3 +486,27 @@
 .order-empty-icon{display:grid;place-items:center;width:44px;height:44px;border:1px solid rgba(143,157,220,.2);border-radius:13px;background:rgba(95,113,220,.12);color:#b9c5ff;font-size:22px}
 .order-history-empty strong{color:#f1f3ff;font-size:13px}.order-history-empty small{font-size:11px}
 @media(max-width:480px){.order-history-card{padding:13px}.order-history-title{font-size:12px}.order-history-meta span{font-size:9px}.order-history-meta strong{font-size:12px}.order-history-icon{width:33px;height:33px;flex-basis:33px}}
+
+
+/* Deposit / Withdrawal History cards */
+#moneyRequestsList{display:grid;gap:11px;padding:2px 0}
+.money-history-card{min-width:0;padding:15px 16px;border:1px solid rgba(143,157,220,.17);border-radius:14px;background:linear-gradient(135deg,rgba(35,42,78,.72),rgba(17,22,46,.92));box-shadow:0 5px 18px rgba(0,0,0,.12);transition:border-color .18s ease,transform .18s ease}
+.money-history-card:hover{border-color:rgba(139,157,255,.42);transform:translateY(-1px)}
+.money-history-top,.money-history-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.money-history-identity{display:flex;align-items:center;gap:10px;min-width:0}
+.money-history-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid rgba(133,153,255,.22);border-radius:11px;background:rgba(95,113,220,.13);font-size:19px;font-weight:800}
+.money-history-deposit{color:#85e7b0;background:rgba(38,160,99,.13);border-color:rgba(80,210,143,.25)}
+.money-history-withdraw{color:#ffc58a;background:rgba(210,142,39,.12);border-color:rgba(255,190,93,.24)}
+.money-history-title{min-width:0;color:#f1f3ff;font-size:13px;font-weight:750;line-height:1.45;overflow-wrap:anywhere}
+.money-history-status{flex:0 0 auto;padding:5px 9px;border:1px solid rgba(255,255,255,.1);border-radius:30px;background:rgba(255,255,255,.06);color:#d4d8ed;font-size:10px;font-weight:750;text-transform:capitalize}
+.money-history-status.money-status-approved,.money-history-status.money-status-completed{border-color:rgba(80,210,143,.25);background:rgba(38,160,99,.13);color:#85e7b0}
+.money-history-status.money-status-pending,.money-history-status.money-status-processing{border-color:rgba(255,190,93,.24);background:rgba(210,142,39,.12);color:#ffd18b}
+.money-history-status.money-status-rejected,.money-history-status.money-status-failed,.money-history-status.money-status-cancelled{border-color:rgba(255,112,127,.24);background:rgba(200,65,83,.12);color:#ff9da8}
+.money-history-meta{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}
+.money-history-meta span{min-width:0;color:#aeb7d2;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.money-history-meta strong{flex:0 0 auto;font-size:13px;font-weight:800}
+.money-history-positive{color:#85e7b0}.money-history-negative{color:#ffc58a}
+.money-history-empty{display:grid;justify-items:center;gap:7px;padding:30px 12px;text-align:center;color:#aeb7d2}
+.money-history-empty-icon{display:grid;place-items:center;width:44px;height:44px;border:1px solid rgba(143,157,220,.2);border-radius:13px;background:rgba(95,113,220,.12);color:#b9c5ff;font-size:22px}
+.money-history-empty strong{color:#f1f3ff;font-size:13px}.money-history-empty small{font-size:11px}
+@media(max-width:480px){.money-history-card{padding:13px}.money-history-title{font-size:12px}.money-history-meta span{font-size:9px}.money-history-meta strong{font-size:12px}.money-history-icon{width:33px;height:33px;flex-basis:33px}}
