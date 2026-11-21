@@ -388,9 +388,9 @@ async function ffResellerRequest(path,body){
  try{response=await fetch("https://buildspare.site"+path,{method:body?"POST":"GET",headers:{"Authorization":"Bearer "+key,"Accept":"application/json",...(body?{"Content-Type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(20000)});}
  catch(error){throw Object.assign(new Error("FF Reseller did not respond. Check order status before retrying."),{status:502,uncertain:true});}
  const raw=await response.text();let data;try{data=raw?JSON.parse(raw):{};}catch{data={message:raw.slice(0,500)};}
- if(!response.ok)throw Object.assign(new Error(data?.message||data?.error||("FF Reseller HTTP "+response.status)),{status:502,provider:data});
+ if(!response.ok)throw Object.assign(new Error(data?.message||data?.error||("FF Reseller HTTP "+response.status)),{status:response.status>=500?502:400,provider:data,providerRejected:response.status>=400&&response.status<500,uncertain:response.status>=500});
  const message=String(typeof data==="string"?data:(data?.message||data?.error||""));
- if(/insufficient balance|stock is not available|package not found|unauthorized|invalid|not found/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data});
+ if(/insufficient balance|stock is not available|package not found|unauthorized|invalid|not found/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data,providerRejected:true});
  return data;
 }
 function ffProviderStatus(data){const raw=String(data?.status??data?.data?.status??data?.order?.status??"").toLowerCase();if(["success","successful","completed","complete","delivered"].includes(raw))return"completed";if(["failed","failure","error","cancelled","canceled","rejected"].includes(raw))return"failed";return"processing";}
@@ -445,9 +445,9 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
    orderRow=(await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId])).rows[0];
    return res.status(201).json({order:orderRow,message:orderRow.status==="completed"?"Order completed successfully.":"Order accepted for processing. If supplier confirmation is delayed, do not place it again.",providerStatus:orderRow.status,providerResult:providerData?.codes||providerData?.content||undefined});
   }catch(error){
-   if(error.providerRejected){await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: "+error.message);}
+   if(error.providerRejected){await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: "+error.message);const refunded=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);return res.status(502).json({order:refunded.rows[0],error:error.message,refunded:true});}
    const refreshed=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
-   return res.status(201).json({order:refreshed.rows[0],message: error.uncertain?"Supplier response timed out. Order is held for status checking; do not submit it again.":"Order is held for admin verification. Do not submit it again.",providerPending:true});
+   return res.status(201).json({order:refreshed.rows[0],message:error.uncertain?"Supplier response timed out or was unavailable. Order is held for status checking; do not submit it again.":"Order is held for admin verification. Do not submit it again.",providerPending:true});
   }
  }
  return res.status(201).json({order:orderRow,message:"Order submitted."});
