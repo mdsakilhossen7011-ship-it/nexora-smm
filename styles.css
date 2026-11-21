@@ -1262,83 +1262,17 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   opacity: .82 !important;
 }
 
-/* Single source of truth for homepage service-card CTA sizing. */
-#homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta {
-  display: inline-flex !important;
-  box-sizing: border-box !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: max-content !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  min-height: 20px !important;
-  height: 20px !important;
-  padding: 3px 7px !important;
-  margin: 12px 0 0 !important;
-  gap: 4px !important;
-  border-radius: 7px !important;
-  font-size: 9px !important;
-  line-height: 1 !important;
-  flex: 0 0 auto !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-}
-#homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta > span {
-  font-size: 9px !important;
-  line-height: 1 !important;
-}
-@media (max-width: 600px) {
-  #homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta {
-    min-height: 18px !important;
-    height: 18px !important;
-    padding: 2px 6px !important;
-    margin-top: auto !important;
-    font-size: 8px !important;
-  }
-  #homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta > span {
-    font-size: 8px !important;
-  }
-}
-
-
-/* CTA compact sizing: explicitly prevent flex/grid stretch on every viewport. */
+/* One authoritative rule for the six homepage Explore services pills. */
 #homePage > section.section-wrap.services-section#services > div.service-grid > a.service-card > span.service-card-cta {
   display: inline-flex !important;
-  align-self: flex-start !important;
-  justify-self: start !important;
-  width: fit-content !important;
-  inline-size: fit-content !important;
-  max-width: fit-content !important;
-  min-width: 0 !important;
-  height: 20px !important;
-  min-height: 20px !important;
-  padding: 2px 7px !important;
-  flex: 0 0 auto !important;
-  font-size: 9px !important;
-  line-height: 1 !important;
-  white-space: nowrap !important;
-}
-@media (max-width: 600px) {
-  #homePage > section.section-wrap.services-section#services > div.service-grid > a.service-card > span.service-card-cta {
-    width: fit-content !important;
-    inline-size: fit-content !important;
-    height: 18px !important;
-    min-height: 18px !important;
-    padding: 2px 6px !important;
-    font-size: 8px !important;
-  }
-}
-
-
-/* ACTUAL CTA PILL SIZE — compact pill, keep its label crisp and readable. */
-#homePage .services-section .service-grid .service-card > .service-card-cta {
-  display: inline-flex !important;
   box-sizing: border-box !important;
   align-items: center !important;
   justify-content: center !important;
   align-self: flex-start !important;
+  justify-self: start !important;
   flex: 0 0 auto !important;
   width: max-content !important;
+  inline-size: max-content !important;
   min-width: 0 !important;
   max-width: max-content !important;
   height: 20px !important;
@@ -1358,19 +1292,20 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   letter-spacing: 0 !important;
   white-space: nowrap !important;
 }
-#homePage .services-section .service-grid .service-card > .service-card-cta > span {
+#homePage > section.section-wrap.services-section#services > div.service-grid > a.service-card > span.service-card-cta > span {
   display: inline !important;
-  font-family: inherit !important;
-  font-size: 10px !important;
-  font-weight: 800 !important;
+  font: inherit !important;
   line-height: 1 !important;
 }
 @media (max-width: 600px) {
-  #homePage .services-section .service-grid .service-card > .service-card-cta {
+  #homePage > section.section-wrap.services-section#services > div.service-grid > a.service-card > span.service-card-cta {
     height: 20px !important;
     min-height: 20px !important;
-    padding: 2px 6px !important;
-    font-size: 9px !important;
+    margin-top: auto !important;
+    padding: 2px 5px !important;
+    font-size: 10px !important;
   }
-  #homePage .services-section .service-grid .service-card > .service-card-cta > span { font-size: 9px !important; }
+  #homePage > section.section-wrap.services-section#services > div.service-grid > a.service-card > span.service-card-cta > span {
+    font-size: 10px !important;
+  }
 }
