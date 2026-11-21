@@ -52,3 +52,29 @@
 
 /* Explicit brand header for homepage drawer, identical to shared sidebar heading. */
 @media(max-width:700px){.drawer-menu>.drawer-brand{display:block!important;flex:0 0 auto!important;padding:8px 12px 20px!important;margin:0 0 10px!important;color:#bd43ff!important;font-size:19px!important;font-weight:850!important;letter-spacing:1.2px!important;border-bottom:1px solid rgba(174,132,255,.28)!important;text-align:left!important}.drawer-menu>.drawer-brand b{color:#bd43ff!important}}
+
+
+/* Shared notification bell and announcement panel */
+.nexora-notification-bell{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:42px;margin-right:9px;padding:0;border:1px solid rgba(174,132,255,.35);border-radius:13px;background:rgba(139,92,255,.12);color:#c78cff;cursor:pointer;vertical-align:middle;transition:background .2s ease,transform .2s ease}
+.nexora-notification-bell:hover{background:rgba(139,92,255,.22);transform:translateY(-1px)}
+.nexora-notification-bell svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nexora-notification-count{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;display:flex;align-items:center;justify-content:center;border:2px solid #0b0e22;border-radius:20px;background:#ff456b;color:#fff;font:700 10px/1 Arial,sans-serif}
+.nexora-notification-count[hidden]{display:none}
+.nexora-notification-overlay{position:fixed;inset:0;z-index:5000;display:grid;place-items:center;padding:18px;background:rgba(2,4,14,.76)}
+.nexora-notification-overlay[hidden]{display:none}
+.nexora-notification-dialog{width:min(100%,480px);max-height:min(78vh,680px);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(174,132,255,.32);border-radius:20px;background:linear-gradient(155deg,#171b38,#0b0e22);box-shadow:0 24px 80px rgba(0,0,0,.55);color:#f4f0ff}
+.nexora-notification-dialog>header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid rgba(174,132,255,.2)}
+.nexora-notification-dialog>header small{color:#bd8bff;font-size:10px;font-weight:800;letter-spacing:1.6px}
+.nexora-notification-dialog>header h2{margin:4px 0 0;font-size:20px;color:#fff}
+.nexora-notification-close{width:34px;height:34px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.06);color:#fff;font-size:24px;cursor:pointer}
+.nexora-notification-list{padding:14px;overflow:auto}
+.nexora-notification-item{padding:14px;margin-bottom:10px;border:1px solid rgba(174,132,255,.25);border-left:3px solid #a65cff;border-radius:13px;background:rgba(139,92,255,.09)}
+.nexora-notification-item.is-read{border-left-color:#646b85;opacity:.78}
+.nexora-notification-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.nexora-notification-item-top strong{font-size:14px;line-height:1.4;color:#fff}
+.nexora-notification-item-top span{flex:0 0 auto;padding:4px 7px;border-radius:20px;background:rgba(170,105,255,.18);color:#d8b5ff;font-size:9px;font-weight:800;letter-spacing:.7px}
+.nexora-notification-item p{margin:9px 0;color:#d2cfe5;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.nexora-notification-item time{display:block;color:#8986a8;font-size:10px}
+.nexora-notification-empty{margin:0;padding:28px 12px;text-align:center;color:#aaa6c6;font-size:13px}
+body.nexora-notification-lock{overflow:hidden!important}
+@media(max-width:700px){.nexora-notification-bell{width:38px;height:38px;flex-basis:38px;margin-right:7px;border-radius:11px}.nexora-notification-bell svg{width:19px;height:19px}.nexora-notification-dialog{max-height:82dvh}}
