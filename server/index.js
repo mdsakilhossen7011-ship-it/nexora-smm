@@ -366,7 +366,8 @@ async function syncFFResellerOrder(orderId,userId){
  if(state==="failed"){await refundFFResellerOrder(orderId,userId,"Automatic refund: FF Reseller order failed");return;}
  if(state==="completed")await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
 }
-app.post("/api/webhooks/ff-reseller",asyncRoute(async(req,res)=>{
+const ffWebhookLimiter=rateLimit({windowMs:60*1000,limit:20,standardHeaders:true,legacyHeaders:false,message:{error:"Too many supplier webhook requests. Try again later."}});
+app.post("/api/webhooks/ff-reseller",ffWebhookLimiter,asyncRoute(async(req,res)=>{
  const orderId=String(req.body?.orderid||"");
  if(!/^[0-9a-f-]{36}$/i.test(orderId))return res.status(400).json({error:"Invalid order reference."});
  const found=await pool.query("SELECT user_id FROM orders WHERE provider_order_id=$1 LIMIT 1",[orderId]);
@@ -413,6 +414,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   if(!isFFReseller&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
   const isVoucher=isFFReseller&&providerId.startsWith("ffreseller:U");
   if(isFFReseller&&BigInt(s.price_per_1000_minor)<=BigInt(s.cost_per_1000_minor||0)){await client.query("ROLLBACK");return res.status(400).json({error:"Admin must set a customer selling price above the supplier cost before this package can be ordered. No balance was deducted."});}
+  if(isVoucher){await client.query("ROLLBACK");return res.status(503).json({error:"UniPin voucher ordering is temporarily unavailable until supplier order tracking and secure code delivery are verified. No balance was deducted."});}
   if(isVoucher&&process.env.FF_RESELLER_VOUCHERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"UniPin voucher orders are not enabled until supplier delivery and status handling are verified. No balance was deducted."});}
   if(isFFReseller&&!isVoucher&&!/^[0-9]{6,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 6–12 digit Free Fire Player UID."});}
   if(!isFFReseller&&isFF&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
