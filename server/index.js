@@ -403,7 +403,7 @@ async function ffResellerRequest(path,body){
  if(/insufficient balance|stock is not available|package not found|unauthorized|invalid/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data,providerRejected:true});
  return data;
 }
-function ffProviderStatus(data){const raw=String(data?.status??data?.data?.status??data?.order?.status??"").toLowerCase();if(["success","successful","completed","complete","delivered"].includes(raw))return"completed";if(["failed","failure","error","cancelled","canceled","rejected"].includes(raw))return"failed";return"processing";}
+function ffProviderStatus(data){const candidates=[data?.status,data?.order?.status,data?.data?.status,data?.data?.order?.status];const raw=String(candidates.find(value=>value!==undefined&&value!==null&&String(value).trim()!=="")??"").toLowerCase();if(["success","successful","completed","complete","delivered"].includes(raw))return"completed";if(["failed","failure","error","cancelled","canceled","rejected"].includes(raw))return"failed";return"processing";}
 app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
  const parsed=z.object({serviceId:z.string().uuid(),requestId:z.string().uuid().optional(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid order details."});
@@ -448,7 +448,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
     :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:ffContext.target},selectedPackage:{id:1,tag_line:ffContext.tag},quantity:ffContext.packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\/+$/,"")+"/api/webhooks/ff-reseller"});
    const state=ffProviderStatus(providerData);
    const msg=String(typeof providerData==="string"?providerData:(providerData?.message||providerData?.error||""));
-   if(state==="failed"||/insufficient balance|stock is not available|package not found|unauthorized|validation error/i.test(msg)){
+   if(providerData?.success===false||providerData?.data?.success===false||state==="failed"||/insufficient balance|stock is not available|package not found|unauthorized|validation error/i.test(msg)){
     await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: "+(msg||"FF Reseller rejected order"));
     const refreshed=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
     return res.status(502).json({order:refreshed.rows[0],error:msg||"FF Reseller rejected this order. Your wallet was refunded.",refunded:true});
