@@ -1197,4 +1197,7 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 #homePage > .services-section .service-card{isolation:isolate!important;}
 #homePage > .services-section .service-card-art{z-index:0!important;}
 #homePage > .services-section .service-card::after{z-index:1!important;}
-#homePage > .services-section .service-card > :not(.service-card-art):not(::after){position:relative;z-index:2;}
+#homePage > .services-section .service-card > .service-symbol,
+#homePage > .services-section .service-card > h3,
+#homePage > .services-section .service-card > p,
+#homePage > .services-section .service-card > .service-card-cta{position:relative;z-index:2;}
