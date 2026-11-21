@@ -510,3 +510,7 @@
 .money-history-empty-icon{display:grid;place-items:center;width:44px;height:44px;border:1px solid rgba(143,157,220,.2);border-radius:13px;background:rgba(95,113,220,.12);color:#b9c5ff;font-size:22px}
 .money-history-empty strong{color:#f1f3ff;font-size:13px}.money-history-empty small{font-size:11px}
 @media(max-width:480px){.money-history-card{padding:13px}.money-history-title{font-size:12px}.money-history-meta span{font-size:9px}.money-history-meta strong{font-size:12px}.money-history-icon{width:33px;height:33px;flex-basis:33px}}
+
+/* Crypto deposit method branding */
+.money-crypto-logo{background:linear-gradient(135deg,#253c66,#17243e)!important;color:#d9e8ff!important;border:1px solid rgba(111,160,235,.45)!important;font-weight:800!important;letter-spacing:.02em}
+#usdtBdtPreview{display:block;margin:0;padding:10px 12px;border-radius:10px;background:rgba(46,133,99,.10);color:var(--text,#e9edf5);font-weight:650}
