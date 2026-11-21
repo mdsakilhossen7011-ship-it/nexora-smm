@@ -21,7 +21,7 @@
     transition:transform .32s cubic-bezier(.22,.75,.25,1),visibility .32s ease!important;
     z-index:2000!important;
   }
-  .drawer-menu::before{content:"NEXORA SMM";display:block;flex:0 0 auto;padding:8px 12px 20px;margin:0 0 10px;color:#fff;font-size:19px;font-weight:850;letter-spacing:1.2px;border-bottom:1px solid rgba(174,132,255,.28);text-align:left}
+  .drawer-menu::before{content:"NEXORA SMM";display:block;flex:0 0 auto;padding:8px 12px 20px;margin:0 0 10px;color:#bd43ff;font-size:19px;font-weight:850;letter-spacing:1.2px;border-bottom:1px solid rgba(174,132,255,.28);text-align:left}
   .drawer-menu.is-open{transform:translateX(0)!important;visibility:visible!important;pointer-events:auto!important}
   .drawer-menu[hidden]{display:none!important}
   .drawer-menu a,.drawer-menu button{
@@ -51,4 +51,4 @@
 }
 
 /* Explicit brand header for homepage drawer, identical to shared sidebar heading. */
-@media(max-width:700px){.drawer-menu>.drawer-brand{display:block!important;flex:0 0 auto!important;padding:8px 12px 20px!important;margin:0 0 10px!important;color:#fff!important;font-size:19px!important;font-weight:850!important;letter-spacing:1.2px!important;border-bottom:1px solid rgba(174,132,255,.28)!important;text-align:left!important}.drawer-menu>.drawer-brand b{color:#bd43ff!important}}
+@media(max-width:700px){.drawer-menu>.drawer-brand{display:block!important;flex:0 0 auto!important;padding:8px 12px 20px!important;margin:0 0 10px!important;color:#bd43ff!important;font-size:19px!important;font-weight:850!important;letter-spacing:1.2px!important;border-bottom:1px solid rgba(174,132,255,.28)!important;text-align:left!important}.drawer-menu>.drawer-brand b{color:#bd43ff!important}}
