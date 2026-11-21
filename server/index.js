@@ -53,39 +53,58 @@ app.use(async (req,res,next)=>{
 });
 
 
-// Same-origin delivery for the official Free Fire character artwork.
-// The upstream URL is fixed (not user-controlled) to prevent an open proxy.
-app.get("/media/free-fire-character", async (_req, res, next) => {
-  try {
-    const upstream = await fetch("https://dl.dir.freefiremobile.com/common/web_event/official2.ff.garena.all/20238/4f4fc6c6d43fc3bb5ef4617f9f5340f7.png", {
-      headers: { "Accept": "image/avif,image/webp,image/png,image/*;q=0.8", "User-Agent": "Mozilla/5.0 NEXORA-SMM/1.0" },
-      signal: AbortSignal.timeout(10000),
+// Cache official Garena artwork in the running service so repeat page visits are fast.
+const officialArtworkCache = new Map();
+const officialArtworkPending = new Map();
+async function getOfficialArtwork(key, url) {
+  const cached = officialArtworkCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached;
+  if (officialArtworkPending.has(key)) return officialArtworkPending.get(key);
+  const pending = (async () => {
+    const upstream = await fetch(url, {
+      headers: { "Accept": "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8", "User-Agent": "Mozilla/5.0 NEXORA-SMM/1.0" },
+      signal: AbortSignal.timeout(12000),
       redirect: "error"
     });
-    if (!upstream.ok) {
-      console.error("Free Fire artwork upstream returned HTTP", upstream.status);
-      return res.status(502).type("text/plain").send("Free Fire artwork is temporarily unavailable.");
-    }
+    if (!upstream.ok) throw new Error("Garena artwork returned HTTP " + upstream.status);
     const contentType = upstream.headers.get("content-type") || "";
-    if (!contentType.toLowerCase().startsWith("image/")) {
-      console.error("Free Fire artwork upstream returned non-image content:", contentType);
-      return res.status(502).type("text/plain").send("Free Fire artwork source did not return an image.");
-    }
+    if (!contentType.toLowerCase().startsWith("image/")) throw new Error("Garena artwork source did not return an image");
     const bytes = Buffer.from(await upstream.arrayBuffer());
-    if (!bytes.length || bytes.length > 8 * 1024 * 1024) {
-      return res.status(502).type("text/plain").send("Free Fire artwork has an invalid size.");
-    }
-    res.set({
-      "Content-Type": contentType,
-      "Content-Length": String(bytes.length),
-      "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-      "X-Content-Type-Options": "nosniff"
-    }).send(bytes);
+    if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new Error("Garena artwork has an invalid size");
+    const item = { bytes, contentType, expiresAt: Date.now() + 24 * 60 * 60 * 1000 };
+    officialArtworkCache.set(key, item);
+    return item;
+  })();
+  officialArtworkPending.set(key, pending);
+  try { return await pending; }
+  finally { officialArtworkPending.delete(key); }
+}
+function sendOfficialArtwork(res, artwork) {
+  res.set({
+    "Content-Type": artwork.contentType,
+    "Content-Length": String(artwork.bytes.length),
+    "Cache-Control": "public, max-age=604800, stale-while-revalidate=2592000",
+    "X-Content-Type-Options": "nosniff"
+  }).send(artwork.bytes);
+}
+app.get("/media/free-fire-character", async (_req, res, next) => {
+  try {
+    const artwork = await getOfficialArtwork("free-fire-character", "https://dl.dir.freefiremobile.com/common/web_event/official2.ff.garena.all/20238/4f4fc6c6d43fc3bb5ef4617f9f5340f7.png");
+    sendOfficialArtwork(res, artwork);
   } catch (error) {
-    next(error);
+    console.error("Free Fire character artwork error:", error.message);
+    res.status(502).type("text/plain").send("Free Fire character artwork is temporarily unavailable.");
   }
 });
-
+app.get("/media/free-fire-background", async (_req, res, next) => {
+  try {
+    const artwork = await getOfficialArtwork("free-fire-background", "https://cdn.wildflamestudio.com/common/web_event/official2.ff.garena.all/202210/c23d656a45bc5c75cd77d53065605fe0.jpg");
+    sendOfficialArtwork(res, artwork);
+  } catch (error) {
+    console.error("Free Fire background artwork error:", error.message);
+    res.status(502).type("text/plain").send("Free Fire background artwork is temporarily unavailable.");
+  }
+});
 
 const cookieOptions = { httpOnly: true, secure: production || process.env.SESSION_COOKIE_SECURE === "true", sameSite: "lax", path: "/", maxAge: 7 * 24 * 60 * 60 * 1000 };
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
