@@ -361,7 +361,7 @@ async function syncFFResellerOrder(orderId,userId){
  // Network lookup is deliberately outside the DB transaction/row lock.
  const found=await pool.query("SELECT o.provider_order_id,o.status,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
  if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_service_id||"").startsWith("ffreseller:")||String(found.rows[0].provider_service_id).startsWith("ffreseller:U")||!found.rows[0].provider_order_id)return;
- let data;try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(found.rows[0].provider_order_id));}catch(error){if(error.providerRejected)await refundFFResellerOrder(orderId,userId,"Automatic refund: "+error.message);return;}
+ let data;try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(found.rows[0].provider_order_id));}catch(error){return;}
  const state=ffProviderStatus(data);
  if(state==="failed"){await refundFFResellerOrder(orderId,userId,"Automatic refund: FF Reseller order failed");return;}
  if(state==="completed")await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
@@ -390,7 +390,7 @@ async function ffResellerRequest(path,body){
  const raw=await response.text();let data;try{data=raw?JSON.parse(raw):{};}catch{data={message:raw.slice(0,500)};}
  if(!response.ok)throw Object.assign(new Error(data?.message||data?.error||("FF Reseller HTTP "+response.status)),{status:response.status>=500?502:400,provider:data,providerRejected:response.status>=400&&response.status<500,uncertain:response.status>=500});
  const message=String(typeof data==="string"?data:(data?.message||data?.error||""));
- if(/insufficient balance|stock is not available|package not found|unauthorized|invalid|not found/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data,providerRejected:true});
+ if(/insufficient balance|stock is not available|package not found|unauthorized|invalid/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data,providerRejected:true});
  return data;
 }
 function ffProviderStatus(data){const raw=String(data?.status??data?.data?.status??data?.order?.status??"").toLowerCase();if(["success","successful","completed","complete","delivered"].includes(raw))return"completed";if(["failed","failure","error","cancelled","canceled","rejected"].includes(raw))return"failed";return"processing";}
