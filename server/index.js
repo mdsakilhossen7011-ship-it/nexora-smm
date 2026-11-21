@@ -394,11 +394,12 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const svc=await client.query("SELECT * FROM services WHERE id=$1 AND enabled=true FOR UPDATE",[parsed.data.serviceId]);
   if(!svc.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Service unavailable."});}
   const s=svc.rows[0],q=parsed.data.quantity,isFF=s.category==="free_fire",providerId=String(s.provider_service_id||"");
+  if(!isFF&&parsed.data.target.trim().length<2){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid target for this service."});}
   const isFFReseller=isFF&&providerId.startsWith("ffreseller:");
   if(isFFReseller){if(process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}}
   else if(process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
   const isVoucher=isFFReseller&&providerId.startsWith("ffreseller:U");
-  if(isFFReseller&&!isVoucher&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
+  if(isFFReseller&&!isVoucher&&!/^[0-9]{6,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 6–12 digit Free Fire Player UID."});}
   if(!isFFReseller&&isFF&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
   if(isFF?(q<s.min_quantity||q%s.min_quantity!==0||q>s.min_quantity*10):(q<s.min_quantity||q>s.max_quantity)){await client.query("ROLLBACK");return res.status(400).json({error:"Quantity is outside the service limits."});}
   const packageCount=isFF?Math.floor(q/s.min_quantity):q;
