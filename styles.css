@@ -1169,7 +1169,7 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 #homePage > .services-section .telegram-card .service-symbol{box-shadow:inset 0 2px 4px #ffffff33,0 8px 20px #0006,0 0 24px #269de855!important}
 #homePage > .services-section .service-card h3{font-size:18px!important;line-height:1.25!important;margin:13px 0 6px!important}
 #homePage > .services-section .service-card p{font-size:11px!important;line-height:1.55!important;min-height:34px!important;margin:0 0 12px!important}
-#homePage > .services-section .service-card-cta{width:max-content;max-width:100%;min-height:32px;padding:7px 12px!important;border-radius:10px!important;font-size:10px!important;letter-spacing:.1px;background:linear-gradient(105deg,rgba(126,64,255,.82),rgba(45,119,255,.76))!important;border:1px solid rgba(209,188,255,.6)!important;box-shadow:0 4px 16px rgba(65,70,220,.22),inset 0 1px rgba(255,255,255,.25)!important}
+
 #homePage > .services-section .service-card:hover{transform:translateY(-4px)!important;border-color:rgba(185,157,255,.85)!important;box-shadow:inset 0 1px rgba(255,255,255,.13),0 16px 34px rgba(0,0,0,.34),0 0 28px rgba(116,91,255,.24)!important}
 #homePage > .services-section .facebook-card{--card-glow:rgba(38,139,255,.22)}
 #homePage > .services-section .instagram-card{--card-glow:rgba(255,72,164,.2)}
@@ -1187,9 +1187,9 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 #homePage > .services-section .service-card .service-symbol{width:43px!important;height:43px!important;padding:6px!important;border-radius:14px!important;flex:0 0 43px!important}
 #homePage > .services-section .service-card h3{font-size:13px!important;margin:9px 0 3px!important;line-height:1.2!important}
 #homePage > .services-section .service-card p{font-size:9px!important;line-height:1.4!important;min-height:25px!important;margin:0 0 8px!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important}
-#homePage > .services-section .service-card-cta{display:inline-flex!important;width:100%!important;max-width:100%!important;min-height:27px!important;height:27px!important;margin-top:auto!important;justify-content:center!important;padding:5px 6px!important;font-size:8px!important;white-space:nowrap!important;overflow:hidden!important}
+
 }
-@media(max-width:360px){#homePage > .services-section .service-card{height:174px!important;min-height:174px!important;padding:11px 10px!important}#homePage > .services-section .service-card h3{font-size:12px!important}#homePage > .services-section .service-card p{font-size:8px!important}#homePage > .services-section .service-card-cta{font-size:7.5px!important}}
+@media(max-width:360px){#homePage > .services-section .service-card{height:174px!important;min-height:174px!important;padding:11px 10px!important}#homePage > .services-section .service-card h3{font-size:12px!important}#homePage > .services-section .service-card p{font-size:8px!important}}
 @media(prefers-reduced-motion:reduce){#homePage > .activity-ticker .activity-track{animation:none!important}#homePage > .services-section .service-card{transition:none!important}}
 
 
@@ -1218,21 +1218,6 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 #homePage > .services-section .service-card:focus-visible .service-card-art {
   transform: none !important;
   opacity: .82 !important;
-}
-#homePage > .services-section .service-card-cta {
-  min-height: 27px !important;
-  height: 27px !important;
-  padding: 5px 10px !important;
-  font-size: 9px !important;
-  border-radius: 8px !important;
-}
-@media (max-width: 600px) {
-  #homePage > .services-section .service-card-cta {
-    min-height: 24px !important;
-    height: 24px !important;
-    padding: 4px 6px !important;
-    font-size: 7.5px !important;
-  }
 }
 @media (prefers-reduced-motion: no-preference) {
   #homePage > .services-section .service-card,
@@ -1276,72 +1261,8 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   z-index: 0 !important;
   opacity: .82 !important;
 }
-#homePage > .services-section .service-card-cta {
-  display: inline-flex !important;
-  width: max-content !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  min-height: 25px !important;
-  height: 25px !important;
-  margin: 0 !important;
-  padding: 4px 9px !important;
-  gap: 5px !important;
-  border-radius: 8px !important;
-  font-size: 8.5px !important;
-  line-height: 1 !important;
-  white-space: nowrap !important;
-  flex: 0 0 auto !important;
-}
-#homePage > .services-section .service-card-cta span {
-  font-size: 11px !important;
-}
-@media (max-width: 600px) {
-  #homePage > .services-section .service-card-cta {
-    width: max-content !important;
-    min-height: 23px !important;
-    height: 23px !important;
-    padding: 4px 7px !important;
-    font-size: 7.5px !important;
-    justify-self: start !important;
-    align-self: flex-start !important;
-    margin-top: auto !important;
-  }
-}
 
-
-/* FINAL: visibly compact Explore services CTA buttons */
-#homePage > .services-section .service-card-cta {
-  display: inline-flex !important;
-  width: max-content !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  min-height: 16px !important;
-  height: 16px !important;
-  padding: 2px 5px !important;
-  gap: 2px !important;
-  margin-top: auto !important;
-  font-size: 7px !important;
-  line-height: 1 !important;
-  border-radius: 5px !important;
-  flex: 0 0 auto !important;
-}
-#homePage > .services-section .service-card-cta span {
-  font-size: 8px !important;
-  line-height: 1 !important;
-}
-@media (max-width: 600px) {
-  #homePage > .services-section .service-card-cta {
-    min-height: 16px !important;
-    height: 16px !important;
-    padding: 2px 5px !important;
-    font-size: 7px !important;
-  }
-  #homePage > .services-section .service-card-cta span {
-    font-size: 8px !important;
-  }
-}
-
-/* Authoritative compact homepage CTA: overrides every earlier service-card CTA rule. */
+/* Single source of truth for homepage service-card CTA sizing. */
 #homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta {
   display: inline-flex !important;
   box-sizing: border-box !important;
@@ -1350,27 +1271,31 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   width: max-content !important;
   max-width: 100% !important;
   min-width: 0 !important;
-  min-height: 18px !important;
-  height: 18px !important;
-  padding: 2px 6px !important;
-  margin: auto 0 0 !important;
-  gap: 3px !important;
-  font-size: 8px !important;
+  min-height: 24px !important;
+  height: 24px !important;
+  padding: 4px 9px !important;
+  margin: 12px 0 0 !important;
+  gap: 4px !important;
+  border-radius: 7px !important;
+  font-size: 9px !important;
   line-height: 1 !important;
-  border-radius: 5px !important;
   flex: 0 0 auto !important;
   white-space: nowrap !important;
-  overflow: visible !important;
+  overflow: hidden !important;
 }
 #homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta > span {
-  font-size: 8px !important;
+  font-size: 9px !important;
   line-height: 1 !important;
 }
 @media (max-width: 600px) {
   #homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta {
-    min-height: 18px !important;
-    height: 18px !important;
-    padding: 2px 6px !important;
+    min-height: 22px !important;
+    height: 22px !important;
+    padding: 3px 8px !important;
+    margin-top: auto !important;
+    font-size: 8px !important;
+  }
+  #homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta > span {
     font-size: 8px !important;
   }
 }
