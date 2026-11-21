@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600"><defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#25151b"/><stop offset=".55" stop-color="#3b2023"/><stop offset="1" stop-color="#11101a"/></linearGradient><radialGradient id="glow"><stop stop-color="#ff8b2a" stop-opacity=".35"/><stop offset="1" stop-color="#ff8b2a" stop-opacity="0"/></radialGradient></defs><rect width="900" height="600" fill="url(#bg)"/><ellipse cx="450" cy="300" rx="390" ry="260" fill="url(#glow)"/><path d="M0 490Q180 430 330 490T650 490T900 470" fill="none" stroke="#ff8a32" stroke-opacity=".35" stroke-width="4"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#100d16"/><stop offset=".55" stop-color="#281018"/><stop offset="1" stop-color="#080a14"/></linearGradient>
+ <radialGradient id="redGlow"><stop stop-color="#ed172b" stop-opacity=".38"/><stop offset="1" stop-color="#ed172b" stop-opacity="0"/></radialGradient>
+ <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff5965"/><stop offset=".48" stop-color="#ed142b"/><stop offset="1" stop-color="#9d071c"/></linearGradient>
+ <filter id="blur"><feGaussianBlur stdDeviation="22"/></filter>
+</defs>
+<rect width="900" height="600" fill="url(#bg)"/>
+<ellipse cx="650" cy="300" rx="330" ry="280" fill="url(#redGlow)" filter="url(#blur)"/>
+<g transform="translate(405 60) scale(1.02)" opacity=".98">
+ <path fill="url(#red)" d="M392 36c-66 5-125 33-174 79-49 46-79 105-88 168-9 62 8 122 48 165 37 40 91 62 150 60 72-2 136-40 173-101 17-28 28-59 33-92H424c-9 31-29 55-56 69-31 16-69 15-98-3-31-20-48-55-43-91 5-39 30-75 65-96 34-21 77-25 115-12 24 8 45 23 61 43l73-75c-34-42-81-71-134-85-19-5-39-8-59-9 24-13 52-20 82-20 36 0 70 10 100 29-45-28-91-40-138-29Z"/>
+ <path fill="#ff6670" opacity=".8" d="M121 282c13-66 53-122 111-157-33 37-53 81-58 128-6 52 8 100 39 137-66-21-105-65-92-108Z"/>
+</g>
+<text x="650" y="500" text-anchor="middle" fill="#fff" opacity=".9" font-family="Arial,sans-serif" font-size="76" font-weight="800" letter-spacing="8">GARENA</text>
+<path d="M510 530h280" stroke="#ed2438" stroke-width="4" stroke-linecap="round" opacity=".75"/>
+<g fill="#ff4556" opacity=".22"><circle cx="790" cy="95" r="4"/><circle cx="835" cy="150" r="3"/><circle cx="475" cy="460" r="3"/><circle cx="820" cy="410" r="5"/></g>
+</svg>
