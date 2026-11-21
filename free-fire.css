@@ -290,3 +290,32 @@
 .ff-character{z-index:1}
 .ff-banner-copy,.ff-banner-gem{z-index:3}
 @media(max-width:600px){.ff-background img{object-position:center center;opacity:.72}.ff-background:after{background:linear-gradient(90deg,rgba(5,8,24,.1),rgba(5,8,24,.6) 56%,rgba(5,8,24,.7)),linear-gradient(0deg,rgba(5,8,24,.35),transparent 50%)}}
+
+
+/* Order confirmation modal */
+.ff-order-modal[hidden]{display:none!important}
+.ff-order-modal{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;padding:18px;isolation:isolate}
+.ff-confirm-backdrop{position:absolute;inset:0;background:rgba(3,5,18,.82);backdrop-filter:blur(9px);animation:ffFadeIn .18s ease}
+.ff-confirm-card{position:relative;width:min(100%,440px);padding:28px;border:1px solid rgba(112,151,255,.35);border-radius:25px;background:radial-gradient(circle at 50% 0%,rgba(62,108,255,.22),transparent 42%),linear-gradient(155deg,#171d3c,#0b1025 75%);box-shadow:0 28px 90px rgba(0,0,0,.62),0 0 45px rgba(67,105,255,.16);animation:ffModalIn .24s cubic-bezier(.2,.8,.2,1);color:#f7f8ff}
+.ff-confirm-close{position:absolute;right:14px;top:12px;width:34px;height:34px;border:1px solid #ffffff20;border-radius:11px;background:#ffffff0c;color:#dfe7ff;font-size:24px;cursor:pointer}
+.ff-confirm-icon{width:58px;height:58px;margin:0 auto 13px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(145deg,#224d9d,#6436a8);box-shadow:0 8px 28px #376bff44;font-size:29px}
+.ff-confirm-kicker{display:block;text-align:center;color:#8eb8ff;font-size:9px;font-weight:900;letter-spacing:2px}
+.ff-confirm-card h2{margin:8px 0 5px;text-align:center;font-size:25px;letter-spacing:-.7px}
+.ff-confirm-subtitle{text-align:center;margin:0 0 20px;color:#aeb8d7;font-size:12px}
+.ff-confirm-details{padding:5px 15px;border:1px solid #ffffff17;border-radius:16px;background:#ffffff08}
+.ff-confirm-details>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #ffffff12}
+.ff-confirm-details>div:last-child{border:0}
+.ff-confirm-details span{color:#9da9ca;font-size:12px}
+.ff-confirm-details strong{max-width:65%;text-align:right;overflow-wrap:anywhere;color:#f5f7ff;font-size:13px}
+.ff-confirm-details .ff-confirm-total strong{font-size:20px;color:#8ce7ff}
+.ff-confirm-warning{margin:15px 0;padding:11px 12px;border:1px solid #ffcb6340;border-radius:12px;background:#ffbd3210;color:#f5d99a;font-size:11px;line-height:1.6}
+.ff-confirm-actions{display:grid;grid-template-columns:.8fr 1.2fr;gap:10px;margin-top:17px}
+.ff-confirm-actions button{min-height:47px;border-radius:12px;font-weight:800;cursor:pointer}
+.ff-confirm-cancel{border:1px solid #ffffff24;background:#ffffff0b;color:#dce3fa}
+.ff-confirm-submit{border:0;background:linear-gradient(105deg,#287fff,#7551ff);color:white;box-shadow:0 7px 22px #376bff55}
+.ff-confirm-submit:active,.ff-confirm-cancel:active{transform:scale(.98)}
+body.ff-modal-open{overflow:hidden}
+@keyframes ffFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes ffModalIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:480px){.ff-confirm-card{padding:24px 18px 19px;border-radius:21px}.ff-confirm-card h2{font-size:22px}.ff-confirm-details{padding-inline:12px}.ff-confirm-details>div{padding:11px 0}.ff-confirm-actions button{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.ff-confirm-card,.ff-confirm-backdrop{animation:none}}
