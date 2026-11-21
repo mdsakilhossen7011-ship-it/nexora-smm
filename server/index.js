@@ -234,8 +234,8 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
       const refill=item.refill===true?"Yes":"No",cancel=item.cancel===true?"Yes":"No";
       const description=("Imported from SMMEXO. Wholesale rate: $"+rate.toFixed(4)+" USD per 1,000. Supplier category: "+supplierCategory+". Type: "+supplierType+". Refill: "+refill+". Cancel: "+cancel+". Set purchase cost and selling price in BDT before enabling.").slice(0,2000);
       const inserted=await client.query(
-        "INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) VALUES($1,$2,$3,0,0,$4,$5,$6,FALSE) RETURNING id",
-        [category,String(item.name).trim().slice(0,160),description,min,max,serviceId]
+        "INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,supplier_rate_usd_per_1000,min_quantity,max_quantity,provider_service_id,enabled) VALUES($1,$2,$3,0,0,$4,$5,$6,$7,FALSE) RETURNING id",
+        [category,String(item.name).trim().slice(0,160),description,rate,min,max,serviceId]
       );
       await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'smmexo_service_imported','service',$2,$3::jsonb)",[req.user.id,inserted.rows[0].id,JSON.stringify({supplier:"SMMEXO",supplier_service_id:serviceId,wholesale_rate_usd_per_1000:rate,category})]);
       imported.push({serviceId,name:String(item.name).trim().slice(0,160),id:inserted.rows[0].id});
@@ -512,7 +512,7 @@ app.post("/api/admin/orders/:id/cancel-refund",requireAuth,requireAdmin,asyncRou
 
 
 app.get("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
- const r=await pool.query("SELECT s.id,s.category,s.name,s.description,s.price_per_1000_minor,s.cost_per_1000_minor,s.min_quantity,s.max_quantity,s.provider_service_id,s.enabled,s.created_at,s.updated_at,(SELECT COUNT(*) FROM orders o WHERE o.service_id=s.id)::int AS order_count FROM services s ORDER BY s.category,s.name");
+ const r=await pool.query("SELECT s.id,s.category,s.name,s.description,s.price_per_1000_minor,s.cost_per_1000_minor,s.supplier_rate_usd_per_1000,s.min_quantity,s.max_quantity,s.provider_service_id,s.enabled,s.created_at,s.updated_at,(SELECT COUNT(*) FROM orders o WHERE o.service_id=s.id)::int AS order_count FROM services s ORDER BY s.category,s.name");
  res.json({services:r.rows});
 }));
 app.post("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
@@ -631,6 +631,17 @@ app.get("/api/admin/activity",requireAuth,requireAdmin,asyncRoute(async(req,res)
  res.json({logs:r.rows});
 }));
 
+app.get("/api/admin/currency",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
+ const r=await pool.query("SELECT usd_to_bdt_rate,updated_at FROM currency_settings WHERE id=TRUE");
+ res.set("Cache-Control","no-store").json({usd_to_bdt_rate:Number(r.rows[0]?.usd_to_bdt_rate||0),updated_at:r.rows[0]?.updated_at||null});
+}));
+app.put("/api/admin/currency",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({usdToBdtRate:z.number().finite().min(1).max(10000)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Enter a valid USD to BDT rate between 1 and 10,000."});
+ const r=await pool.query("INSERT INTO currency_settings(id,usd_to_bdt_rate,updated_at,updated_by) VALUES(TRUE,$1,NOW(),$2) ON CONFLICT(id) DO UPDATE SET usd_to_bdt_rate=EXCLUDED.usd_to_bdt_rate,updated_at=NOW(),updated_by=EXCLUDED.updated_by RETURNING usd_to_bdt_rate,updated_at",[parsed.data.usdToBdtRate,req.user.id]);
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'currency_rate_updated','currency_settings',$2::jsonb)",[req.user.id,JSON.stringify({usd_to_bdt_rate:parsed.data.usdToBdtRate})]);
+ res.set("Cache-Control","no-store").json({settings:r.rows[0]});
+}));
 app.get("/api/admin/maintenance",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{const r=await pool.query("SELECT enabled,message FROM site_settings WHERE id=TRUE");res.set("Cache-Control","no-store").json(r.rows[0]||{enabled:false,message:""});}));
 app.put("/api/admin/maintenance",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{const parsed=z.object({enabled:z.boolean(),message:z.string().trim().max(1000)}).safeParse(req.body);if(!parsed.success)return res.status(400).json({error:"Enter a valid maintenance setting and message."});if(parsed.data.enabled&&parsed.data.message.length<5)return res.status(400).json({error:"When maintenance is ON, write a reason of at least 5 characters."});await pool.query("INSERT INTO site_settings(id,enabled,message,updated_at,updated_by) VALUES(TRUE,$1,$2,NOW(),$3) ON CONFLICT(id) DO UPDATE SET enabled=EXCLUDED.enabled,message=EXCLUDED.message,updated_at=NOW(),updated_by=EXCLUDED.updated_by",[parsed.data.enabled,parsed.data.message,req.user.id]);await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'site_maintenance_updated','site_settings',$2::jsonb)",[req.user.id,JSON.stringify({enabled:parsed.data.enabled,message:parsed.data.message})]);res.set("Cache-Control","no-store").json({ok:true,enabled:parsed.data.enabled,message:parsed.data.message});}));
 app.get("/api/admin/system",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
@@ -743,6 +754,9 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS data BYTEA"))
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS mime_type VARCHAR(40)"))
   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)"))
+  .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS supplier_rate_usd_per_1000 NUMERIC(18,8) NOT NULL DEFAULT 0 CHECK(supplier_rate_usd_per_1000 >= 0)"))
+  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS currency_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE),usd_to_bdt_rate NUMERIC(12,4) NOT NULL DEFAULT 0 CHECK(usd_to_bdt_rate>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_by UUID REFERENCES users(id) ON DELETE SET NULL)"))
+  .then(()=>pool.query("INSERT INTO currency_settings(id,usd_to_bdt_rate) VALUES(TRUE,0) ON CONFLICT(id) DO NOTHING"))
   // Seed requested Free Fire packages; order fulfilment remains globally disabled until a supplier is verified.
   .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire','25 Diamonds','Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',80000,0,25,25,NULL,TRUE WHERE NOT EXISTS (SELECT 1 FROM services WHERE category='free_fire' AND lower(name)=lower('25 Diamonds'))"))
   .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire','50 Diamonds','Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',80000,0,50,50,NULL,TRUE WHERE NOT EXISTS (SELECT 1 FROM services WHERE category='free_fire' AND lower(name)=lower('50 Diamonds'))"))
