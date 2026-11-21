@@ -250,6 +250,27 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
 
 
 
+app.post("/api/admin/ff-reseller/import-catalogue",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const catalog=[["BD Server","25 Diamonds","25",19.5,25],["BD Server","50 Diamonds","50",33.8,50],["BD Server","Weekly Lite","LITE",35.1,1],["BD Server","Level Up 6","LV6",35.1,1],["BD Server","Level Up 10","LV10",62.4,1],["BD Server","Level Up 15","LV15",62.4,1],["BD Server","Level Up 20","LV20",62.4,1],["BD Server","Level Up 25","LV25",62.4,1],["BD Server","115 Diamonds","115",74.1,115],["BD Server","Level Up 30","LV30",88.4,1],["BD Server","240 Diamonds","240",146.9,240],["BD Server","Weekly","WEEKLY",149.5,1],["BD Server","610 Diamonds","610",371.8,610],["BD Server","Monthly","MONTHLY",734.5,1],["BD Server","1240 Diamonds","1240",741,1240],["BD Server","2530 Diamonds","2530",1487.2,2530],["Indonesia Server","50 Diamonds","INDO50",49.4,50],["Indonesia Server","70 Diamonds","INDO70",68.9,70],["Indonesia Server","140 Diamonds","INDO140",137.8,140],["Indonesia Server","Weekly","INDO_WEEKLY",208,1],["Indonesia Server","355 Diamonds","INDO355",343.2,355],["Indonesia Server","Monthly","INDO_MONTHLY",624,1],["Indonesia Server","720 Diamonds","INDO720",686.4,720],["Indonesia Server","7290 Diamonds","INDO7290",6864,7290],["UniPin Voucher BD","25 Diamond Code","U25",19.5,25],["UniPin Voucher BD","50 Diamond Code","U50",33.8,50],["UniPin Voucher BD","115 Diamond Code","U115",74.1,115],["UniPin Voucher BD","240 Diamond Code","U240",146.9,240],["UniPin Voucher BD","Weekly Code","U161",149.5,1],["UniPin Voucher BD","610 Diamond Code","U610",371.8,610],["UniPin Voucher BD","1240 Diamond Code","U1240",741,1240],["UniPin Voucher BD","2530 Diamond Code","U2530",1487.2,2530]];
+ const client=await pool.connect();const imported=[],skipped=[];
+ try{
+  await client.query("BEGIN");
+  for(const [group,label,tag,cost,qty] of catalog){
+   const providerId="ffreseller:"+tag;
+   const existing=await client.query("SELECT id FROM services WHERE provider_service_id=$1 LIMIT 1",[providerId]);
+   if(existing.rowCount){skipped.push({tag,reason:"Already imported"});continue;}
+   const perThousand=Math.ceil(Math.round(cost*100)*1000/qty);
+   const name=group+" · "+label;
+   const description="FF Reseller "+group+" package. Supplier tag: "+tag+". Supplier cost: ৳"+cost.toFixed(2)+". Set your customer selling price before enabling this service.";
+   const inserted=await client.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) VALUES('free_fire',$1,$2,$3,$4,$5,$5,$6,FALSE) RETURNING id",[name,description,perThousand,perThousand,qty,providerId]);
+   imported.push({id:inserted.rows[0].id,group,label,tag,supplierCostBdt:cost});
+  }
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'ff_reseller_catalogue_imported','service',$2::jsonb)",[req.user.id,JSON.stringify({imported:imported.length,skipped:skipped.length,total:catalog.length})]);
+  await client.query("COMMIT");
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+ res.json({total:catalog.length,importedCount:imported.length,skippedCount:skipped.length,imported,skipped,enabled:false,message:"Imported disabled. Set customer selling prices and enable each package in Services before customer ordering."});
+}));
+
 app.get("/api/health", asyncRoute(async (_req,res) => {
   await pool.query("SELECT 1");
   res.json({ status:"ok", database:"connected" });
