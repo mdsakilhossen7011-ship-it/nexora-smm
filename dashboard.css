@@ -544,3 +544,6 @@
 .deposit-method-option .deposit-brand-logo{box-sizing:border-box!important;display:block!important;width:100%!important;max-width:142px!important;height:34px!important;min-width:0!important;flex:0 1 auto!important;padding:0!important;object-fit:contain!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;filter:none!important}
 .deposit-method-option .deposit-brand-name{display:none!important}
 @media(max-width:380px){.deposit-method-option{min-height:46px!important;padding:6px 2px!important}.deposit-method-option .deposit-brand-logo{height:29px!important}}
+
+/* Highlight configured deposit number / wallet address in red */
+#deposit .deposit-receiver-number{color:#ff4d6d!important;text-shadow:0 0 10px rgba(255,55,90,.22)}
