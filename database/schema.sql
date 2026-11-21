@@ -93,10 +93,12 @@ CREATE TABLE IF NOT EXISTS money_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id),
   request_type VARCHAR(12) NOT NULL CHECK (request_type IN ('deposit','withdrawal')),
-  method VARCHAR(20) NOT NULL CHECK (method IN ('bkash','nagad','rocket','upay')),
+  method VARCHAR(20) NOT NULL CHECK (method IN ('bkash','nagad','rocket','upay','usdt_bep20','binance_pay')),
   amount_minor BIGINT NOT NULL CHECK (amount_minor > 0),
   trx_id VARCHAR(120),
-  account_number VARCHAR(32),
+  account_number VARCHAR(120),
+  crypto_amount NUMERIC(20,8),
+  conversion_rate NUMERIC(12,4),
   status VARCHAR(12) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
   reviewed_by UUID REFERENCES users(id),
   review_note TEXT,
@@ -150,6 +152,15 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE TABLE IF NOT EXISTS currency_settings (
   id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id = TRUE),
   usd_to_bdt_rate NUMERIC(12,4) NOT NULL DEFAULT 0 CHECK (usd_to_bdt_rate >= 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS crypto_payment_settings (
+  id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE),
+  bep20_address VARCHAR(120) NOT NULL DEFAULT '',
+  binance_pay_id VARCHAR(80) NOT NULL DEFAULT '',
+  usdt_bdt_rate NUMERIC(12,4) NOT NULL DEFAULT 0 CHECK(usdt_bdt_rate>=0),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by UUID REFERENCES users(id) ON DELETE SET NULL
 );
