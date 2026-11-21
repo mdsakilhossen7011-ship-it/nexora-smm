@@ -232,7 +232,7 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
       const supplierCategory=String(item.category??"").slice(0,500);
       const supplierType=String(item.type??"").slice(0,100);
       const refill=item.refill===true?"Yes":"No",cancel=item.cancel===true?"Yes":"No";
-      const description=("Imported from SMMEXO. Wholesale rate: $"+rate.toFixed(4)+" USD per 1,000. Supplier category: "+supplierCategory+". Type: "+supplierType+". Refill: "+refill+". Cancel: "+cancel+". Set purchase cost and selling price in BDT before enabling.").slice(0,2000);
+      const description=("Imported from SMMEXO. Wholesale rate: $"+rate.toFixed(4)+" USD per 1,000. Supplier category: "+supplierCategory+". Type: "+supplierType+". Refill: "+refill+". Cancel: "+cancel+". Supplier wholesale rate is stored in USD. Set a BDT selling price before enabling.").slice(0,2000);
       const inserted=await client.query(
         "INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,supplier_rate_usd_per_1000,min_quantity,max_quantity,provider_service_id,enabled) VALUES($1,$2,$3,0,0,$4,$5,$6,$7,FALSE) RETURNING id",
         [category,String(item.name).trim().slice(0,160),description,rate,min,max,serviceId]
