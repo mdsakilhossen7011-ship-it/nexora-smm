@@ -1340,3 +1340,37 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     font-size: 8px !important;
   }
 }
+
+/* Authoritative compact homepage CTA: overrides every earlier service-card CTA rule. */
+#homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta {
+  display: inline-flex !important;
+  box-sizing: border-box !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 18px !important;
+  height: 18px !important;
+  padding: 2px 6px !important;
+  margin: auto 0 0 !important;
+  gap: 3px !important;
+  font-size: 8px !important;
+  line-height: 1 !important;
+  border-radius: 5px !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+}
+#homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta > span {
+  font-size: 8px !important;
+  line-height: 1 !important;
+}
+@media (max-width: 600px) {
+  #homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta {
+    min-height: 18px !important;
+    height: 18px !important;
+    padding: 2px 6px !important;
+    font-size: 8px !important;
+  }
+}
