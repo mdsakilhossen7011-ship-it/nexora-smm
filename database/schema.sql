@@ -164,3 +164,13 @@ CREATE TABLE IF NOT EXISTS crypto_payment_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by UUID REFERENCES users(id) ON DELETE SET NULL
 );
+
+
+CREATE TABLE IF NOT EXISTS money_request_settings (
+ id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id=TRUE),
+ minimum_deposit_bdt INTEGER NOT NULL DEFAULT 100 CHECK (minimum_deposit_bdt BETWEEN 1 AND 50000),
+ minimum_withdrawal_bdt INTEGER NOT NULL DEFAULT 100 CHECK (minimum_withdrawal_bdt BETWEEN 1 AND 50000),
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ updated_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+INSERT INTO money_request_settings(id) VALUES(TRUE) ON CONFLICT(id) DO NOTHING;
