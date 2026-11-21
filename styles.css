@@ -1191,3 +1191,10 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 }
 @media(max-width:360px){#homePage > .services-section .service-card{height:174px!important;min-height:174px!important;padding:11px 10px!important}#homePage > .services-section .service-card h3{font-size:12px!important}#homePage > .services-section .service-card p{font-size:8px!important}#homePage > .services-section .service-card-cta{font-size:7.5px!important}}
 @media(prefers-reduced-motion:reduce){#homePage > .activity-ticker .activity-track{animation:none!important}#homePage > .services-section .service-card{transition:none!important}}
+
+
+/* Image layering fix: keep service artwork above the card background and below readable content. */
+#homePage > .services-section .service-card{isolation:isolate!important;}
+#homePage > .services-section .service-card-art{z-index:0!important;}
+#homePage > .services-section .service-card::after{z-index:1!important;}
+#homePage > .services-section .service-card > :not(.service-card-art):not(::after){position:relative;z-index:2;}
