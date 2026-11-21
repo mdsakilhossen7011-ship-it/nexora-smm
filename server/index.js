@@ -663,7 +663,7 @@ app.get("/api/admin/orders/:id/ff-reconciliation",requireAuth,requireAdmin,async
  const order=r.rows[0];
  if(!String(order.provider_service_id||"").startsWith("ffreseller:")||String(order.provider_service_id).startsWith("ffreseller:U")||!order.provider_order_id)return res.status(400).json({error:"This is not a supported FF Reseller UID order."});
  const events=await pool.query("SELECT status,payload,created_at FROM ff_reseller_webhook_events WHERE order_id=$1 ORDER BY created_at DESC LIMIT 20",[order.id]);
- const origin=(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\\/+$/,"");
+ const origin=(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\/+$/,"");
  const callbackUrl=origin+"/api/webhooks/ff-reseller?token="+ffResellerWebhookToken(order.provider_order_id);
  res.set("Cache-Control","no-store").json({order,events:events.rows,callbackUrl});
 }));
