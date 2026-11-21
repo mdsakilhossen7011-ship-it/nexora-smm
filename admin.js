@@ -78,12 +78,51 @@ async function loadOrders(){
    const actions=el("div","user-actions"),details=el("button","user-action","Full order details");
    details.addEventListener("click",async()=>{details.disabled=true;try{const d=await request("/admin/orders/"+encodeURIComponent(o.id));const p=d.order;const info=el("div","user-detail-grid");[["Order ID",p.id],["Customer",p.full_name+" (@"+p.username+")"],["Email",p.email],["Phone",p.phone||"Not provided"],["Service",p.service_name],["Target",p.target],["Quantity",p.quantity],["Amount",money(p.charge_minor)],["Status",p.status],["Supplier order ID",p.provider_order_id||"Not assigned"],["Created",new Date(p.created_at).toLocaleString()],["Last updated",new Date(p.updated_at).toLocaleString()]].forEach(([k,v])=>info.append(el("span","",k+": "+String(v??"—"))));const box=card.querySelector(".order-detail");box.textContent="";box.append(info);box.hidden=!box.hidden;details.textContent=box.hidden?"Full order details":"Hide order details"}catch(e){alert(e.message)}finally{details.disabled=false}});
    actions.append(details);
+   const detailBox=el("div","user-detail order-detail");detailBox.hidden=true;
+   if(o.status==="processing"&&o.category==="free_fire"&&o.provider_order_id){
+    const reconcile=el("button","user-action","FF delivery check");
+    reconcile.addEventListener("click",async()=>{
+     if(!detailBox.hidden){detailBox.hidden=true;reconcile.textContent="FF delivery check";return}
+     reconcile.disabled=true;reconcile.textContent="Checking…";
+     try{
+      const d=await request("/admin/orders/"+encodeURIComponent(o.id)+"/ff-reconciliation");
+      const p=d.order;detailBox.replaceChildren();
+      const info=el("div","user-detail-grid");
+      [["Customer",p.full_name+" (@"+p.username+")"],["Player UID",p.target],["Supplier order ID",p.provider_order_id],["Current NEXORA status",p.status],["Supplier callbacks received",String(d.events.length)]].forEach(([k,v])=>info.append(el("span","",k+": "+String(v??"—"))));
+      detailBox.append(info,el("h3","user-activity-title","Supplier delivery evidence"));
+      if(!d.events.length)detailBox.append(el("p","users-footnote","No supplier webhook has reached NEXORA for this order yet. The supplier's dashboard status alone does not prove the diamonds reached the UID."));
+      d.events.forEach(ev=>{
+       const item=el("p","user-activity-row","Supplier callback: "+String(ev.status||"").toUpperCase()+" · "+new Date(ev.created_at).toLocaleString());
+       if(ev.payload?.content)item.append(document.createTextNode(" · Content: "+ev.payload.content));
+       if(ev.payload?.codes?.length)item.append(document.createTextNode(" · Codes: "+ev.payload.codes.join(", ")));
+       detailBox.append(item);
+      });
+      detailBox.append(el("p","users-footnote","Important: a supplier SUCCESS/COMPLETE callback is supplier-side evidence only. Keep this order Processing until the customer confirms the diamonds have appeared in the Player UID."));
+      const copy=el("button","user-action","Copy secure callback URL for supplier");
+      copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(d.callbackUrl);alert("Secure callback URL copied. Send it to the supplier only if they can resend this order's webhook.");}catch{prompt("Copy this secure callback URL and send it to the supplier:",d.callbackUrl)}});
+      detailBox.append(copy);
+      const confirmDelivery=el("button","user-action success","Mark delivered — customer confirmed");
+      confirmDelivery.addEventListener("click",async()=>{
+       const reason=prompt("Only continue AFTER the customer confirms diamonds arrived in UID "+p.target+". Record how/when the customer confirmed (10–250 characters):");
+       if(reason===null)return;
+       if(reason.trim().length<10||reason.trim().length>250){alert("Enter confirmation details (10–250 characters).");return}
+       if(!confirm("Customer has confirmed receiving the diamonds in the correct UID. Mark this order COMPLETED?"))return;
+       confirmDelivery.disabled=true;
+       try{await request("/admin/orders/"+encodeURIComponent(o.id)+"/confirm-delivered",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:reason.trim(),customerConfirmed:true})});alert("Customer-confirmed delivery recorded. Order marked completed.");await loadOrders();}
+       catch(error){alert(error.message);confirmDelivery.disabled=false}
+      });
+      detailBox.append(confirmDelivery);detailBox.hidden=false;reconcile.textContent="Hide delivery check";
+     }catch(error){alert(error.message);reconcile.textContent="FF delivery check"}
+     finally{reconcile.disabled=false}
+    });
+    actions.append(reconcile);
+   }
    if(o.status==="pending"){
     const cancel=el("button","user-action danger","Cancel & refund");
     cancel.addEventListener("click",async()=>{const reason=prompt("Cancellation reason (5–250 characters):");if(reason===null)return;if(reason.trim().length<5||reason.trim().length>250){alert("Reason must be 5–250 characters.");return}if(!confirm("Cancel this pending order and return "+money(o.charge_minor)+" to the customer's wallet?"))return;cancel.disabled=true;try{const result=await request("/admin/orders/"+encodeURIComponent(o.id)+"/cancel-refund",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:reason.trim()})});alert(result.status==="refunded"?"Order canceled and wallet refund recorded.":"Order canceled. No charge was present to refund.");await loadOrders()}catch(e){alert(e.message);cancel.disabled=false}});
     actions.append(cancel);
    }
-   const detailBox=el("div","user-detail order-detail");detailBox.hidden=true;card.append(actions,detailBox);list.append(card);
+   card.append(actions,detailBox);list.append(card);
   });
  }catch(e){status.textContent="Could not load orders";list.append(el("div","empty-admin admin-error",e.message))}
 }

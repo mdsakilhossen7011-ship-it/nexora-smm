@@ -376,8 +376,8 @@ async function syncFFResellerOrder(orderId,userId){
  const state=ffProviderStatus(data);
  if(state==="failed"){await refundFFResellerOrder(orderId,userId,"Automatic refund: FF Reseller order failed");return;}
  if(state==="completed"){
-  const updated=await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
-  console.info("FF Reseller order status synced:",{orderId,state,updated:updated.rowCount===1});
+  await pool.query("INSERT INTO ff_reseller_webhook_events(order_id,provider_order_id,status,payload) SELECT $1,$2,'completed',$3::jsonb WHERE NOT EXISTS (SELECT 1 FROM ff_reseller_webhook_events WHERE order_id=$1 AND status='completed' AND created_at>NOW()-INTERVAL '1 day')",[orderId,found.rows[0].provider_order_id,JSON.stringify({source:"supplier_status_api"})]);
+  console.info("FF Reseller supplier reports completed; awaiting customer confirmation:",{orderId});
   return;
  }
  const statusKeys=[];
@@ -411,17 +411,18 @@ app.post("/api/webhooks/ff-reseller",ffWebhookLimiter,asyncRoute(async(req,res)=
  const order=found.rows[0];
  if(!String(order.provider_service_id||"").startsWith("ffreseller:")||String(order.provider_service_id).startsWith("ffreseller:U"))return res.status(400).json({error:"Webhook does not match a supported FF UID order."});
  if(order.status!=="processing")return res.json({ok:true,alreadyFinal:true,status:order.status});
+ if(!["success","complete","completed","failed","failure","error","cancelled","canceled"].includes(status))return res.status(400).json({error:"Unsupported supplier webhook status."});
+ const callbackPayload={content:typeof req.body?.content==="string"?req.body.content.slice(0,2000):"",codes:Array.isArray(req.body?.codes)?req.body.codes.slice(0,20).map(value=>String(value).slice(0,200)):[]};
+ await pool.query("INSERT INTO ff_reseller_webhook_events(order_id,provider_order_id,status,payload) VALUES($1,$2,$3,$4::jsonb)",[order.id,orderId,status,JSON.stringify(callbackPayload)]);
  if(["success","complete","completed"].includes(status)){
-  const updated=await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[order.id,order.user_id]);
-  console.info("FF Reseller webhook marked order completed:",{orderId,updated:updated.rowCount===1});
-  return res.json({ok:true,status:updated.rowCount?"completed":"unchanged"});
+  console.info("FF Reseller reported delivery; awaiting customer confirmation:",{orderId});
+  return res.json({ok:true,status:"awaiting_customer_confirmation"});
  }
  if(["failed","failure","error","cancelled","canceled"].includes(status)){
   const refunded=await refundFFResellerOrder(order.id,order.user_id,"Automatic refund: FF Reseller webhook reported "+status);
   console.info("FF Reseller webhook reported failed order:",{orderId,refunded});
   return res.json({ok:true,status:refunded?"refunded":"unchanged"});
  }
- return res.status(400).json({error:"Unsupported supplier webhook status."});
 }));
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const pending=await pool.query("SELECT o.id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 AND o.status='processing' AND s.provider_service_id LIKE 'ffreseller:%' AND s.provider_service_id NOT LIKE 'ffreseller:U%' AND o.provider_order_id IS NOT NULL ORDER BY o.created_at ASC LIMIT 10",[req.user.id]);
@@ -656,6 +657,35 @@ app.get("/api/admin/orders/:id",requireAuth,requireAdmin,asyncRoute(async(req,re
   if(!r.rowCount)return res.status(404).json({error:"Order not found."});
   res.json({order:r.rows[0]});
 }));
+app.get("/api/admin/orders/:id/ff-reconciliation",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const r=await pool.query("SELECT o.id,o.user_id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,o.updated_at,o.provider_order_id,s.name AS service_name,s.provider_service_id,u.full_name,u.username FROM orders o JOIN services s ON s.id=o.service_id JOIN users u ON u.id=o.user_id WHERE o.id=$1",[req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Order not found."});
+ const order=r.rows[0];
+ if(!String(order.provider_service_id||"").startsWith("ffreseller:")||String(order.provider_service_id).startsWith("ffreseller:U")||!order.provider_order_id)return res.status(400).json({error:"This is not a supported FF Reseller UID order."});
+ const events=await pool.query("SELECT status,payload,created_at FROM ff_reseller_webhook_events WHERE order_id=$1 ORDER BY created_at DESC LIMIT 20",[order.id]);
+ const origin=(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\/+$/,"");
+ const callbackUrl=origin+"/api/webhooks/ff-reseller?token="+ffResellerWebhookToken(order.provider_order_id);
+ res.set("Cache-Control","no-store").json({order,events:events.rows,callbackUrl});
+}));
+app.post("/api/admin/orders/:id/confirm-delivered",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({reason:z.string().trim().min(10).max(250),customerConfirmed:z.literal(true)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Customer confirmation details are required (10–250 characters)."});
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const found=await client.query("SELECT o.id,o.user_id,o.status,o.provider_order_id,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 FOR UPDATE OF o",[req.params.id]);
+  if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Order not found."});}
+  const order=found.rows[0];
+  if(!String(order.provider_service_id||"").startsWith("ffreseller:")||String(order.provider_service_id).startsWith("ffreseller:U")||!order.provider_order_id){await client.query("ROLLBACK");return res.status(400).json({error:"This is not a supported FF Reseller UID order."});}
+  if(order.status!=="processing"){await client.query("ROLLBACK");return res.status(409).json({error:"Only a processing order can be reconciled."});}
+  const updated=await client.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND status='processing' RETURNING id",[order.id]);
+  if(!updated.rowCount){await client.query("ROLLBACK");return res.status(409).json({error:"Order status changed. Refresh and review it again."});}
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'ff_reseller_delivery_customer_confirmed','order',$2,$3::jsonb)",[req.user.id,order.id,JSON.stringify({provider_order_id:order.provider_order_id,customer_confirmation:parsed.data.reason})]);
+  await client.query("COMMIT");
+  res.json({ok:true,status:"completed"});
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
 app.post("/api/admin/orders/:id/cancel-refund",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const parsed=z.object({reason:z.string().trim().min(5).max(250)}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Enter a cancellation reason (5–250 characters)."});
@@ -911,6 +941,8 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
  .then(()=>pool.query("INSERT INTO referral_settings(id,commission_percent,enabled) VALUES(TRUE,5.00,FALSE) ON CONFLICT(id) DO NOTHING"))
  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS announcements (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),title VARCHAR(180) NOT NULL,body TEXT NOT NULL,active BOOLEAN NOT NULL DEFAULT TRUE,created_by UUID NOT NULL REFERENCES users(id),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS audit_logs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),actor_id UUID REFERENCES users(id),action VARCHAR(100) NOT NULL,entity_type VARCHAR(60) NOT NULL,entity_id UUID,details JSONB NOT NULL DEFAULT '{}'::jsonb,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS ff_reseller_webhook_events (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,provider_order_id VARCHAR(120) NOT NULL,status VARCHAR(40) NOT NULL,payload JSONB NOT NULL DEFAULT '{}'::jsonb,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS ff_reseller_webhook_events_order_date_idx ON ff_reseller_webhook_events(order_id,created_at DESC)"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_tickets (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES users(id),subject VARCHAR(180) NOT NULL,status VARCHAR(16) NOT NULL DEFAULT 'open',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS ticket_messages (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),ticket_id UUID NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,sender_id UUID NOT NULL REFERENCES users(id),message TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("ALTER TABLE support_tickets DROP CONSTRAINT IF EXISTS support_tickets_status_check"))
