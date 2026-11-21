@@ -412,6 +412,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   if(isFFReseller&&!process.env.FF_RESELLER_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller API key is not configured. No balance was deducted."});}
   if(!isFFReseller&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
   const isVoucher=isFFReseller&&providerId.startsWith("ffreseller:U");
+  if(isFFReseller&&BigInt(s.price_per_1000_minor)<=BigInt(s.cost_per_1000_minor||0)){await client.query("ROLLBACK");return res.status(400).json({error:"Admin must set a customer selling price above the supplier cost before this package can be ordered. No balance was deducted."});}
   if(isVoucher&&process.env.FF_RESELLER_VOUCHERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"UniPin voucher orders are not enabled until supplier delivery and status handling are verified. No balance was deducted."});}
   if(isFFReseller&&!isVoucher&&!/^[0-9]{6,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 6–12 digit Free Fire Player UID."});}
   if(!isFFReseller&&isFF&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
