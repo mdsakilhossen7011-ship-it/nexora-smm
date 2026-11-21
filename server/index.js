@@ -348,23 +348,23 @@ app.get("/api/public/recent-orders",asyncRoute(async(_req,res)=>{
  const result=await pool.query("SELECT s.name AS service_name,o.created_at FROM orders o JOIN services s ON s.id=o.service_id WHERE s.category='free_fire' AND o.status='completed' AND o.created_at>NOW()-INTERVAL '24 hours' ORDER BY o.created_at DESC LIMIT 8");
  res.set("Cache-Control","public, max-age=30").json({orders:result.rows.map(row=>({service_name:row.service_name,time_label:Math.max(1,Math.floor((Date.now()-new Date(row.created_at).getTime())/60000))+" min ago"}))});
 }));
-async function syncFFResellerOrder(orderId,userId){
+async function refundFFResellerOrder(orderId,userId,note){
  const client=await pool.connect();
  try{
   await client.query("BEGIN");
-  const found=await client.query("SELECT o.*,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2 FOR UPDATE",[orderId,userId]);
-  if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_service_id||"").startsWith("ffreseller:")||String(found.rows[0].provider_service_id).startsWith("ffreseller:U")||!found.rows[0].provider_order_id){await client.query("COMMIT");return;}
-  const order=found.rows[0];let data;
-  try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(order.provider_order_id));}
-  catch(error){await client.query("ROLLBACK");return;}
-  const state=ffProviderStatus(data);
-  if(state==="completed")await client.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND status='processing'",[orderId]);
-  else if(state==="failed"){
-   const updated=await client.query("UPDATE orders SET status='refunded',updated_at=NOW() WHERE id=$1 AND status='processing' RETURNING user_id,charge_minor",[orderId]);
-   if(updated.rowCount){const amount=updated.rows[0].charge_minor;await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount,userId]);await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,'Automatic refund: FF Reseller order failed')",[userId,amount,orderId]);}
-  }
+  const updated=await client.query("UPDATE orders SET status='refunded',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing' RETURNING charge_minor",[orderId,userId]);
+  if(updated.rowCount){const amount=updated.rows[0].charge_minor;await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount,userId]);await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,$4)",[userId,amount,orderId,note||"Automatic refund: FF Reseller rejected order"]);}
   await client.query("COMMIT");
- }catch(error){await client.query("ROLLBACK");console.error("FF Reseller order status sync failed:",error.message);}finally{client.release();}
+ }catch(error){await client.query("ROLLBACK");console.error("FF Reseller refund failed:",error.message);}finally{client.release();}
+}
+async function syncFFResellerOrder(orderId,userId){
+ // Network lookup is deliberately outside the DB transaction/row lock.
+ const found=await pool.query("SELECT o.provider_order_id,o.status,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
+ if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_service_id||"").startsWith("ffreseller:")||String(found.rows[0].provider_service_id).startsWith("ffreseller:U")||!found.rows[0].provider_order_id)return;
+ let data;try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(found.rows[0].provider_order_id));}catch(error){return;}
+ const state=ffProviderStatus(data);
+ if(state==="failed"){await refundFFResellerOrder(orderId,userId,"Automatic refund: FF Reseller order failed");return;}
+ if(state==="completed")await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
 }
 app.post("/api/webhooks/ff-reseller",asyncRoute(async(req,res)=>{
  const orderId=String(req.body?.orderid||"");
@@ -395,18 +395,21 @@ async function ffResellerRequest(path,body){
 }
 function ffProviderStatus(data){const raw=String(data?.status??data?.data?.status??data?.order?.status??"").toLowerCase();if(["success","successful","completed","complete","delivered"].includes(raw))return"completed";if(["failed","failure","error","cancelled","canceled","rejected"].includes(raw))return"failed";return"processing";}
 app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
- const parsed=z.object({serviceId:z.string().uuid(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
+ const parsed=z.object({serviceId:z.string().uuid(),requestId:z.string().uuid().optional(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid order details."});
- const client=await pool.connect();let committed=false;
+ const orderId=parsed.data.requestId||crypto.randomUUID();
+ const client=await pool.connect();let committed=false;let orderRow=null;let ffContext=null;
  try{
   await client.query("BEGIN");
+  const prior=await client.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1 AND user_id=$2",[orderId,req.user.id]);
+  if(prior.rowCount){await client.query("COMMIT");return res.status(200).json({order:prior.rows[0],message:"This order request was already received. It will not be submitted again.",duplicate:true});}
   const svc=await client.query("SELECT * FROM services WHERE id=$1 AND enabled=true FOR UPDATE",[parsed.data.serviceId]);
   if(!svc.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Service unavailable."});}
   const s=svc.rows[0],q=parsed.data.quantity,isFF=s.category==="free_fire",providerId=String(s.provider_service_id||"");
   if(!isFF&&parsed.data.target.trim().length<2){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid target for this service."});}
   const isFFReseller=isFF&&providerId.startsWith("ffreseller:");
-  if(isFFReseller){if(process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}}
-  else if(process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
+  if(isFFReseller&&process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}
+  if(!isFFReseller&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
   const isVoucher=isFFReseller&&providerId.startsWith("ffreseller:U");
   if(isFFReseller&&!isVoucher&&!/^[0-9]{6,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 6–12 digit Free Fire Player UID."});}
   if(!isFFReseller&&isFF&&!/^[0-9]{5,12}$/.test(parsed.data.target)){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid 5–12 digit Free Fire Player UID."});}
@@ -415,26 +418,39 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const charge=BigInt(Math.ceil(Number(s.price_per_1000_minor)*q/1000));
   const wallet=await client.query("SELECT balance_minor FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
   if(!wallet.rowCount||BigInt(wallet.rows[0].balance_minor)<charge){await client.query("ROLLBACK");return res.status(400).json({error:"Insufficient wallet balance."});}
-  const orderId=crypto.randomUUID();let providerData=null,providerState="processing";
-  if(isFFReseller){
-   const tag=providerId.slice("ffreseller:".length);
-   try{
-    providerData=isVoucher
-      ?await ffResellerRequest("/api/resaleorder/bulk",{items:[{tag_line:tag,quantity:packageCount}]})
-      :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:parsed.data.target},selectedPackage:{id:1,tag_line:tag},quantity:packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\/+$/,"")+"/api/webhooks/ff-reseller"});
-    providerState=ffProviderStatus(providerData);
-    if(providerState==="failed")throw Object.assign(new Error(providerData?.message||providerData?.error||"FF Reseller rejected this order."),{status:502});
-    if(isVoucher)providerState=(Array.isArray(providerData?.codes)&&providerData.codes.length||typeof providerData?.content==="string"&&providerData.content.trim())?"completed":"processing";
-   }catch(error){await client.query("ROLLBACK");return res.status(error.status||502).json({error:error.message,noBalanceDeducted:true,checkProviderIfRequestTimedOut:Boolean(error.uncertain)});}
-  }
-  const voucherPayload=isVoucher?(Array.isArray(providerData?.codes)?providerData.codes.join("\\n"):String(providerData?.content||"")):"";
-  const order=await client.query("INSERT INTO orders(id,user_id,service_id,target,quantity,charge_minor,status,provider_order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,status,charge_minor,created_at",[orderId,req.user.id,s.id,isVoucher?(voucherPayload?"UNIPIN CODE: "+voucherPayload:"UNIPIN VOUCHER"):parsed.data.target,q,charge.toString(),providerState==="completed"?"completed":"processing",isFFReseller&&!isVoucher?orderId:null]);
+  const inserted=await client.query("INSERT INTO orders(id,user_id,service_id,target,quantity,charge_minor,status,provider_order_id) VALUES($1,$2,$3,$4,$5,$6,'processing',$7) ON CONFLICT(id) DO NOTHING RETURNING id,status,charge_minor,created_at",[orderId,req.user.id,s.id,isVoucher?"UNIPIN VOUCHER":parsed.data.target,q,charge.toString(),isFFReseller?orderId:null]);
+  if(!inserted.rowCount){await client.query("ROLLBACK");const existing=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1 AND user_id=$2",[orderId,req.user.id]);return res.status(200).json({order:existing.rows[0],message:"This order request was already received. It will not be submitted again.",duplicate:true});}
   await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor-$1,total_spent_minor=total_spent_minor+$1,updated_at=NOW() WHERE user_id=$2",[charge.toString(),req.user.id]);
   await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'order_charge',$3,$4)",[req.user.id,(-charge).toString(),orderId,"Order charge"]);
-  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'ff_reseller_order_submitted','order',$2,$3::jsonb)",[req.user.id,orderId,JSON.stringify({provider:"FF_RESELLER",tag,isVoucher,providerStatus:providerState})]);
-  await client.query("COMMIT");committed=true;
-  res.status(201).json({order:order.rows[0],message:providerState==="completed"?"Order completed successfully.":"Order submitted to FF Reseller. Status: processing.",providerStatus:providerState,providerResult:providerData?.codes||providerData?.content||undefined});
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'order',$3,$4::jsonb)",[req.user.id,isFFReseller?"ff_reseller_order_queued":"order_submitted",orderId,JSON.stringify({provider:isFFReseller?"FF_RESELLER":null,tag:isFFReseller?providerId.slice("ffreseller:".length):null,isVoucher,requestId:orderId})]);
+  await client.query("COMMIT");committed=true;orderRow=inserted.rows[0];
+  if(isFFReseller)ffContext={tag:providerId.slice("ffreseller:".length),isVoucher,packageCount,target:parsed.data.target};
  }catch(error){if(!committed)await client.query("ROLLBACK");throw error;}finally{client.release();}
+ if(ffContext){
+  let providerData;
+  try{
+   providerData=ffContext.isVoucher
+    ?await ffResellerRequest("/api/resaleorder/bulk",{items:[{tag_line:ffContext.tag,quantity:ffContext.packageCount}]})
+    :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:ffContext.target},selectedPackage:{id:1,tag_line:ffContext.tag},quantity:ffContext.packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\\/+$/,"")+"/api/webhooks/ff-reseller"});
+   const state=ffProviderStatus(providerData);
+   const msg=String(typeof providerData==="string"?providerData:(providerData?.message||providerData?.error||""));
+   if(state==="failed"||/insufficient balance|stock is not available|package not found|unauthorized|validation error/i.test(msg)){
+    await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: "+(msg||"FF Reseller rejected order"));
+    const refreshed=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
+    return res.status(502).json({order:refreshed.rows[0],error:msg||"FF Reseller rejected this order. Your wallet was refunded.",refunded:true});
+   }
+   let voucherPayload="";
+   if(ffContext.isVoucher){voucherPayload=Array.isArray(providerData?.codes)?providerData.codes.join("\\n"):String(providerData?.content||"");if(voucherPayload)await pool.query("UPDATE orders SET target=$2,status='completed',updated_at=NOW() WHERE id=$1 AND status='processing'",[orderId,"UNIPIN CODE: "+voucherPayload]);}
+   else if(state==="completed")await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND status='processing'",[orderId]);
+   orderRow=(await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId])).rows[0];
+   return res.status(201).json({order:orderRow,message:orderRow.status==="completed"?"Order completed successfully.":"Order accepted for processing. If supplier confirmation is delayed, do not place it again.",providerStatus:orderRow.status,providerResult:providerData?.codes||providerData?.content||undefined});
+  }catch(error){
+   if(error.providerRejected){await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: "+error.message);}
+   const refreshed=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
+   return res.status(201).json({order:refreshed.rows[0],message: error.uncertain?"Supplier response timed out. Order is held for status checking; do not submit it again.":"Order is held for admin verification. Do not submit it again.",providerPending:true});
+  }
+ }
+ return res.status(201).json({order:orderRow,message:"Order submitted."});
 }));
 
 app.get("/api/public/payment-settings",asyncRoute(async(_req,res)=>{const r=await pool.query("SELECT method,account_number,account_type FROM payment_settings WHERE active=TRUE");const settings={};for(const x of r.rows)settings[x.method]={number:x.account_number,type:x.account_type};res.set("Cache-Control","no-store").json({settings});}));
