@@ -1307,3 +1307,29 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     margin-top: auto !important;
   }
 }
+
+
+/* Smaller Explore services buttons — final requested size adjustment */
+#homePage > .services-section .service-card-cta {
+  min-height: 20px !important;
+  height: 20px !important;
+  padding: 3px 7px !important;
+  gap: 3px !important;
+  font-size: 7.5px !important;
+  line-height: 1 !important;
+  border-radius: 6px !important;
+}
+#homePage > .services-section .service-card-cta span {
+  font-size: 9px !important;
+}
+@media (max-width: 600px) {
+  #homePage > .services-section .service-card-cta {
+    min-height: 19px !important;
+    height: 19px !important;
+    padding: 3px 6px !important;
+    font-size: 6.8px !important;
+  }
+  #homePage > .services-section .service-card-cta span {
+    font-size: 8px !important;
+  }
+}
