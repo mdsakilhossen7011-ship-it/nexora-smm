@@ -421,7 +421,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
    try{
     providerData=isVoucher
       ?await ffResellerRequest("/api/resaleorder/bulk",{items:[{tag_line:tag,quantity:packageCount}]})
-      :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:parsed.data.target},selectedPackage:{id:1,tag_line:tag},quantity:packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\\/$/,"")+"/api/webhooks/ff-reseller"});
+      :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:parsed.data.target},selectedPackage:{id:1,tag_line:tag},quantity:packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\/+$/,"")+"/api/webhooks/ff-reseller"});
     providerState=ffProviderStatus(providerData);
     if(providerState==="failed")throw Object.assign(new Error(providerData?.message||providerData?.error||"FF Reseller rejected this order."),{status:502});
     if(isVoucher)providerState=(Array.isArray(providerData?.codes)&&providerData.codes.length||typeof providerData?.content==="string"&&providerData.content.trim())?"completed":"processing";
