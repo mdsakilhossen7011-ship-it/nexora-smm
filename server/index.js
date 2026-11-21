@@ -348,7 +348,27 @@ app.get("/api/public/recent-orders",asyncRoute(async(_req,res)=>{
  const result=await pool.query("SELECT s.name AS service_name,o.created_at FROM orders o JOIN services s ON s.id=o.service_id WHERE s.category='free_fire' AND o.status='completed' AND o.created_at>NOW()-INTERVAL '24 hours' ORDER BY o.created_at DESC LIMIT 8");
  res.set("Cache-Control","public, max-age=30").json({orders:result.rows.map(row=>({service_name:row.service_name,time_label:Math.max(1,Math.floor((Date.now()-new Date(row.created_at).getTime())/60000))+" min ago"}))});
 }));
+async function syncFFResellerOrder(orderId,userId){
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const found=await client.query("SELECT o.*,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2 FOR UPDATE",[orderId,userId]);
+  if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_service_id||"").startsWith("ffreseller:")||String(found.rows[0].provider_service_id).startsWith("ffreseller:U")||!found.rows[0].provider_order_id){await client.query("COMMIT");return;}
+  const order=found.rows[0];let data;
+  try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(order.provider_order_id));}
+  catch(error){await client.query("ROLLBACK");return;}
+  const state=ffProviderStatus(data);
+  if(state==="completed")await client.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND status='processing'",[orderId]);
+  else if(state==="failed"){
+   const updated=await client.query("UPDATE orders SET status='refunded',updated_at=NOW() WHERE id=$1 AND status='processing' RETURNING user_id,charge_minor",[orderId]);
+   if(updated.rowCount){const amount=updated.rows[0].charge_minor;await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount,userId]);await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,'Automatic refund: FF Reseller order failed')",[userId,amount,orderId]);}
+  }
+  await client.query("COMMIT");
+ }catch(error){await client.query("ROLLBACK");console.error("FF Reseller order status sync failed:",error.message);}finally{client.release();}
+}
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
+  const pending=await pool.query("SELECT o.id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 AND o.status='processing' AND s.provider_service_id LIKE 'ffreseller:%' AND s.provider_service_id NOT LIKE 'ffreseller:U%' AND o.provider_order_id IS NOT NULL ORDER BY o.created_at ASC LIMIT 10",[req.user.id]);
+  for(const item of pending.rows)await syncFFResellerOrder(item.id,req.user.id);
   const result=await pool.query("SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,s.name AS service_name FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 100",[req.user.id]);
   res.json({orders:result.rows});
 }));
