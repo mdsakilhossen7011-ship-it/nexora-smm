@@ -53,6 +53,36 @@ app.use(async (req,res,next)=>{
 });
 
 
+// Same-origin delivery for the official Free Fire character artwork.
+// The upstream URL is fixed (not user-controlled) to prevent an open proxy.
+app.get("/media/free-fire-character", asyncRoute(async (_req, res) => {
+  const upstream = await fetch("https://dl.dir.freefiremobile.com/common/web_event/official2.ff.garena.all/20238/4f4fc6c6d43fc3bb5ef4617f9f5340f7.png", {
+    headers: { "Accept": "image/avif,image/webp,image/png,image/*;q=0.8", "User-Agent": "Mozilla/5.0 NEXORA-SMM/1.0" },
+    signal: AbortSignal.timeout(10000),
+    redirect: "error"
+  });
+  if (!upstream.ok) {
+    console.error("Free Fire artwork upstream returned HTTP", upstream.status);
+    return res.status(502).type("text/plain").send("Free Fire artwork is temporarily unavailable.");
+  }
+  const contentType = upstream.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().startsWith("image/")) {
+    console.error("Free Fire artwork upstream returned non-image content:", contentType);
+    return res.status(502).type("text/plain").send("Free Fire artwork source did not return an image.");
+  }
+  const bytes = Buffer.from(await upstream.arrayBuffer());
+  if (!bytes.length || bytes.length > 8 * 1024 * 1024) {
+    return res.status(502).type("text/plain").send("Free Fire artwork has an invalid size.");
+  }
+  res.set({
+    "Content-Type": contentType,
+    "Content-Length": String(bytes.length),
+    "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+    "X-Content-Type-Options": "nosniff"
+  }).send(bytes);
+}));
+
+
 const cookieOptions = { httpOnly: true, secure: production || process.env.SESSION_COOKIE_SECURE === "true", sameSite: "lax", path: "/", maxAge: 7 * 24 * 60 * 60 * 1000 };
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const newToken = () => crypto.randomBytes(32).toString("base64url");
