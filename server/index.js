@@ -544,8 +544,8 @@ const publicApiLimiter=rateLimit({windowMs:60*1000,limit:60,standardHeaders:true
 app.post("/api/v2",publicApiLimiter,asyncRoute(async(req,res)=>{
  const apiKey=String(req.body?.key||req.headers["x-api-key"]||""),action=String(req.body?.action||"").trim().toLowerCase();
  if(!/^nx_live_[A-Za-z0-9_-]{30,}$/.test(apiKey))return res.status(401).json({error:"Invalid API key."});
- const found=await pool.query("SELECT u.id,u.status,k.id AS api_key_id FROM user_api_keys k JOIN users u ON u.id=k.user_id WHERE k.key_hash=$1 AND k.revoked_at IS NULL LIMIT 1",[hashToken(apiKey)]);
- if(!found.rowCount||found.rows[0].status!=="active")return res.status(401).json({error:"Invalid API key or inactive account."});
+ const found=await pool.query("SELECT u.id,u.status,u.role,k.id AS api_key_id FROM user_api_keys k JOIN users u ON u.id=k.user_id WHERE k.key_hash=$1 AND k.revoked_at IS NULL LIMIT 1",[hashToken(apiKey)]);
+ if(!found.rowCount||found.rows[0].status!=="active"||found.rows[0].role!=="user")return res.status(401).json({error:"Invalid API key or inactive account."});
  const apiUser=found.rows[0];await pool.query("UPDATE user_api_keys SET last_used_at=NOW() WHERE id=$1",[apiUser.api_key_id]);
  if(action==="services"){const r=await pool.query("SELECT id,category,name,description,price_per_1000_minor,min_quantity,max_quantity FROM services WHERE enabled=TRUE ORDER BY category,name");return res.json(r.rows.map(x=>({service:x.id,name:x.name,category:x.category,description:x.description||"",rate:Number(x.price_per_1000_minor)/100,min:x.min_quantity,max:x.max_quantity,currency:"BDT"})));}
  if(action==="balance"){const r=await pool.query("SELECT balance_minor FROM wallet_accounts WHERE user_id=$1",[apiUser.id]);return res.json({balance:Number(r.rows[0]?.balance_minor||0)/100,currency:"BDT"});}
