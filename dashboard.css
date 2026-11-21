@@ -517,9 +517,9 @@
 
 
 /* Deposit method logo picker */
-.deposit-method-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.deposit-method-option{display:flex;align-items:center;justify-content:center;min-width:0;min-height:58px;padding:10px 8px;border:1px solid #5a558855;border-radius:13px;background:linear-gradient(145deg,#191d39,#11152b);color:#fff;cursor:pointer;transition:border-color .18s,background .18s,box-shadow .18s,transform .18s}
-.deposit-method-option .money-method-logo{font-size:15px;text-align:center;white-space:normal}
-.deposit-method-option.is-selected{border-color:#a66aff;background:linear-gradient(135deg,#38205e,#18264b);box-shadow:0 0 0 2px #8a42ff28,0 0 17px #7e3bff30;transform:translateY(-1px)}
+.deposit-method-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-width:420px}
+.deposit-method-option{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:9px;min-width:0;min-height:48px;padding:7px 9px;border:1px solid #5a558855;border-radius:10px;background:linear-gradient(145deg,#191d39,#11152b);color:#fff;cursor:pointer;transition:border-color .18s,background .18s,box-shadow .18s}
+.deposit-method-option .deposit-brand-logo{display:block;width:25px;height:25px;object-fit:contain;flex:0 0 25px}
+.deposit-method-option .deposit-brand-name{font-size:12px;font-weight:800;line-height:1.2;text-align:left;white-space:normal}
+.deposit-method-option.is-selected{border-color:#a66aff;background:linear-gradient(135deg,#38205e,#18264b);box-shadow:0 0 0 2px #8a42ff28,0 0 12px #7e3bff25}
 .deposit-method-option:focus-visible{outline:2px solid #c49aff;outline-offset:2px}
-.deposit-method-option .money-bkash-logo{font-size:19px}.deposit-method-option .money-nagad-logo{color:#ff8a32}.deposit-method-option .money-crypto-logo{font-size:13px}
