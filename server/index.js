@@ -29,6 +29,7 @@ app.use(helmet({
 }));
 app.use(cors({ origin: (process.env.APP_ORIGIN || "").split(",").filter(Boolean), credentials: true }));
 app.use(express.json({ limit: "1.2mb" }));
+app.use(express.urlencoded({ extended: false, limit: "64kb" }));
 app.use("/api/auth", rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
 app.use(async (req,res,next)=>{
  try{
@@ -329,6 +330,21 @@ app.post("/api/auth/logout",requireAuth,asyncRoute(async(req,res)=>{
   if(raw) await pool.query("DELETE FROM sessions WHERE token_hash=$1",[hashToken(decodeURIComponent(raw))]);
   res.clearCookie("nexora_session",{...cookieOptions,maxAge:undefined}).json({ok:true});
 }));
+app.get("/api/developer/api-key",requireAuth,asyncRoute(async(req,res)=>{
+ const r=await pool.query("SELECT key_prefix,created_at,last_used_at FROM user_api_keys WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1",[req.user.id]);
+ res.set("Cache-Control","no-store").json({active:Boolean(r.rowCount),key_prefix:r.rows[0]?.key_prefix||null,created_at:r.rows[0]?.created_at||null,last_used_at:r.rows[0]?.last_used_at||null});
+}));
+app.post("/api/developer/api-key",requireAuth,asyncRoute(async(req,res)=>{
+ const key="nx_live_"+crypto.randomBytes(32).toString("base64url"),prefix=key.slice(0,15),client=await pool.connect();
+ try{await client.query("BEGIN");await client.query("UPDATE user_api_keys SET revoked_at=NOW() WHERE user_id=$1 AND revoked_at IS NULL",[req.user.id]);await client.query("INSERT INTO user_api_keys(user_id,key_hash,key_prefix) VALUES($1,$2,$3)",[req.user.id,hashToken(key),prefix]);await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'customer_api_key_created','user_api_key',$2::jsonb)",[req.user.id,JSON.stringify({key_prefix:prefix})]);await client.query("COMMIT");}
+ catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+ res.set("Cache-Control","no-store").json({ok:true,key,warning:"Copy this key now. It will not be shown again."});
+}));
+app.delete("/api/developer/api-key",requireAuth,asyncRoute(async(req,res)=>{
+ await pool.query("UPDATE user_api_keys SET revoked_at=NOW() WHERE user_id=$1 AND revoked_at IS NULL",[req.user.id]);
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type) VALUES($1,'customer_api_key_revoked','user_api_key')",[req.user.id]);
+ res.json({ok:true});
+}));
 app.get("/api/me",requireAuth,asyncRoute(async(req,res)=>{
   const result=await pool.query("SELECT u.id,u.full_name,u.username,u.email,u.phone,u.role,u.created_at,w.balance_minor,w.total_spent_minor,(SELECT COUNT(*) FROM orders o WHERE o.user_id=u.id AND o.status='completed') AS completed_orders FROM users u JOIN wallet_accounts w ON w.user_id=u.id WHERE u.id=$1",[req.user.id]);
   res.json({user:result.rows[0]});
@@ -461,7 +477,7 @@ function ffProviderStatus(data){
  if(statuses.some(value=>terminalComplete.has(value)))return"completed";
  return"processing";
 }
-app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
+async function createOrder(req,res){
  const parsed=z.object({serviceId:z.string().uuid(),requestId:z.string().uuid().optional(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid order details."});
  const orderId=parsed.data.requestId||crypto.randomUUID();
@@ -522,6 +538,27 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   }
  }
  return res.status(201).json({order:orderRow,message:"Order submitted."});
+}
+app.post("/api/orders",requireAuth,asyncRoute(createOrder));
+const publicApiLimiter=rateLimit({windowMs:60*1000,limit:60,standardHeaders:true,legacyHeaders:false,message:{error:"Rate limit exceeded. Try again shortly."}});
+app.post("/api/v2",publicApiLimiter,asyncRoute(async(req,res)=>{
+ const apiKey=String(req.body?.key||req.headers["x-api-key"]||""),action=String(req.body?.action||"").trim().toLowerCase();
+ if(!/^nx_live_[A-Za-z0-9_-]{30,}$/.test(apiKey))return res.status(401).json({error:"Invalid API key."});
+ const found=await pool.query("SELECT u.id,u.status,k.id AS api_key_id FROM user_api_keys k JOIN users u ON u.id=k.user_id WHERE k.key_hash=$1 AND k.revoked_at IS NULL LIMIT 1",[hashToken(apiKey)]);
+ if(!found.rowCount||found.rows[0].status!=="active")return res.status(401).json({error:"Invalid API key or inactive account."});
+ const apiUser=found.rows[0];await pool.query("UPDATE user_api_keys SET last_used_at=NOW() WHERE id=$1",[apiUser.api_key_id]);
+ if(action==="services"){const r=await pool.query("SELECT id,category,name,description,price_per_1000_minor,min_quantity,max_quantity FROM services WHERE enabled=TRUE ORDER BY category,name");return res.json(r.rows.map(x=>({service:x.id,name:x.name,category:x.category,description:x.description||"",rate:Number(x.price_per_1000_minor)/100,min:x.min_quantity,max:x.max_quantity,currency:"BDT"})));}
+ if(action==="balance"){const r=await pool.query("SELECT balance_minor FROM wallet_accounts WHERE user_id=$1",[apiUser.id]);return res.json({balance:Number(r.rows[0]?.balance_minor||0)/100,currency:"BDT"});}
+ if(action==="status"){const orderId=String(req.body?.order||"");if(!/^[0-9a-f-]{36}$/i.test(orderId))return res.status(400).json({error:"A valid order ID is required."});const r=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1 AND user_id=$2",[orderId,apiUser.id]);if(!r.rowCount)return res.status(404).json({error:"Order not found."});return res.json({order:r.rows[0].id,status:r.rows[0].status,charge:Number(r.rows[0].charge_minor)/100,currency:"BDT",created_at:r.rows[0].created_at});}
+ if(action==="add"){
+  const serviceId=String(req.body?.service||""),quantity=Number(req.body?.quantity),target=String(req.body?.link??req.body?.target??"").trim();
+  if(!/^[0-9a-f-]{36}$/i.test(serviceId)||!Number.isSafeInteger(quantity)||quantity<1||target.length>500)return res.status(400).json({error:"Provide valid service, quantity and link/target values."});
+  const fakeRes={statusCode:200,payload:null,status(code){this.statusCode=code;return this;},json(data){this.payload=data;return this;}};
+  await createOrder({user:{id:apiUser.id},body:{serviceId,quantity,target}},fakeRes);const payload=fakeRes.payload||{};
+  if(fakeRes.statusCode>=400)return res.status(fakeRes.statusCode).json({error:payload.error||payload.message||"Order could not be submitted.",refunded:Boolean(payload.refunded)});
+  return res.status(200).json({order:payload.order?.id,status:payload.order?.status||"processing",charge:Number(payload.order?.charge_minor||0)/100,currency:"BDT",message:payload.message||"Order accepted."});
+ }
+ return res.status(400).json({error:"Invalid action. Use services, balance, add or status."});
 }));
 
 app.get("/api/public/money-limits",asyncRoute(async(_req,res)=>{const r=await pool.query("SELECT minimum_deposit_bdt,minimum_withdrawal_bdt FROM money_request_settings WHERE id=TRUE");const x=r.rows[0]||{minimum_deposit_bdt:100,minimum_withdrawal_bdt:100};res.set("Cache-Control","no-store").json({minimum_deposit:Number(x.minimum_deposit_bdt),minimum_withdrawal:Number(x.minimum_withdrawal_bdt)});}));
@@ -983,6 +1020,8 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire','50 Diamonds','Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',80000,0,50,50,NULL,TRUE WHERE NOT EXISTS (SELECT 1 FROM services WHERE category='free_fire' AND lower(name)=lower('50 Diamonds'))"))
   .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire',v.name,'Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',v.rate,0,v.qty,v.qty,NULL,TRUE FROM (VALUES ('100 Diamonds',80000,100),('210 Diamonds',76190,210),('530 Diamonds',75471,530),('1,060 Diamonds',75471,1060)) AS v(name,rate,qty) WHERE NOT EXISTS (SELECT 1 FROM services s WHERE s.category='free_fire' AND lower(s.name)=lower(v.name))"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS user_api_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,key_hash TEXT NOT NULL UNIQUE,key_prefix VARCHAR(24) NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),last_used_at TIMESTAMPTZ,revoked_at TIMESTAMPTZ)"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS user_api_keys_user_active_idx ON user_api_keys(user_id,created_at DESC) WHERE revoked_at IS NULL"))
   .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
   .then(()=>app.listen(port,()=>{
     console.log("NEXORA API listening on port "+port);
