@@ -393,9 +393,12 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
       ?await ffResellerRequest("/api/resaleorder/bulk",{items:[{tag_line:tag,quantity:packageCount}]})
       :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:parsed.data.target},selectedPackage:{id:1,tag_line:tag},quantity:packageCount,order_id:orderId});
     providerState=ffProviderStatus(providerData);
+    if(providerState==="failed")throw Object.assign(new Error(providerData?.message||providerData?.error||"FF Reseller rejected this order."),{status:502});
+    if(isVoucher&&(Array.isArray(providerData?.codes)&&providerData.codes.length||typeof providerData?.content==="string"&&providerData.content.trim()))providerState="completed";
    }catch(error){await client.query("ROLLBACK");return res.status(error.status||502).json({error:error.message,noBalanceDeducted:true,checkProviderIfRequestTimedOut:Boolean(error.uncertain)});}
   }
-  const order=await client.query("INSERT INTO orders(id,user_id,service_id,target,quantity,charge_minor,status,provider_order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,status,charge_minor,created_at",[orderId,req.user.id,s.id,isVoucher?"UNIPIN VOUCHER":parsed.data.target,q,charge.toString(),providerState==="completed"?"completed":"processing",isFFReseller?orderId:null]);
+  const voucherPayload=isVoucher?(Array.isArray(providerData?.codes)?providerData.codes.join("\\n"):String(providerData?.content||"")):"";
+  const order=await client.query("INSERT INTO orders(id,user_id,service_id,target,quantity,charge_minor,status,provider_order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,status,charge_minor,created_at",[orderId,req.user.id,s.id,isVoucher?(voucherPayload?"UNIPIN CODE: "+voucherPayload:"UNIPIN VOUCHER"):parsed.data.target,q,charge.toString(),providerState==="completed"?"completed":"processing",isFFReseller&&!isVoucher?orderId:null]);
   await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor-$1,total_spent_minor=total_spent_minor+$1,updated_at=NOW() WHERE user_id=$2",[charge.toString(),req.user.id]);
   await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'order_charge',$3,$4)",[req.user.id,(-charge).toString(),orderId,"Order charge"]);
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'ff_reseller_order_submitted','order',$2,$3::jsonb)",[req.user.id,orderId,JSON.stringify({provider:"FF_RESELLER",tag,isVoucher,providerStatus:providerState})]);
