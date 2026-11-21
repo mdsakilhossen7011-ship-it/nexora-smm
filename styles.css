@@ -1313,3 +1313,7 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     font-size: 10px !important;
   }
 }
+
+/* Free Fire official game app icon */
+.freefire-game-icon{overflow:hidden;background:#111827;border:1px solid #ffffff35;padding:0}
+.freefire-game-icon img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
