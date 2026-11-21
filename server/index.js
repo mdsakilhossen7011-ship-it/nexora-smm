@@ -553,7 +553,7 @@ app.post("/api/money-requests/deposit",requireAuth,asyncRoute(async(req,res)=>{
   res.status(201).json({request:r.rows[0],message:"Deposit request submitted. Balance will be added only after admin verifies the payment."});
 }));
 app.post("/api/money-requests/withdraw",requireAuth,asyncRoute(async(req,res)=>{
-  const parsed=z.object({method:z.enum(["bkash","nagad","rocket","upay"]),amount:z.number().int().positive().max(50000),accountNumber:z.string().trim().regex(/^(?:\\+?88)?01[3-9]\\d{8}$/)}).safeParse(req.body);
+  const parsed=z.object({method:z.enum(["bkash","nagad","rocket","upay"]),amount:z.number().int().positive().max(50000),accountNumber:z.string().trim().regex(/^(?:\+?88)?01[3-9]\d{8}$/)}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Enter a valid withdrawal amount and payout number."});
   const limitsResult=await pool.query("SELECT minimum_withdrawal_bdt FROM money_request_settings WHERE id=TRUE");const minimumWithdrawal=Number(limitsResult.rows[0]?.minimum_withdrawal_bdt||100);if(parsed.data.amount<minimumWithdrawal)return res.status(400).json({error:"Minimum withdrawal is ৳"+minimumWithdrawal+"."});
   const client=await pool.connect();
