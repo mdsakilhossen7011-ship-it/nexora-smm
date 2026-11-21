@@ -370,19 +370,33 @@ async function syncFFResellerOrder(orderId,userId){
  // Network lookup is deliberately outside the DB transaction/row lock.
  const found=await pool.query("SELECT o.provider_order_id,o.status,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
  if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_service_id||"").startsWith("ffreseller:")||String(found.rows[0].provider_service_id).startsWith("ffreseller:U")||!found.rows[0].provider_order_id)return;
- let data;try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(found.rows[0].provider_order_id));}catch(error){return;}
+ let data;
+ try{data=await ffResellerRequest("/api/resaleorder/status?order_id="+encodeURIComponent(found.rows[0].provider_order_id));}
+ catch(error){console.error("FF Reseller status lookup failed:",{orderId,message:error.message,status:error.status||null});return;}
  const state=ffProviderStatus(data);
  if(state==="failed"){await refundFFResellerOrder(orderId,userId,"Automatic refund: FF Reseller order failed");return;}
- if(state==="completed")await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
+ if(state==="completed"){
+  const updated=await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
+  console.info("FF Reseller order status synced:",{orderId,state,updated:updated.rowCount===1});
+  return;
+ }
+ const statusKeys=[];
+ const scan=[data];const seen=new Set();
+ while(scan.length&&seen.size<100){
+  const value=scan.shift();if(!value||typeof value!=="object"||seen.has(value))continue;seen.add(value);
+  if(Array.isArray(value)){scan.push(...value);continue;}
+  for(const [key,child] of Object.entries(value)){if(/status/i.test(key)&&typeof child!=="object")statusKeys.push([key,String(child).slice(0,80)]);else if(child&&typeof child==="object")scan.push(child);}
+ }
+ console.warn("FF Reseller status remains processing:",{orderId,responseStatusFields:statusKeys});
 }
 const ffWebhookLimiter=rateLimit({windowMs:60*1000,limit:20,standardHeaders:true,legacyHeaders:false,message:{error:"Too many supplier webhook requests. Try again later."}});
 app.post("/api/webhooks/ff-reseller",ffWebhookLimiter,asyncRoute(async(req,res)=>{
  const orderId=String(req.body?.orderid||"");
  if(!/^[0-9a-f-]{36}$/i.test(orderId))return res.status(400).json({error:"Invalid order reference."});
- const found=await pool.query("SELECT user_id FROM orders WHERE provider_order_id=$1 LIMIT 1",[orderId]);
+ const found=await pool.query("SELECT id,user_id FROM orders WHERE provider_order_id=$1 LIMIT 1",[orderId]);
  if(!found.rowCount)return res.status(404).json({error:"Order not found."});
  // Never trust webhook status/content; verify directly with FF Reseller using the server-side API key.
- await syncFFResellerOrder(orderId,found.rows[0].user_id);
+ await syncFFResellerOrder(found.rows[0].id,found.rows[0].user_id);
  res.json({ok:true});
 }));
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
@@ -403,7 +417,25 @@ async function ffResellerRequest(path,body){
  if(/insufficient balance|stock is not available|package not found|unauthorized|invalid/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data,providerRejected:true});
  return data;
 }
-function ffProviderStatus(data){const candidates=[data?.status,data?.order?.status,data?.data?.status,data?.data?.order?.status];const raw=String(candidates.find(value=>value!==undefined&&value!==null&&String(value).trim()!=="")??"").toLowerCase();if(["success","successful","completed","complete","delivered"].includes(raw))return"completed";if(["failed","failure","error","cancelled","canceled","rejected"].includes(raw))return"failed";return"processing";}
+function ffProviderStatus(data){
+ const terminalComplete=new Set(["success","successful","completed","complete","delivered","done"]);
+ const terminalFailed=new Set(["failed","failure","error","cancelled","canceled","rejected"]);
+ const queue=[{value:data,depth:0}],seen=new Set(),statuses=[];
+ while(queue.length){
+  const {value,depth}=queue.shift();
+  if(!value||typeof value!=="object"||depth>6||seen.has(value))continue;
+  seen.add(value);
+  if(Array.isArray(value)){for(const item of value)queue.push({value:item,depth:depth+1});continue;}
+  for(const [key,child] of Object.entries(value)){
+   const normalizedKey=key.toLowerCase().replace(/[^a-z]/g,"");
+   if(["status","orderstatus","deliverystatus","fulfilmentstatus","fulfillmentstatus"].includes(normalizedKey)&&typeof child==="string"&&child.trim())statuses.push(child.trim().toLowerCase());
+   if(child&&typeof child==="object")queue.push({value:child,depth:depth+1});
+  }
+ }
+ if(statuses.some(value=>terminalFailed.has(value)))return"failed";
+ if(statuses.some(value=>terminalComplete.has(value)))return"completed";
+ return"processing";
+}
 app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
  const parsed=z.object({serviceId:z.string().uuid(),requestId:z.string().uuid().optional(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid order details."});
