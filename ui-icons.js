@@ -42,7 +42,36 @@ const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
 svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("aria-hidden","true");svg.setAttribute("focusable","false");svg.setAttribute("fill","none");svg.setAttribute("stroke","currentColor");svg.setAttribute("stroke-width","1.8");svg.setAttribute("stroke-linecap","round");svg.setAttribute("stroke-linejoin","round");svg.innerHTML=P[key]||P.zap;
 const wrap=document.createElement("span");wrap.className="nexora-btn-icon";wrap.setAttribute("aria-hidden","true");wrap.append(svg);el.insertBefore(wrap,el.firstChild);el.dataset.nexoraIconized="1";
 }
-function scan(root){(maps[page]||[]).forEach(([sel,key])=>{if(root.matches&&root.matches(sel))iconize(root,key);root.querySelectorAll(sel).forEach(el=>iconize(el,key));});}
-function start(){scan(document);const mo=new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1){scan(n);if(n.querySelector)scan(n);}})));mo.observe(document.body,{childList:true,subtree:true});}
+function fallbackKey(el){
+const s=((el.id||"")+" "+(el.getAttribute("aria-label")||"")+" "+(el.className&&typeof el.className==="string"?el.className:"")+" "+(el.textContent||"")).toLowerCase();
+if(/logout|log out|sign out/.test(s))return"login";
+if(/deposit|add money|wallet|payment/.test(s))return"wallet";
+if(/withdraw|payout/.test(s))return"wallet";
+if(/register|sign up|create account/.test(s))return"register";
+if(/login|log in|sign in/.test(s))return"login";
+if(/save|update|apply changes/.test(s))return"save";
+if(/refresh|reload|retry/.test(s))return"refresh";
+if(/copy|clipboard/.test(s))return"copy";
+if(/edit|change profile/.test(s))return"edit";
+if(/cancel|close|dismiss|reject/.test(s))return"cancel";
+if(/send|reply|message/.test(s))return"send";
+if(/search|find/.test(s))return"layers";
+if(/order|continue|submit|purchase|buy now/.test(s))return"zap";
+if(/approve|confirm|verify|complete/.test(s))return"check";
+if(/add|create|new /.test(s))return"plus";
+return null;
+}
+function scan(root){
+(maps[page]||[]).forEach(([sel,key])=>{if(root.matches&&root.matches(sel))iconize(root,key);root.querySelectorAll(sel).forEach(el=>iconize(el,key));});
+const generic='button:not(.menu-toggle):not(.ff-package):not(.ff-tab):not(.fb-tab):not(.ig-tab),a.btn,a[class*="submit"],button[class*="action"]';
+if(root.matches&&root.matches(generic)){const k=fallbackKey(root);if(k)iconize(root,k);}
+root.querySelectorAll(generic).forEach(el=>{const k=fallbackKey(el);if(k)iconize(el,k);});
+}
+function start(){
+document.addEventListener("error",e=>{const el=e.target;if(el&&el.tagName==="IMG"&&(el.classList.contains("service-card-art")||el.closest(".ff-character"))){el.hidden=true;}},true);
+scan(document);
+const mo=new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1){scan(n);if(n.querySelector)scan(n);}})));
+mo.observe(document.body,{childList:true,subtree:true});
+}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();
 })();
