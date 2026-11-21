@@ -431,7 +431,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   try{
    providerData=ffContext.isVoucher
     ?await ffResellerRequest("/api/resaleorder/bulk",{items:[{tag_line:ffContext.tag,quantity:ffContext.packageCount}]})
-    :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:ffContext.target},selectedPackage:{id:1,tag_line:ffContext.tag},quantity:ffContext.packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\\/+$/,"")+"/api/webhooks/ff-reseller"});
+    :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:ffContext.target},selectedPackage:{id:1,tag_line:ffContext.tag},quantity:ffContext.packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\/+$/,"")+"/api/webhooks/ff-reseller"});
    const state=ffProviderStatus(providerData);
    const msg=String(typeof providerData==="string"?providerData:(providerData?.message||providerData?.error||""));
    if(state==="failed"||/insufficient balance|stock is not available|package not found|unauthorized|validation error/i.test(msg)){
