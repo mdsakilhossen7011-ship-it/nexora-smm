@@ -55,11 +55,11 @@
 <div class="dash-columns menu-destination-panels"><section class="dash-panel nex-money-panel" id="deposit">
   <div class="money-card">
     <div class="money-card-heading"><div><span class="money-eyebrow">WALLET FUNDING</span><h2>Add Money / Deposit</h2></div><span class="money-wallet-icon" aria-hidden="true">▣</span></div>
-    <p class="money-description">Send money to the official NEXORA payment number shared by the administrator. Then enter the amount, sender number and transaction ID below. Your balance will be added after admin verification.</p>
+    <p class="money-description">Send money to the official NEXORA payment number shared by the administrator. Then enter the amount, sender number and transaction ID below. Your balance will be added after admin verification.</p><p class="money-description" id="depositMinimumNote" aria-live="polite">Minimum deposit: ৳100</p>
       <div id="depositReceiverDetails" class="money-description" aria-live="polite">Loading official payment numbers…</div>
     <form id="depositForm" class="money-form nex-deposit-form">
       <div class="money-field deposit-method-field"><span>Choose Payment Method</span><div id="depositMethodChoices" class="deposit-method-choices" role="group" aria-label="Choose deposit payment method"></div><input id="depositMethodSelect" type="hidden" name="method" value="bkash" required></div>
-      <label class="money-field"><span id="depositAmountLabel">Amount</span><span class="money-input-wrap"><span class="money-input-icon">৳</span><input name="amount" type="number" min="100" max="50000" step="1" placeholder="Enter Amount (৳100-৳50,000)" required></span></label>
+      <label class="money-field"><span id="depositAmountLabel">Amount</span><span class="money-input-wrap"><span class="money-input-icon">৳</span><input name="amount" id="depositAmountInput" type="number" min="100" max="50000" step="1" placeholder="Enter Amount" required></span></label>
       <label class="money-field"><span id="depositSenderLabel">Sender Number</span><span class="money-input-wrap"><span class="money-input-icon">☎</span><input name="accountNumber" type="text" minlength="3" maxlength="120" placeholder="01XXXXXXXXX" required></span></label>
       <p id="usdtBdtPreview" class="form-feedback" aria-live="polite" hidden></p><label class="money-field"><span>Transaction ID / Hash</span><span class="money-input-wrap"><span class="money-input-icon">⌘</span><input name="trxId" type="text" minlength="6" maxlength="120" placeholder="Enter TrxID" required></span></label>
       <button class="btn btn-primary nex-deposit-submit" type="submit">Submit Deposit Request <span aria-hidden="true">↗</span></button>
@@ -70,11 +70,11 @@
 </section><section class="dash-panel nex-money-panel" id="withdraw">
  <div class="money-card">
   <div class="money-card-heading"><div><span class="money-eyebrow">WALLET PAYOUT</span><h2>Withdraw Commission</h2></div><span class="money-wallet-icon money-withdraw-icon" aria-hidden="true">⇧</span></div>
-  <div class="money-balance-strip"><span>Available Commission</span><strong id="commissionBalance">৳0.00</strong></div>
-  <p class="money-description">Withdraw your earned referral or reseller commission to your preferred mobile wallet. Deposit balance cannot be withdrawn. Minimum withdrawal ৳100. All requests are reviewed by the admin.</p>
+  <div class="money-balance-strip"><span>Available Commission</span><strong id="commissionBalance">৳0.00</strong></div><p class="money-description" id="withdrawMinimumNote" aria-live="polite">Minimum withdraw: ৳100</p>
+  <p class="money-description">Withdraw your earned referral or reseller commission to your preferred mobile wallet. Deposit balance cannot be withdrawn. Minimum withdrawal amount is shown below. All requests are reviewed by the admin.</p>
   <form id="withdrawForm" class="money-form nex-deposit-form nex-withdraw-form">
    <label class="money-field"><span>Payout Method</span><span class="money-select-wrap"><span class="money-method-logo money-bkash-logo" id="withdrawMethodLogo" aria-hidden="true">bKash</span><select id="withdrawMethodSelect" name="method" required aria-label="Payout method"><option value="bkash">bKash</option><option value="nagad">Nagad</option><option value="rocket">Rocket</option><option value="upay">Upay</option></select><span class="money-select-chevron">⌄</span></span></label>
-   <label class="money-field"><span>Withdrawal Amount</span><span class="money-input-wrap"><span class="money-input-icon">৳</span><input name="amount" type="number" min="100" max="50000" step="1" placeholder="Enter Amount (৳100-৳50,000)" required></span></label>
+   <label class="money-field"><span>Withdrawal Amount</span><span class="money-input-wrap"><span class="money-input-icon">৳</span><input name="amount" id="withdrawAmountInput" type="number" min="100" max="50000" step="1" placeholder="Enter Amount" required></span></label>
    <label class="money-field"><span>Receiver Number</span><span class="money-input-wrap"><span class="money-input-icon">☎</span><input name="accountNumber" type="tel" minlength="10" maxlength="32" inputmode="tel" placeholder="01XXXXXXXXX" required></span></label>
    <button class="btn btn-primary nex-deposit-submit" type="submit">Submit Withdrawal Request <span aria-hidden="true">↗</span></button>
    <p class="form-feedback" id="withdrawFeedback" role="status" aria-live="polite"></p>
