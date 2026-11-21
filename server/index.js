@@ -389,15 +389,39 @@ async function syncFFResellerOrder(orderId,userId){
  }
  console.warn("FF Reseller status remains processing:",{orderId,responseStatusFields:statusKeys});
 }
+function ffResellerWebhookToken(orderId){
+ const key=process.env.FF_RESELLER_API_KEY;
+ if(!key)throw new Error("FF_RESELLER_API_KEY is not configured.");
+ return crypto.createHmac("sha256",key).update("ff-reseller-webhook:"+orderId).digest("hex");
+}
+function validFFResellerWebhookToken(orderId,provided){
+ if(typeof provided!=="string"||!/^[a-f0-9]{64}$/i.test(provided))return false;
+ const expected=Buffer.from(ffResellerWebhookToken(orderId),"hex");
+ const actual=Buffer.from(provided,"hex");
+ return actual.length===expected.length&&crypto.timingSafeEqual(actual,expected);
+}
 const ffWebhookLimiter=rateLimit({windowMs:60*1000,limit:20,standardHeaders:true,legacyHeaders:false,message:{error:"Too many supplier webhook requests. Try again later."}});
 app.post("/api/webhooks/ff-reseller",ffWebhookLimiter,asyncRoute(async(req,res)=>{
  const orderId=String(req.body?.orderid||"");
  if(!/^[0-9a-f-]{36}$/i.test(orderId))return res.status(400).json({error:"Invalid order reference."});
- const found=await pool.query("SELECT id,user_id FROM orders WHERE provider_order_id=$1 LIMIT 1",[orderId]);
+ if(!validFFResellerWebhookToken(orderId,String(req.query.token||"")))return res.status(401).json({error:"Invalid supplier webhook token."});
+ const status=String(req.body?.status||"").trim().toLowerCase();
+ const found=await pool.query("SELECT o.id,o.user_id,o.status,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.provider_order_id=$1 LIMIT 1",[orderId]);
  if(!found.rowCount)return res.status(404).json({error:"Order not found."});
- // Never trust webhook status/content; verify directly with FF Reseller using the server-side API key.
- await syncFFResellerOrder(found.rows[0].id,found.rows[0].user_id);
- res.json({ok:true});
+ const order=found.rows[0];
+ if(!String(order.provider_service_id||"").startsWith("ffreseller:")||String(order.provider_service_id).startsWith("ffreseller:U"))return res.status(400).json({error:"Webhook does not match a supported FF UID order."});
+ if(order.status!=="processing")return res.json({ok:true,alreadyFinal:true,status:order.status});
+ if(["success","complete","completed"].includes(status)){
+  const updated=await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[order.id,order.user_id]);
+  console.info("FF Reseller webhook marked order completed:",{orderId,updated:updated.rowCount===1});
+  return res.json({ok:true,status:updated.rowCount?"completed":"unchanged"});
+ }
+ if(["failed","failure","error","cancelled","canceled"].includes(status)){
+  const refunded=await refundFFResellerOrder(order.id,order.user_id,"Automatic refund: FF Reseller webhook reported "+status);
+  console.info("FF Reseller webhook reported failed order:",{orderId,refunded});
+  return res.json({ok:true,status:refunded?"refunded":"unchanged"});
+ }
+ return res.status(400).json({error:"Unsupported supplier webhook status."});
 }));
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const pending=await pool.query("SELECT o.id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 AND o.status='processing' AND s.provider_service_id LIKE 'ffreseller:%' AND s.provider_service_id NOT LIKE 'ffreseller:U%' AND o.provider_order_id IS NOT NULL ORDER BY o.created_at ASC LIMIT 10",[req.user.id]);
@@ -477,7 +501,7 @@ app.post("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   try{
    providerData=ffContext.isVoucher
     ?await ffResellerRequest("/api/resaleorder/bulk",{items:[{tag_line:ffContext.tag,quantity:ffContext.packageCount}]})
-    :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:ffContext.target},selectedPackage:{id:1,tag_line:ffContext.tag},quantity:ffContext.packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\/+$/,"")+"/api/webhooks/ff-reseller"});
+    :await ffResellerRequest("/api/resaleorder",{account_info:{player_id:ffContext.target},selectedPackage:{id:1,tag_line:ffContext.tag},quantity:ffContext.packageCount,order_id:orderId,url:(process.env.APP_ORIGIN||"https://nexora-smm.onrender.com").split(",")[0].replace(/\/+$/,"")+"/api/webhooks/ff-reseller?token="+ffResellerWebhookToken(orderId)});
    const state=ffProviderStatus(providerData);
    const msg=String(typeof providerData==="string"?providerData:(providerData?.message||providerData?.error||""));
    if(providerData?.success===false||providerData?.data?.success===false||state==="failed"||/insufficient balance|stock is not available|package not found|unauthorized|validation error/i.test(msg)){
