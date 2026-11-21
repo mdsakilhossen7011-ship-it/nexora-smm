@@ -8,6 +8,10 @@
  // Move the panel out of sticky/backdrop-filter headers so it stays crisp and truly viewport-fixed.
  if(menu.parentElement!==document.body)document.body.appendChild(menu);
  if(backdrop.parentElement!==document.body)document.body.insertBefore(backdrop,document.body.firstChild);
+ // Apply the exact same icon set to every page's shared drawer, including the homepage.
+ const menuIcons=[["developer-api","⌘"],["top-leaders","★"],["money-history","◷"],["live-chat","▣"],["dashboard","▦"],["profile","♙"],["deposit","＋"],["withdraw","⇧"],["orders","▤"],["referral","♧"]];
+ const iconFor=(el)=>{const href=(el.getAttribute("href")||"").toLowerCase();const label=(el.textContent||"").trim().toLowerCase();if(el.matches(".menu-logout")||label==="logout")return "↪";if(href==="/"||label==="home")return "⌂";for(const [key,glyph] of menuIcons){if(href.includes(key)||label===key.replace("-"," "))return glyph;}return "";};
+ menu.querySelectorAll("a,button").forEach(el=>{if(el.querySelector(".menu-icon"))return;const glyph=iconFor(el);if(!glyph)return;const icon=document.createElement("span");icon.className="menu-icon";icon.setAttribute("aria-hidden","true");icon.textContent=glyph;el.insertBefore(icon,el.firstChild);if(el.children.length===2&&el.lastElementChild===icon){const label=document.createElement("span");label.textContent=el.textContent.replace(glyph,"").trim();el.appendChild(label);}});
  const isOpen=()=>menu.classList.contains("is-open")||menu.classList.contains("open");
  function open(){
    menu.hidden=false;menu.classList.add("is-open","open");
