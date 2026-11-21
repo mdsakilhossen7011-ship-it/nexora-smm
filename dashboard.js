@@ -8,8 +8,8 @@ function setupMoneyForms(){
  const methodSelect=document.getElementById("depositMethodSelect");
  const withdrawMethodSelect=document.getElementById("withdrawMethodSelect");
  const withdrawMethodLogo=document.getElementById("withdrawMethodLogo");
- const gatewayStyles={bkash:"money-bkash-logo",nagad:"money-nagad-logo",rocket:"money-rocket-logo",upay:"money-upay-logo"};
- const gatewayNames={bkash:"bKash",nagad:"Nagad",rocket:"Rocket",upay:"upay"};
+ const gatewayStyles={bkash:"money-bkash-logo",nagad:"money-nagad-logo",rocket:"money-rocket-logo",upay:"money-upay-logo",usdt_bep20:"money-crypto-logo",binance_pay:"money-crypto-logo"};
+ const gatewayNames={bkash:"bKash",nagad:"Nagad",rocket:"Rocket",upay:"upay",usdt_bep20:"USDT",binance_pay:"Binance Pay"};
  const syncWithdrawGateway=()=>{const method=withdrawMethodSelect?.value||"bkash";if(withdrawMethodLogo){withdrawMethodLogo.textContent=gatewayNames[method]||"bKash";withdrawMethodLogo.className="money-method-logo "+(gatewayStyles[method]||gatewayStyles.bkash);}};
  withdrawMethodSelect?.addEventListener("change",syncWithdrawGateway);
  syncWithdrawGateway();
