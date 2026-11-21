@@ -1201,3 +1201,43 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 #homePage > .services-section .service-card > h3,
 #homePage > .services-section .service-card > p,
 #homePage > .services-section .service-card > .service-card-cta{position:relative!important;z-index:2!important;}
+
+
+/* Homepage service-card refinements: compact CTA + fully static cards */
+#homePage > .services-section .service-card,
+#homePage > .services-section .service-card-art,
+#homePage > .services-section .service-card-cta {
+  animation: none !important;
+  transition: none !important;
+}
+#homePage > .services-section .service-card:hover,
+#homePage > .services-section .service-card:focus-visible {
+  transform: none !important;
+}
+#homePage > .services-section .service-card:hover .service-card-art,
+#homePage > .services-section .service-card:focus-visible .service-card-art {
+  transform: none !important;
+  opacity: .82 !important;
+}
+#homePage > .services-section .service-card-cta {
+  min-height: 27px !important;
+  height: 27px !important;
+  padding: 5px 10px !important;
+  font-size: 9px !important;
+  border-radius: 8px !important;
+}
+@media (max-width: 600px) {
+  #homePage > .services-section .service-card-cta {
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 4px 6px !important;
+    font-size: 7.5px !important;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #homePage > .services-section .service-card,
+  #homePage > .services-section .service-card-art,
+  #homePage > .services-section .service-card-cta {
+    animation: none !important;
+  }
+}
