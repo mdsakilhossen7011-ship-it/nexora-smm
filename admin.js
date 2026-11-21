@@ -269,6 +269,37 @@ if(importSmmexoButton){
   }finally{updateSmmexoImportButton();}
  });
 }
+async function applyFFResellerFivePercentMarkup(){
+ const button=document.getElementById("applyFFResellerFivePercent"),status=document.getElementById("ffResellerPricingStatus");
+ if(!button||!status)return;
+ if(!confirm("Apply a 5% markup over the stored BDT purchase cost to all 32 FF Reseller packages? Purchase costs will not change. All services will remain disabled."))return;
+ button.disabled=true;status.textContent="Checking FF Reseller packages…";
+ let updated=0;
+ try{
+  const data=await request("/admin/services"),services=(data.services||[]).filter(s=>String(s.provider_service_id||"").startsWith("ffreseller:"));
+  if(services.length!==32)throw new Error("Expected exactly 32 FF Reseller packages, found "+services.length+". No prices were changed.");
+  const ids=new Set();
+  for(const s of services){
+   if(!s.id||ids.has(s.provider_service_id))throw new Error("Missing service ID or duplicate supplier ID. No prices were changed.");
+   ids.add(s.provider_service_id);
+   if(s.enabled)throw new Error("A FF Reseller package is already enabled. No prices were changed.");
+   if(!Number.isInteger(Number(s.cost_per_1000_minor))||Number(s.cost_per_1000_minor)<=0)throw new Error("Invalid BDT purchase cost for "+s.name+". No prices were changed.");
+  }
+  status.textContent="Applying 5% markup…";
+  for(const s of services){
+   const costMinor=Number(s.cost_per_1000_minor),sellingMinor=Math.ceil(costMinor*1.05);
+   await request("/admin/services/"+encodeURIComponent(s.id),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({category:s.category,name:s.name,description:s.description||"",price:sellingMinor/100,cost:costMinor/100,minQuantity:s.min_quantity,maxQuantity:s.max_quantity,providerServiceId:s.provider_service_id})});
+   updated++;
+   status.textContent="Updated "+updated+" of 32 FF packages…";
+  }
+  status.textContent="Success: 5% markup applied to all 32 FF packages. Purchase costs unchanged; all remain disabled.";
+  await loadServices();
+ }catch(error){
+  status.textContent="Stopped after "+updated+" updates: "+error.message+(updated?" Refresh and check the FF prices before retrying.":"");
+  await loadServices();
+ }finally{button.disabled=false;}
+}
+document.getElementById("applyFFResellerFivePercent").addEventListener("click",applyFFResellerFivePercentMarkup);
 const importFFResellerButton=document.getElementById("importFFResellerCatalogue");
 if(importFFResellerButton){importFFResellerButton.addEventListener("click",async()=>{const status=document.getElementById("ffResellerCatalogueStatus");if(!confirm("Import all 32 FF Reseller packages into NEXORA as disabled services? No supplier orders will be placed and no supplier balance will be spent."))return;importFFResellerButton.disabled=true;status.textContent="Importing 32 FF Reseller packages…";try{const data=await request("/admin/ff-reseller/import-catalogue",{method:"POST",headers:{"Accept":"application/json"}});status.textContent="Imported "+data.importedCount+" packages; skipped "+data.skippedCount+". All packages remain disabled. Set selling prices and enable them in the service list.";await loadServices();}catch(error){status.textContent="Import failed: "+error.message;}finally{importFFResellerButton.disabled=false;}});}
 document.getElementById("adminLogout").addEventListener("click",async()=>{try{await request("/auth/logout",{method:"POST"})}finally{location.href="/#login"}});
