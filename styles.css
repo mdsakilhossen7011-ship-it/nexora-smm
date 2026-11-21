@@ -1271,9 +1271,9 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   width: max-content !important;
   max-width: 100% !important;
   min-width: 0 !important;
-  min-height: 24px !important;
-  height: 24px !important;
-  padding: 4px 9px !important;
+  min-height: 20px !important;
+  height: 20px !important;
+  padding: 3px 7px !important;
   margin: 12px 0 0 !important;
   gap: 4px !important;
   border-radius: 7px !important;
@@ -1289,9 +1289,9 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 }
 @media (max-width: 600px) {
   #homePage > section.services-section > .service-grid > a.service-card > span.service-card-cta {
-    min-height: 22px !important;
-    height: 22px !important;
-    padding: 3px 8px !important;
+    min-height: 18px !important;
+    height: 18px !important;
+    padding: 2px 6px !important;
     margin-top: auto !important;
     font-size: 8px !important;
   }
