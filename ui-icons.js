@@ -68,8 +68,8 @@ if(root.matches&&root.matches(generic)){const k=fallbackKey(root);if(k)iconize(r
 root.querySelectorAll(generic).forEach(el=>{const k=fallbackKey(el);if(k)iconize(el,k);});
 }
 function start(){
-document.addEventListener("error",e=>{const el=e.target;if(el&&el.tagName==="IMG"&&(el.classList.contains("service-card-art")||el.closest(".ff-character"))){el.hidden=true;}},true);
-document.querySelectorAll("img.service-card-art, .ff-character img").forEach(el=>{if(el.complete&&el.naturalWidth===0)el.hidden=true;});
+document.addEventListener("error",e=>{const el=e.target;if(el&&el.tagName==="IMG"&&el.classList.contains("service-card-art")){el.hidden=true;}},true);
+document.querySelectorAll("img.service-card-art").forEach(el=>{if(el.complete&&el.naturalWidth===0)el.hidden=true;});
 scan(document);
 const mo=new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1){scan(n);if(n.querySelector)scan(n);}})));
 mo.observe(document.body,{childList:true,subtree:true});
