@@ -524,3 +524,8 @@
 .deposit-method-option.is-selected{border-color:#bd8aff;background:linear-gradient(155deg,#59358c 0%,#28204f 55%,#151a36 100%);box-shadow:inset 0 1px 2px #ffffff35,0 3px 0 #090b1b,0 5px 12px #6c36a855;transform:translateY(-1px)}
 .deposit-method-option:focus-visible{outline:2px solid #c49aff;outline-offset:2px}
 @media(max-width:360px){.deposit-method-choices{gap:4px}.deposit-method-option{min-height:61px;padding:6px 1px}.deposit-method-option .deposit-brand-logo{width:25px;height:25px;flex-basis:25px}.deposit-method-option .deposit-brand-name{font-size:9px}}
+
+
+/* Deposit brand marks: equal visible dimensions for all four methods */
+.deposit-method-option .deposit-brand-logo{box-sizing:border-box!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;max-width:30px!important;max-height:30px!important;flex:0 0 30px!important;padding:0!important;object-fit:fill!important;object-position:center!important;border-radius:8px!important;}
+@media(max-width:360px){.deposit-method-option .deposit-brand-logo{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;max-width:30px!important;max-height:30px!important;flex-basis:30px!important;padding:0!important}}
