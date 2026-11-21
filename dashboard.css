@@ -517,9 +517,10 @@
 
 
 /* Deposit method logo picker */
-.deposit-method-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-width:420px}
-.deposit-method-option{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:9px;min-width:0;min-height:48px;padding:7px 9px;border:1px solid #5a558855;border-radius:10px;background:linear-gradient(145deg,#191d39,#11152b);color:#fff;cursor:pointer;transition:border-color .18s,background .18s,box-shadow .18s}
-.deposit-method-option .deposit-brand-logo{display:block;width:25px;height:25px;object-fit:contain;flex:0 0 25px}
-.deposit-method-option .deposit-brand-name{font-size:12px;font-weight:800;line-height:1.2;text-align:left;white-space:normal}
-.deposit-method-option.is-selected{border-color:#a66aff;background:linear-gradient(135deg,#38205e,#18264b);box-shadow:0 0 0 2px #8a42ff28,0 0 12px #7e3bff25}
+.deposit-method-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;width:100%;max-width:none}
+.deposit-method-option{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:66px;padding:7px 3px;border:1px solid #5a558855;border-radius:11px;background:linear-gradient(155deg,#30395c 0%,#171d37 48%,#0d1226 100%);color:#fff;cursor:pointer;box-shadow:inset 0 1px 1px #ffffff20,0 3px 0 #080b18,0 5px 9px #0005;transition:border-color .18s,background .18s,box-shadow .18s,transform .18s}
+.deposit-method-option .deposit-brand-logo{display:block;width:29px;height:29px;padding:5px;object-fit:contain;flex:0 0 29px;border-radius:9px;background:linear-gradient(145deg,#ffffff24,#ffffff08);box-shadow:inset 0 1px 2px #ffffff35,0 2px 4px #0006;filter:drop-shadow(0 2px 2px #0008)}
+.deposit-method-option .deposit-brand-name{display:block;width:100%;font-size:10px;font-weight:850;line-height:1.1;text-align:center;white-space:nowrap;letter-spacing:-.2px}
+.deposit-method-option.is-selected{border-color:#bd8aff;background:linear-gradient(155deg,#59358c 0%,#28204f 55%,#151a36 100%);box-shadow:inset 0 1px 2px #ffffff35,0 3px 0 #090b1b,0 5px 12px #6c36a855;transform:translateY(-1px)}
 .deposit-method-option:focus-visible{outline:2px solid #c49aff;outline-offset:2px}
+@media(max-width:360px){.deposit-method-choices{gap:4px}.deposit-method-option{min-height:61px;padding:6px 1px}.deposit-method-option .deposit-brand-logo{width:25px;height:25px;flex-basis:25px}.deposit-method-option .deposit-brand-name{font-size:9px}}
