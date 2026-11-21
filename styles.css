@@ -1299,3 +1299,32 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     font-size: 8px !important;
   }
 }
+
+
+/* CTA compact sizing: explicitly prevent flex/grid stretch on every viewport. */
+#homePage > section.section-wrap.services-section#services > div.service-grid > a.service-card > span.service-card-cta {
+  display: inline-flex !important;
+  align-self: flex-start !important;
+  justify-self: start !important;
+  width: fit-content !important;
+  inline-size: fit-content !important;
+  max-width: fit-content !important;
+  min-width: 0 !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  padding: 2px 7px !important;
+  flex: 0 0 auto !important;
+  font-size: 9px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+@media (max-width: 600px) {
+  #homePage > section.section-wrap.services-section#services > div.service-grid > a.service-card > span.service-card-cta {
+    width: fit-content !important;
+    inline-size: fit-content !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    padding: 2px 6px !important;
+    font-size: 8px !important;
+  }
+}
