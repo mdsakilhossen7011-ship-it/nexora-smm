@@ -43,5 +43,3 @@
 }
 @media(prefers-reduced-motion:reduce){.nexora-drawer-backdrop,.drawer-menu{transition:none!important}}
 
-/* Homepage drawer gets the same visible site title as every other page. */
-@media(max-width:700px){.topbar>.drawer-menu::before{display:none!important;content:none!important}.topbar>.drawer-menu>.drawer-brand{display:block;flex:0 0 auto;padding:8px 12px 20px;margin:0 0 10px;color:#fff;font-size:19px;font-weight:850;letter-spacing:1.2px;border-bottom:1px solid rgba(174,132,255,.28);text-align:left}.topbar>.drawer-menu>.drawer-brand b{color:#bd43ff}}
