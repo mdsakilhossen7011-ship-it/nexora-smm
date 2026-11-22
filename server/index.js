@@ -236,8 +236,10 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
       const existing=await client.query("SELECT id FROM services WHERE provider_service_id=$1 LIMIT 1",[serviceId]);
       if(existing.rowCount){skipped.push({serviceId,reason:"Already imported."});continue;}
       const category=categoryFor(item);
-      const rate=Number(item.rate),min=Math.max(1,Math.floor(Number(item.min)||1)),max=Math.max(min,Math.floor(Number(item.max)||min));
+      const rate=Number(item.rate),supplierMin=Math.max(1,Math.floor(Number(item.min)||1)),supplierMax=Math.max(supplierMin,Math.floor(Number(item.max)||supplierMin));
       if(!category){skipped.push({serviceId,reason:"Unsupported category; no matching NEXORA category."});continue;}
+      const socialCategory=["facebook","instagram","tiktok","youtube","telegram"].includes(category);
+      const min=socialCategory?1000:supplierMin,max=socialCategory?1000000:supplierMax;
       if(!serviceId||!String(item.name??"").trim()||!Number.isFinite(rate)||rate<0||!Number.isFinite(min)||!Number.isFinite(max)){
         skipped.push({serviceId,reason:"Supplier returned invalid service details."});continue;
       }
@@ -823,7 +825,7 @@ app.post("/api/admin/services/bulk-enable-facebook",requireAuth,requireAdmin,asy
  const client=await pool.connect();
  try{
   await client.query("BEGIN");
-  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='facebook' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 3000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() WHERE enabled=FALSE AND category='facebook' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 3000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'facebook_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
   await client.query("COMMIT");
   res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
@@ -834,7 +836,7 @@ app.post("/api/admin/services/bulk-enable-instagram",requireAuth,requireAdmin,as
  const client=await pool.connect();
  try{
   await client.query("BEGIN");
-  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='instagram' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 1000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() WHERE enabled=FALSE AND category='instagram' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 1000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'instagram_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
   await client.query("COMMIT");
   res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
@@ -845,7 +847,7 @@ app.post("/api/admin/services/bulk-enable-tiktok",requireAuth,requireAdmin,async
  const client=await pool.connect();
  try{
   await client.query("BEGIN");
-  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='tiktok' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 1000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() WHERE enabled=FALSE AND category='tiktok' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 1000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'tiktok_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
   await client.query("COMMIT");
   res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
@@ -856,7 +858,7 @@ app.post("/api/admin/services/bulk-enable-youtube",requireAuth,requireAdmin,asyn
  const client=await pool.connect();
  try{
   await client.query("BEGIN");
-  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='youtube' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 20000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() WHERE enabled=FALSE AND category='youtube' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 20000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'youtube_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
   await client.query("COMMIT");
   res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
@@ -867,7 +869,7 @@ app.post("/api/admin/services/bulk-enable-telegram",requireAuth,requireAdmin,asy
  const client=await pool.connect();
  try{
   await client.query("BEGIN");
-  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='telegram' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 10000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() WHERE enabled=FALSE AND category='telegram' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 10000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'telegram_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
   await client.query("COMMIT");
   res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
