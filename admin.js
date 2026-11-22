@@ -347,9 +347,18 @@ function curateSmmexoServices(services,usdToBdt,minCost,maxCost,limit=30){
   buckets.get(type).push(service);
  });
  const selected=[];
+ // Facebook customers need affordable video/Reels views most:
+ // reserve up to half of the shortlist for the lowest-cost view services.
+ const viewServices=buckets.get("view").sort((a,b)=>a.costBdt-b.costBdt||
+  (Number(b.refill===true)+Number(b.cancel===true))-(Number(a.refill===true)+Number(a.cancel===true)));
+ const viewTarget=Math.min(15,Math.ceil(limit/2));
+ selected.push(...viewServices.splice(0,viewTarget));
+ // Fill the remaining slots fairly across other service types, while allowing
+ // additional views only after the other core categories get a chance.
+ const remainingTypes=["like","comment","follow","share","other","view"];
  while(selected.length<limit){
   let added=false;
-  for(const type of types){
+  for(const type of remainingTypes){
    const next=buckets.get(type).shift();
    if(next){selected.push(next);added=true;if(selected.length>=limit)break;}
   }
