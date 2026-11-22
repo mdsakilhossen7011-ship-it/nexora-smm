@@ -553,3 +553,25 @@
 .developer-api-panel{display:grid;gap:15px}.developer-api-pill{padding:6px 10px;border:1px solid rgba(143,157,255,.3);border-radius:30px;background:rgba(91,104,210,.14);color:#c8cfff;font-size:11px;font-weight:800}.developer-api-keybox{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid rgba(143,157,220,.18);border-radius:13px;background:rgba(13,18,38,.62)}.developer-api-keybox strong{color:#f1f3ff}.developer-api-keybox p{margin:5px 0 0;color:#aeb7d2;font-size:12px}.developer-api-keybox code{color:#c5caff;font-size:12px;overflow-wrap:anywhere}.developer-api-actions{display:flex;flex-wrap:wrap;gap:9px}.developer-api-field,.developer-api-docs label{display:grid;gap:7px;color:#dce1f5;font-size:12px;font-weight:700}.developer-api-field textarea,.developer-api-docs input{width:100%;box-sizing:border-box;padding:11px;border:1px solid rgba(143,157,220,.24);border-radius:10px;background:#0b1025;color:#b8f4d2;font:12px ui-monospace,monospace;overflow-wrap:anywhere}.developer-api-warning{margin:0;padding:11px 13px;border:1px solid rgba(255,180,90,.2);border-radius:10px;background:rgba(180,112,25,.08);color:#ffd18b;font-size:12px;line-height:1.6}.developer-api-docs{display:grid;gap:10px;padding:15px;border:1px solid rgba(143,157,220,.15);border-radius:13px;background:rgba(18,23,48,.55);color:#c5cbe0;font-size:12px;line-height:1.65}.developer-api-docs h3{margin:4px 0;color:#f1f3ff;font-size:14px}.developer-api-docs p{margin:0}.developer-api-docs ul{margin:0;padding-left:20px}.developer-api-docs pre{max-width:100%;overflow:auto;margin:0;padding:12px;border-radius:10px;background:#080c1c;color:#b8f4d2;font-size:11px}.developer-api-docs code{overflow-wrap:anywhere}@media(max-width:480px){.developer-api-keybox{align-items:flex-start;flex-direction:column}.developer-api-actions>*{flex:1 1 100%}.developer-api-docs{padding:12px}}
 
 .developer-api-contact{display:grid;gap:6px;margin-top:14px;padding:14px 15px;border:1px solid rgba(83,169,255,.25);border-radius:12px;background:rgba(45,112,180,.09);color:#dce7ff}.developer-api-contact strong{font-size:13px;color:#f1f5ff}.developer-api-contact p{margin:0;color:#b8c5e2;font-size:12px;line-height:1.6}.developer-api-contact a{width:max-content;max-width:100%;color:#78c9ff;font-size:13px;font-weight:800;text-decoration:none;overflow-wrap:anywhere}.developer-api-contact a:hover{text-decoration:underline}
+
+
+/* Keep the notification bell beside the three-dot menu, matching the homepage header. */
+.account-menu-wrap{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:0!important;
+}
+.account-menu-wrap>.nexora-notification-bell{
+  display:inline-flex!important;
+  flex:0 0 42px!important;
+  margin:0 9px 0 0!important;
+}
+.account-menu-wrap>.account-menu-toggle{
+  flex:0 0 42px!important;
+}
+@media(max-width:700px){
+  .account-menu-wrap{display:flex!important;align-items:center!important;flex-direction:row!important}
+  .account-menu-wrap>.nexora-notification-bell{width:38px!important;height:38px!important;flex-basis:38px!important;margin:0 7px 0 0!important}
+  .account-menu-wrap>.account-menu-toggle{flex:0 0 42px!important}
+}
