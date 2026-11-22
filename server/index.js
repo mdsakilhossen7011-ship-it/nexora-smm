@@ -274,8 +274,20 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
       imported.push({serviceId,name:String(item.name).trim().slice(0,160),id:inserted.rows[0].id});
       batchServiceIds.push(inserted.rows[0].id);
     }
+    let enabledCount=0;
     if(parsed.data.expectedCategory&&batchServiceIds.length){
-      await client.query("INSERT INTO smmexo_import_batches(category,service_ids,created_by) VALUES($1,$2::uuid[],$3)",[parsed.data.expectedCategory,batchServiceIds,req.user.id]);
+      const category=parsed.data.expectedCategory;
+      await client.query("INSERT INTO smmexo_import_batches(category,service_ids,created_by) VALUES($1,$2::uuid[],$3)",[category,batchServiceIds,req.user.id]);
+      // Import is the explicit activation action for this selected SMMEXO batch.
+      // Keep only this category's latest selected batch active; other categories are untouched.
+      await client.query("UPDATE services SET enabled=FALSE,updated_at=NOW() WHERE category=$1 AND enabled=TRUE",[category]);
+      const maxCostMinor=category==="facebook"?3000:category==="youtube"?20000:category==="telegram"?10000:1000;
+      const activated=await client.query(
+        "WITH candidates AS (SELECT id FROM services WHERE id=ANY($1::uuid[]) AND category=$2 AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND $3 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' ORDER BY cost_per_1000_minor ASC,id ASC LIMIT 30) UPDATE services s SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() FROM candidates c WHERE s.id=c.id RETURNING s.id,s.name",
+        [batchServiceIds,category,maxCostMinor]
+      );
+      enabledCount=activated.rowCount;
+      await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,$2,'service',$3::jsonb)",[req.user.id,category+"_smmexo_services_imported_and_enabled",JSON.stringify({category,batch_service_count:batchServiceIds.length,enabled_count:enabledCount,service_ids:activated.rows.map(x=>x.id)})]);
     }
     await client.query("COMMIT");
   }catch(error){
