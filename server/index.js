@@ -204,6 +204,7 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
   const foundIds=new Set(selected.map(item=>String(item.service??"")));
   const skipped=selectedIds.filter(id=>!foundIds.has(id)).map(id=>({serviceId:id,reason:"Not found in the current SMMEXO catalogue."}));
   const imported=[];
+  const batchServiceIds=[];
   const client=await pool.connect();
   const categoryFor=(item)=>{
     const source=(String(item.category??"")+" "+String(item.name??"")).toLowerCase();
@@ -238,8 +239,8 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
         skipped.push({serviceId,reason:"Supplier category does not match the requested "+parsed.data.expectedCategory+" import."});
         continue;
       }
-      const existing=await client.query("SELECT id FROM services WHERE provider_service_id=$1 LIMIT 1",[serviceId]);
-      if(existing.rowCount){skipped.push({serviceId,reason:"Already imported."});continue;}
+      const existing=await client.query("SELECT id,category FROM services WHERE provider_service_id=$1 LIMIT 1",[serviceId]);
+      if(existing.rowCount){if(existing.rows[0].category===category)batchServiceIds.push(existing.rows[0].id);skipped.push({serviceId,reason:"Already imported."});continue;}
       const rate=Number(item.rate),supplierMin=Math.max(1,Math.floor(Number(item.min)||1)),supplierMax=Math.max(supplierMin,Math.floor(Number(item.max)||supplierMin));
       if(!category){skipped.push({serviceId,reason:"Unsupported category; no matching NEXORA category."});continue;}
       const socialCategory=["facebook","instagram","tiktok","youtube","telegram"].includes(category);
@@ -271,13 +272,17 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
       );
       await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'smmexo_service_imported','service',$2,$3::jsonb)",[req.user.id,inserted.rows[0].id,JSON.stringify({supplier:"SMMEXO",supplier_service_id:serviceId,wholesale_rate_usd_per_1000:rate,category,purchase_cost_bdt_per_1000:costMinor/100,selling_price_bdt_per_1000:sellingMinor/100,markup_percent:pricingMarkup})]);
       imported.push({serviceId,name:String(item.name).trim().slice(0,160),id:inserted.rows[0].id});
+      batchServiceIds.push(inserted.rows[0].id);
+    }
+    if(parsed.data.expectedCategory&&batchServiceIds.length){
+      await client.query("INSERT INTO smmexo_import_batches(category,service_ids,created_by) VALUES($1,$2::uuid[],$3)",[parsed.data.expectedCategory,batchServiceIds,req.user.id]);
     }
     await client.query("COMMIT");
   }catch(error){
     await client.query("ROLLBACK");
     throw error;
   }finally{client.release();}
-  res.set("Cache-Control","no-store").json({imported,skipped,importedCount:imported.length,skippedCount:skipped.length});
+  res.set("Cache-Control","no-store").json({imported,skipped,importedCount:imported.length,skippedCount:skipped.length,batchServiceCount:batchServiceIds.length});
 }));
 
 
@@ -854,11 +859,13 @@ for(const [category,rule] of Object.entries(smmexoEnableRules)){
   try{
    await client.query("BEGIN");
    const disabled=await client.query("UPDATE services SET enabled=FALSE,updated_at=NOW() WHERE category=$1 AND enabled=TRUE RETURNING id",[category]);
-   const updated=await client.query(
-    "WITH candidates AS (SELECT id FROM services WHERE category=$1 AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND $2 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' ORDER BY cost_per_1000_minor ASC,created_at DESC,id ASC LIMIT 30) UPDATE services s SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() FROM candidates c WHERE s.id=c.id RETURNING s.id,s.name",
-    [category,rule.maxCost]
-   );
-   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,$2,'service',$3::jsonb)",[req.user.id,rule.action,JSON.stringify({category,limit:30,disabledCount:disabled.rowCount,enabledCount:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
+   const batch=await client.query("SELECT id,service_ids FROM smmexo_import_batches WHERE category=$1 ORDER BY created_at DESC LIMIT 1",[category]);
+   const batchIds=batch.rows[0]?.service_ids||[];
+   const updated=batchIds.length?await client.query(
+    "WITH candidates AS (SELECT id FROM services WHERE id=ANY($1::uuid[]) AND category=$2 AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND $3 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' ORDER BY cost_per_1000_minor ASC,id ASC LIMIT 30) UPDATE services s SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() FROM candidates c WHERE s.id=c.id RETURNING s.id,s.name",
+    [batchIds,category,rule.maxCost]
+   ): {rows:[],rowCount:0};
+   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,$2,'service',$3::jsonb)",[req.user.id,rule.action,JSON.stringify({category,batch_id:batch.rows[0]?.id||null,limit:30,disabledCount:disabled.rowCount,enabledCount:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
    await client.query("COMMIT");
    res.json({ok:true,category,limit:30,disabledCount:disabled.rowCount,enabledCount:updated.rowCount,services:updated.rows});
   }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
@@ -1069,6 +1076,8 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
  .then(()=>pool.query("INSERT INTO referral_settings(id,commission_percent,enabled) VALUES(TRUE,5.00,FALSE) ON CONFLICT(id) DO NOTHING"))
  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS announcements (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),title VARCHAR(180) NOT NULL,body TEXT NOT NULL,active BOOLEAN NOT NULL DEFAULT TRUE,created_by UUID NOT NULL REFERENCES users(id),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS audit_logs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),actor_id UUID REFERENCES users(id),action VARCHAR(100) NOT NULL,entity_type VARCHAR(60) NOT NULL,entity_id UUID,details JSONB NOT NULL DEFAULT '{}'::jsonb,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS smmexo_import_batches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),category VARCHAR(20) NOT NULL CHECK(category IN ('facebook','instagram','tiktok','youtube','telegram')),service_ids UUID[] NOT NULL DEFAULT '{}',created_by UUID REFERENCES users(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS smmexo_import_batches_category_date_idx ON smmexo_import_batches(category,created_at DESC)"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS ff_reseller_webhook_events (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,provider_order_id VARCHAR(120) NOT NULL,status VARCHAR(40) NOT NULL,payload JSONB NOT NULL DEFAULT '{}'::jsonb,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS ff_reseller_webhook_events_order_date_idx ON ff_reseller_webhook_events(order_id,created_at DESC)"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_tickets (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES users(id),subject VARCHAR(180) NOT NULL,status VARCHAR(16) NOT NULL DEFAULT 'open',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
