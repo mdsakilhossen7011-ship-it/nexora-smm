@@ -420,6 +420,8 @@ async function previewSmmexoCategory(category,button){
    [["Type",service.type||"—"],["Selling price (+10%)","৳"+selling.toFixed(2)+" / 1K"],["Minimum",service.min],["Maximum",service.max],["Refill",service.refill?"Yes":"No"],["Cancel",service.cancel?"Yes":"No"]].forEach(([k,v])=>meta.append(el("span","",k+": "+String(v))));
    card.append(head,meta);list.append(card);
   });
+  const selectAllButton=document.getElementById("selectAllSmmexoPreview");
+  if(selectAllButton){selectAllButton.disabled=false;selectAllButton.textContent="Select all preview";}
  }catch(error){smmexoPreviewCategory=null;status.textContent=config.label+" preview failed";list.append(el("div","empty-admin admin-error",error.message));}
  finally{button.disabled=false;}
 }
