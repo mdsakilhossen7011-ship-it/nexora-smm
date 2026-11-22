@@ -380,7 +380,7 @@ if(importFacebookSmmexoButton){
    status.textContent="Found "+serviceIds.length+" Facebook services priced ৳1–৳30 per 1,000. Importing as disabled entries…";
    let importedCount=0,skippedCount=0,skipped=[];
    for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),facebookMarkupPercent:10})});
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),facebookMarkupPercent:10,expectedCategory:"facebook"})});
     const result=await imported.json().catch(()=>({}));
     if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
     importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
@@ -416,7 +416,7 @@ if(importInstagramSmmexoButton){
    status.textContent="Found "+serviceIds.length+" Instagram services priced ৳1–৳10 per 1,000. Importing as disabled entries…";
    let importedCount=0,skippedCount=0,skipped=[];
    for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),instagramMarkupPercent:10})});
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),instagramMarkupPercent:10,expectedCategory:"instagram"})});
     const result=await imported.json().catch(()=>({}));
     if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
     importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
@@ -452,7 +452,7 @@ if(importTikTokSmmexoButton){
    status.textContent="Found "+serviceIds.length+" TikTok services priced ৳1–৳10 per 1,000. Importing as disabled entries…";
    let importedCount=0,skippedCount=0,skipped=[];
    for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),tiktokMarkupPercent:10})});
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),tiktokMarkupPercent:10,expectedCategory:"tiktok"})});
     const result=await imported.json().catch(()=>({}));
     if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
     importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
@@ -481,14 +481,14 @@ if(importYouTubeSmmexoButton){
    if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
    const usdToBdt=Number(currency.usd_to_bdt_rate||0);
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
-   const youtube=(data.services||[]).filter(service=>/youtube|tik\s?tok/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
+   const youtube=(data.services||[]).filter(service=>/youtube/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
    const eligible=youtube.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=200;});
    if(!eligible.length){status.textContent="No YouTube services have a converted wholesale cost between ৳1 and ৳100 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+youtube.length+" YouTube services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
    status.textContent="Found "+serviceIds.length+" YouTube services priced ৳1–৳200 per 1,000. Importing as disabled entries…";
    let importedCount=0,skippedCount=0,skipped=[];
    for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),youtubeMarkupPercent:10})});
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),youtubeMarkupPercent:10,expectedCategory:"youtube"})});
     const result=await imported.json().catch(()=>({}));
     if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
     importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
@@ -519,12 +519,12 @@ if(importTelegramSmmexoButton){
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
    const telegram=(data.services||[]).filter(service=>/telegram/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
    const eligible=telegram.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=100;});
-   if(!eligible.length){status.textContent="No Telegram services have a converted wholesale cost between ৳1 and ৳200 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+telegram.length+" Telegram services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
+   if(!eligible.length){status.textContent="No Telegram services have a converted wholesale cost between ৳1 and ৳100 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+telegram.length+" Telegram services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
    status.textContent="Found "+serviceIds.length+" Telegram services priced ৳1–৳100 per 1,000. Importing as disabled entries…";
    let importedCount=0,skippedCount=0,skipped=[];
    for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),telegramMarkupPercent:10})});
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),telegramMarkupPercent:10,expectedCategory:"telegram"})});
     const result=await imported.json().catch(()=>({}));
     if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
     importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
