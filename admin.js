@@ -254,6 +254,14 @@ async function enableEligibleTikTokServices(){
  catch(error){status.textContent="Could not enable services: "+error.message;}
  finally{button.disabled=false;}
 }
+async function enableEligibleTelegramServices(){
+ const button=document.getElementById("enableTelegramServices"),status=document.getElementById("telegramBulkEnableStatus");
+ if(!confirm("Enable all imported SMMEXO Telegram services with purchase cost ৳1–৳100 per 1,000 and a selling price above purchase cost? Only eligible Telegram services will be enabled."))return;
+ button.disabled=true;status.textContent="Enabling eligible Telegram services…";
+ try{const data=await request("/admin/services/bulk-enable-telegram",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" eligible Telegram services enabled.";await loadServices();}
+ catch(error){status.textContent="Could not enable services: "+error.message;}
+ finally{button.disabled=false;}
+}
 async function enableEligibleYouTubeServices(){
  const button=document.getElementById("enableYouTubeServices"),status=document.getElementById("youtubeBulkEnableStatus");
  if(!confirm("Enable all imported SMMEXO YouTube services with purchase cost ৳1–৳200 per 1,000 and a selling price above purchase cost? Only eligible YouTube services will be enabled."))return;
@@ -272,6 +280,7 @@ async function enableEligibleFacebookServices(){
 }
 document.getElementById("enableTikTokServices").addEventListener("click",enableEligibleTikTokServices);
 document.getElementById("enableYouTubeServices").addEventListener("click",enableEligibleYouTubeServices);
+document.getElementById("enableTelegramServices").addEventListener("click",enableEligibleTelegramServices);
 document.getElementById("bulkPricingForm").addEventListener("submit",applyBulkPricing);
 document.getElementById("selectAllServices").addEventListener("click",()=>{document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=true;selectedServiceIds.add(box.dataset.serviceId)});updateBulkPricingControls()});
 document.getElementById("resetServiceForm").addEventListener("click",resetServiceForm);
@@ -470,6 +479,42 @@ if(importYouTubeSmmexoButton){
    await loadServices();
   }catch(error){status.textContent="YouTube import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
   finally{importYouTubeSmmexoButton.disabled=false;}
+ });
+}
+const importTelegramSmmexoButton=document.getElementById("importTelegramSmmexo");
+if(importTelegramSmmexoButton){
+ importTelegramSmmexoButton.addEventListener("click",async()=>{
+  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
+  importTelegramSmmexoButton.disabled=true;
+  list.replaceChildren();
+  status.textContent="Fetching Telegram services and current USD/BDT rate…";
+  try{
+   const [response,currency]=await Promise.all([
+    fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
+    request("/admin/currency")
+   ]);
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
+   const usdToBdt=Number(currency.usd_to_bdt_rate||0);
+   if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
+   const telegram=(data.services||[]).filter(service=>/telegram|tik\s?tok/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
+   const eligible=telegram.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=100;});
+   if(!eligible.length){status.textContent="No Telegram services have a converted wholesale cost between ৳1 and ৳200 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+telegram.length+" Telegram services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
+   const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
+   status.textContent="Found "+serviceIds.length+" Telegram services priced ৳1–৳100 per 1,000. Importing as disabled entries…";
+   let importedCount=0,skippedCount=0,skipped=[];
+   for(let i=0;i<serviceIds.length;i+=100){
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),telegramMarkupPercent:10})});
+    const result=await imported.json().catch(()=>({}));
+    if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
+    importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
+   }
+   status.textContent="Telegram low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Purchase cost: ৳1–৳100 / 1K. Selling price: purchase cost + 10% markup (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
+   if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
+   eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
+   await loadServices();
+  }catch(error){status.textContent="Telegram import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
+  finally{importTelegramSmmexoButton.disabled=false;}
  });
 }
 const importSmmexoButton=document.getElementById("importSmmexoSelected");
