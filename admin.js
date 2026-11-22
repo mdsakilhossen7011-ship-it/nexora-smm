@@ -236,6 +236,15 @@ document.getElementById("referralSettingsForm").addEventListener("submit",saveRe
 document.getElementById("serviceSearch").addEventListener("input",loadServices);
 document.getElementById("serviceCategoryFilter").addEventListener("change",loadServices);
 document.getElementById("serviceForm").addEventListener("submit",saveService);
+document.getElementById("enableFacebookServices").addEventListener("click",enableEligibleFacebookServices);
+async function enableEligibleFacebookServices(){
+ const button=document.getElementById("enableFacebookServices"),status=document.getElementById("facebookBulkEnableStatus");
+ if(!confirm("Enable all imported SMMEXO Facebook services with purchase cost ৳1–৳30 per 1,000 and a selling price above purchase cost? Only eligible Facebook services will be enabled."))return;
+ button.disabled=true;status.textContent="Enabling eligible Facebook services…";
+ try{const data=await request("/admin/services/bulk-enable-facebook",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" eligible Facebook services enabled.";await loadServices();}
+ catch(error){status.textContent="Could not enable services: "+error.message;}
+ finally{button.disabled=false;}
+}
 document.getElementById("bulkPricingForm").addEventListener("submit",applyBulkPricing);
 document.getElementById("selectAllServices").addEventListener("click",()=>{document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=true;selectedServiceIds.add(box.dataset.serviceId)});updateBulkPricingControls()});
 document.getElementById("resetServiceForm").addEventListener("click",resetServiceForm);
