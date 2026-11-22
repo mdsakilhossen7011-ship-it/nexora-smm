@@ -38,6 +38,12 @@
  document.addEventListener("keydown",event=>{if(event.key==="Escape")close();});
  window.addEventListener("resize",()=>{if(window.innerWidth>700)close();});
 
+ // Restore both administrator settings destinations in the existing shared three-dot drawer.
+ fetch("/api/me",{credentials:"same-origin",cache:"no-store"}).then(response=>response.ok?response.json():null).then(data=>{
+   if(data?.user?.role!=="admin")return;
+   const entries=[["/admin.html?view=settings","Settings","settings"],["/admin.html?view=system-settings","System Settings","system-settings"]];
+   for(const [href,label,key] of entries){if(menu.querySelector(`[data-admin-menu="${key}"]`))continue;const link=document.createElement("a");link.href=href;link.dataset.adminMenu=key;link.innerHTML=`<span class="menu-icon" aria-hidden="true">⚙</span><span>${label}</span>`;const logout=menu.querySelector(".menu-logout")||menu.querySelector("#logoutBtn");if(logout)menu.insertBefore(link,logout);else menu.append(link);}
+ }).catch(()=>{});
  // Site-wide announcement bell beside the three-dot menu.
  const bell=document.createElement("button");
  bell.type="button";bell.className="nexora-notification-bell";
