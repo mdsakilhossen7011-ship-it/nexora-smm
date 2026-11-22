@@ -1054,7 +1054,22 @@ app.patch("/api/admin/support/tickets/:id/status",requireAuth,requireAdmin,async
 const publicFiles = new Set(["card-facebook.svg","card-instagram.svg","card-freefire.svg","freefire-player.jpg","card-tiktok.svg","card-youtube.svg","card-telegram.svg","styles.css","app.js","service-nav.js","drawer.css","drawer.js","ui-icons.css","ui-icons.js","facebook.html","facebook.css","facebook.js","instagram.html","instagram.css","instagram.js","tiktok.html","tiktok.css","tiktok.js","youtube.html","youtube.css","youtube.js","telegram.html","telegram.css","telegram.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js","support-admin.html","support-admin.css","support-admin.js","free-fire.html","free-fire.css","free-fire.js"]);
 app.get("/", (_req,res) => res.sendFile(path.join(__dirname,"..","index.html")));
 // Keep administrator pages inaccessible unless the request has an active admin session.
-app.get("/admin.html",requireAuth,requireAdmin,(_req,res)=>res.sendFile(path.join(__dirname,"..","admin.html")));
+app.get("/admin.html",(req,res,next)=>{
+  // HTML navigation must send signed-out visitors to the login screen;
+  // keep the page protected and never expose it to non-admin accounts.
+  const auth=requireAuth;
+  const originalJson=res.json.bind(res);
+  res.json=(body)=>{
+    if(res.statusCode===401)return res.redirect("/?next=%2Fadmin.html#login");
+    return originalJson(body);
+  };
+  auth(req,res,(error)=>{
+    res.json=originalJson;
+    if(error)return next(error);
+    if(res.headersSent)return;
+    requireAdmin(req,res,()=>res.sendFile(path.join(__dirname,"..","admin.html")));
+  });
+});
 app.get("/support-admin",requireAuth,requireAdmin,(_req,res)=>res.sendFile(path.join(__dirname,"..","support-admin.html")));
 app.get("/:asset", (req,res,next) => {
   if (!publicFiles.has(req.params.asset)) return next();
