@@ -347,9 +347,18 @@ function curateSmmexoServices(services,usdToBdt,minCost,maxCost,limit=30){
   buckets.get(type).push(service);
  });
  const selected=[];
+ // Facebook customers need affordable video/Reels views most:
+ // reserve up to half of the shortlist for the lowest-cost view services.
+ const viewServices=buckets.get("view").sort((a,b)=>a.costBdt-b.costBdt||
+  (Number(b.refill===true)+Number(b.cancel===true))-(Number(a.refill===true)+Number(a.cancel===true)));
+ const viewTarget=Math.min(15,Math.ceil(limit/2));
+ selected.push(...viewServices.splice(0,viewTarget));
+ // Fill the remaining slots fairly across other service types, while allowing
+ // additional views only after the other core categories get a chance.
+ const remainingTypes=["like","comment","follow","share","other","view"];
  while(selected.length<limit){
   let added=false;
-  for(const type of types){
+  for(const type of remainingTypes){
    const next=buckets.get(type).shift();
    if(next){selected.push(next);added=true;if(selected.length>=limit)break;}
   }
@@ -384,7 +393,7 @@ const smmexoCategoryConfig={
 async function previewSmmexoCategory(category,button){
  const config=smmexoCategoryConfig[category],status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
  if(!config||!status||!list)return;
- button.disabled=true;list.replaceChildren();smmexoSelectedIds.clear();smmexoPreviewCategory=null;updateSmmexoImportButton();
+ button.disabled=true;list.replaceChildren();smmexoSelectedIds.clear();smmexoPreviewCategory=null;updateSmmexoImportButton();const selectAllButton=document.getElementById("selectAllSmmexoPreview");if(selectAllButton){selectAllButton.disabled=true;selectAllButton.textContent="Select all preview";}
  status.textContent="Loading "+config.label+" shortlist…";
  try{
   const [response,currency]=await Promise.all([
@@ -403,7 +412,7 @@ async function previewSmmexoCategory(category,button){
   eligible.forEach(service=>{
    const cost=Number(service.rate)*usdToBdt,selling=Math.ceil(cost*110)/100;
    const card=el("article","request-card"),head=el("div","request-head"),label=document.createElement("label"),checkbox=document.createElement("input");
-   label.className="smmexo-select-label";checkbox.type="checkbox";checkbox.setAttribute("aria-label","Select "+config.label+" service "+service.serviceId);
+   label.className="smmexo-select-label";checkbox.type="checkbox";checkbox.className="smmexo-service-select";checkbox.dataset.serviceId=String(service.serviceId);checkbox.setAttribute("aria-label","Select "+config.label+" service "+service.serviceId);
    checkbox.addEventListener("change",()=>{if(checkbox.checked)smmexoSelectedIds.add(String(service.serviceId));else smmexoSelectedIds.delete(String(service.serviceId));updateSmmexoImportButton();});
    label.append(checkbox,document.createTextNode(" Select"));
    head.append(label,el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+cost.toFixed(2)+" / 1K"));
@@ -417,6 +426,23 @@ async function previewSmmexoCategory(category,button){
 for(const [category,id] of [["facebook","importFacebookSmmexo"],["instagram","importInstagramSmmexo"],["tiktok","importTikTokSmmexo"],["youtube","importYouTubeSmmexo"],["telegram","importTelegramSmmexo"]]){
  const button=document.getElementById(id);if(button)button.addEventListener("click",()=>previewSmmexoCategory(category,button));
 }
+const selectAllSmmexoButton=document.getElementById("selectAllSmmexoPreview");
+if(selectAllSmmexoButton){
+ selectAllSmmexoButton.disabled=true;
+ selectAllSmmexoButton.addEventListener("click",()=>{
+  const list=document.getElementById("smmexoSupplierList");
+  const checkboxes=[...list.querySelectorAll('input[type="checkbox"].smmexo-service-select')];
+  if(!checkboxes.length)return;
+  const selectAll=checkboxes.some(checkbox=>!checkbox.checked);
+  checkboxes.forEach(checkbox=>{
+   checkbox.checked=selectAll;
+   const id=checkbox.dataset.serviceId;
+   if(selectAll)smmexoSelectedIds.add(id);else smmexoSelectedIds.delete(id);
+  });
+  selectAllSmmexoButton.textContent=selectAll?"Deselect all":"Select all preview";
+  updateSmmexoImportButton();
+ });
+}
 const importSmmexoButton=document.getElementById("importSmmexoSelected");
 if(importSmmexoButton){
  importSmmexoButton.addEventListener("click",async()=>{
@@ -429,7 +455,7 @@ if(importSmmexoButton){
    const response=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(body)});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||("Import failed ("+response.status+")."));
-   smmexoSelectedIds.clear();status.textContent=config.label+" Import সম্পন্ন: "+data.importedCount+"টি যোগ হয়েছে, "+data.skippedCount+"টি বাদ গেছে। 10% লাভসহ সবগুলো Disabled।";
+   smmexoSelectedIds.clear();const selectAllButton=document.getElementById("selectAllSmmexoPreview");if(selectAllButton){selectAllButton.disabled=true;selectAllButton.textContent="Select all preview";}status.textContent=config.label+" Import সম্পন্ন: "+data.importedCount+"টি যোগ হয়েছে, "+data.skippedCount+"টি বাদ গেছে। 10% লাভসহ সবগুলো Disabled।";
    if(data.skipped?.length)list.prepend(el("div","empty-admin",data.skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
    updateSmmexoImportButton();await loadServices();
   }catch(error){status.textContent="Import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
