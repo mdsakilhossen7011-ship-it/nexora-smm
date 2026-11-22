@@ -292,6 +292,32 @@ if(smmexoFetchButton){
   finally{smmexoFetchButton.disabled=false;}
  });
 }
+const importFacebookSmmexoButton=document.getElementById("importFacebookSmmexo");
+if(importFacebookSmmexoButton){
+ importFacebookSmmexoButton.addEventListener("click",async()=>{
+  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
+  importFacebookSmmexoButton.disabled=true;
+  list.replaceChildren();
+  status.textContent="Fetching Facebook services from SMMEXO…";
+  try{
+   const response=await fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
+   const facebook=(data.services||[]).filter(service=>/facebook|fb\s/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
+   if(!facebook.length){status.textContent="No Facebook services were identified in the current SMMEXO catalogue. Nothing was imported.";list.append(el("div","empty-admin","Check the supplier's category/name labels or use Fetch SMMEXO rates to inspect the full catalogue."));return;}
+   const serviceIds=facebook.map(service=>String(service.serviceId)).filter(Boolean);
+   status.textContent="Found "+serviceIds.length+" Facebook services. Importing as disabled catalogue entries…";
+   const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds})});
+   const result=await imported.json().catch(()=>({}));
+   if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
+   status.textContent="Facebook import complete: "+result.importedCount+" added, "+result.skippedCount+" skipped. All remain disabled; set BDT purchase/selling prices before enabling.";
+   if(result.skipped?.length)list.append(el("div","empty-admin",result.skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
+   facebook.forEach(service=>{const card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","$"+Number(service.rate).toFixed(4)+" / 1K"));const meta=el("div","request-meta");[["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card)});
+   await loadServices();
+  }catch(error){status.textContent="Facebook import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
+  finally{importFacebookSmmexoButton.disabled=false;}
+ });
+}
 const importSmmexoButton=document.getElementById("importSmmexoSelected");
 if(importSmmexoButton){
  importSmmexoButton.addEventListener("click",async()=>{
