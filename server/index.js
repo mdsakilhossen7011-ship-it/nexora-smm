@@ -185,7 +185,7 @@ app.post("/api/admin/smmexo/services",requireAuth,requireAdmin,asyncRoute(async(
 }));
 
 app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
-  const parsed=z.object({serviceIds:z.array(z.string().trim().min(1).max(120)).min(1).max(100),facebookMarkupPercent:z.number().finite().min(0).max(100).optional(),instagramMarkupPercent:z.number().finite().min(0).max(100).optional(),tiktokMarkupPercent:z.number().finite().min(0).max(100).optional()}).safeParse(req.body);
+  const parsed=z.object({serviceIds:z.array(z.string().trim().min(1).max(120)).min(1).max(100),facebookMarkupPercent:z.number().finite().min(0).max(100).optional(),instagramMarkupPercent:z.number().finite().min(0).max(100).optional(),tiktokMarkupPercent:z.number().finite().min(0).max(100).optional(),youtubeMarkupPercent:z.number().finite().min(0).max(100).optional()}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Select between 1 and 100 supplier services to import."});
   const apiKey=process.env.SMMEXO_API_KEY;
   if(!apiKey)return res.status(503).json({error:"SMMEXO_API_KEY is not configured in the hosting environment."});
@@ -223,8 +223,9 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
     const facebookMarkupPercent=parsed.data.facebookMarkupPercent;
     const instagramMarkupPercent=parsed.data.instagramMarkupPercent;
     const tiktokMarkupPercent=parsed.data.tiktokMarkupPercent;
+    const youtubeMarkupPercent=parsed.data.youtubeMarkupPercent;
     let usdToBdtRate=0;
-    if(facebookMarkupPercent!==undefined||instagramMarkupPercent!==undefined||tiktokMarkupPercent!==undefined){
+    if(facebookMarkupPercent!==undefined||instagramMarkupPercent!==undefined||tiktokMarkupPercent!==undefined||youtubeMarkupPercent!==undefined){
       const currencyResult=await client.query("SELECT usd_to_bdt_rate FROM currency_settings WHERE id=TRUE");
       usdToBdtRate=Number(currencyResult.rows[0]?.usd_to_bdt_rate||0);
       if(!Number.isFinite(usdToBdtRate)||usdToBdtRate<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before applying social-service pricing.");
@@ -243,12 +244,12 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
       const supplierType=String(item.type??"").slice(0,100);
       const refill=item.refill===true?"Yes":"No",cancel=item.cancel===true?"Yes":"No";
       let costMinor=0,sellingMinor=0,pricingMarkup=null,costBdt=0;
-      const categoryMarkup=category==="facebook"?facebookMarkupPercent:category==="instagram"?instagramMarkupPercent:category==="tiktok"?tiktokMarkupPercent:undefined;
-      if(categoryMarkup!==undefined&&(category==="facebook"||category==="instagram"||category==="tiktok")){
+      const categoryMarkup=category==="facebook"?facebookMarkupPercent:category==="instagram"?instagramMarkupPercent:category==="tiktok"?tiktokMarkupPercent:category==="youtube"?youtubeMarkupPercent:undefined;
+      if(categoryMarkup!==undefined&&(category==="facebook"||category==="instagram"||category==="tiktok"||category==="youtube")){
         costBdt=rate*usdToBdtRate;
-        const minimumCost=1,maximumCost=category==="facebook"?30:10;
+        const minimumCost=1,maximumCost=category==="facebook"?30:category==="youtube"?200:10;
         if(!Number.isFinite(costBdt)||costBdt<minimumCost||costBdt>maximumCost){
-          skipped.push({serviceId,reason:(category==="facebook"?"Facebook":category==="instagram"?"Instagram":"TikTok")+" wholesale cost is outside the ৳"+minimumCost+"–৳"+maximumCost+" per 1,000 import range."});
+          skipped.push({serviceId,reason:(category==="facebook"?"Facebook":category==="instagram"?"Instagram":category==="tiktok"?"TikTok":"YouTube")+" wholesale cost is outside the ৳"+minimumCost+"–৳"+maximumCost+" per 1,000 import range."});
           continue;
         }
         costMinor=Math.ceil(costBdt*100);
@@ -845,6 +846,17 @@ app.post("/api/admin/services/bulk-enable-tiktok",requireAuth,requireAdmin,async
   await client.query("BEGIN");
   const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='tiktok' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 1000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'tiktok_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
+  await client.query("COMMIT");
+  res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
+app.post("/api/admin/services/bulk-enable-youtube",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='youtube' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 20000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'youtube_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
   await client.query("COMMIT");
   res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
