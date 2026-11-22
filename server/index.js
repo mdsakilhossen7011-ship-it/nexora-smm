@@ -247,7 +247,7 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
         costBdt=rate*usdToBdtRate;
         const minimumCost=1,maximumCost=category==="facebook"?30:10;
         if(!Number.isFinite(costBdt)||costBdt<minimumCost||costBdt>maximumCost){
-          skipped.push({serviceId,reason:(category==="facebook"?"Facebook":"Instagram")+" wholesale cost is outside the ৳"+minimumCost+"–৳"+maximumCost+" per 1,000 import range."});
+          skipped.push({serviceId,reason:(category==="facebook"?"Facebook":category==="instagram"?"Instagram":"TikTok")+" wholesale cost is outside the ৳"+minimumCost+"–৳"+maximumCost+" per 1,000 import range."});
           continue;
         }
         costMinor=Math.ceil(costBdt*100);
