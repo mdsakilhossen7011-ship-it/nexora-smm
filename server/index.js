@@ -960,6 +960,37 @@ app.delete("/api/admin/announcements/:id",requireAuth,requireAdmin,asyncRoute(as
  await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'announcement_deleted','announcement',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({title:r.rows[0].title})]);
  res.json({ok:true});
 }));
+
+// Notifications are stored and managed independently from site announcements.
+app.get("/api/public/notifications",asyncRoute(async(_req,res)=>{
+ const r=await pool.query("SELECT id,title,body,created_at FROM notifications WHERE active=TRUE ORDER BY created_at DESC LIMIT 50");
+ res.set("Cache-Control","no-store").json({notifications:r.rows});
+}));
+app.get("/api/admin/notifications",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
+ const r=await pool.query("SELECT n.id,n.title,n.body,n.active,n.created_at,u.username AS created_by FROM notifications n JOIN users u ON u.id=n.created_by ORDER BY n.created_at DESC LIMIT 100");
+ res.json({notifications:r.rows});
+}));
+app.post("/api/admin/notifications",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({title:z.string().trim().min(2).max(180),body:z.string().trim().min(1).max(3000),active:z.boolean().default(true)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Enter a valid notification title and message."});
+ const r=await pool.query("INSERT INTO notifications(title,body,active,created_by) VALUES($1,$2,$3,$4) RETURNING id,title,body,active,created_at",[parsed.data.title,parsed.data.body,parsed.data.active,req.user.id]);
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'notification_created','notification',$2,$3::jsonb)",[req.user.id,r.rows[0].id,JSON.stringify({title:parsed.data.title,active:parsed.data.active})]);
+ res.status(201).json({notification:r.rows[0]});
+}));
+app.patch("/api/admin/notifications/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({active:z.boolean()}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Choose a valid notification status."});
+ const r=await pool.query("UPDATE notifications SET active=$1 WHERE id=$2 RETURNING id,active,title",[parsed.data.active,req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Notification not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'notification_status_changed','notification',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({active:parsed.data.active})]);
+ res.json({notification:r.rows[0]});
+}));
+app.delete("/api/admin/notifications/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const r=await pool.query("DELETE FROM notifications WHERE id=$1 RETURNING id,title",[req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Notification not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'notification_deleted','notification',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({title:r.rows[0].title})]);
+ res.json({ok:true});
+}));
 app.get("/api/admin/activity",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const q=String(req.query.search||"").trim().slice(0,100),term=q?"%"+q+"%":null;
  const a=String(req.query.action||"").trim().slice(0,100),actionTerm=a?"%"+a+"%":null;
@@ -1102,6 +1133,7 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS referral_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE), commission_percent NUMERIC(5,2) NOT NULL DEFAULT 5.00 CHECK(commission_percent>=0 AND commission_percent<=50), enabled BOOLEAN NOT NULL DEFAULT FALSE, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
  .then(()=>pool.query("INSERT INTO referral_settings(id,commission_percent,enabled) VALUES(TRUE,5.00,FALSE) ON CONFLICT(id) DO NOTHING"))
  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS announcements (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),title VARCHAR(180) NOT NULL,body TEXT NOT NULL,active BOOLEAN NOT NULL DEFAULT TRUE,created_by UUID NOT NULL REFERENCES users(id),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+ .then(()=>pool.query("CREATE TABLE IF NOT EXISTS notifications (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),title VARCHAR(180) NOT NULL,body TEXT NOT NULL,active BOOLEAN NOT NULL DEFAULT TRUE,created_by UUID NOT NULL REFERENCES users(id),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS audit_logs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),actor_id UUID REFERENCES users(id),action VARCHAR(100) NOT NULL,entity_type VARCHAR(60) NOT NULL,entity_id UUID,details JSONB NOT NULL DEFAULT '{}'::jsonb,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS smmexo_import_batches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),category VARCHAR(20) NOT NULL CHECK(category IN ('facebook','instagram','tiktok','youtube','telegram')),service_ids UUID[] NOT NULL DEFAULT '{}',created_by UUID REFERENCES users(id) ON DELETE SET NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS smmexo_import_batches_category_date_idx ON smmexo_import_batches(category,created_at DESC)"))
