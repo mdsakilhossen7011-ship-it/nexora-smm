@@ -23,3 +23,30 @@
 .ig-total span{font-size:9px;color:#aeb5d3}
 .ig-total strong{margin-top:3px;color:#72f5e9;font-size:17px;overflow-wrap:anywhere}
 @media(max-width:420px){.ig-order-fields{grid-template-columns:minmax(0,1fr)}}
+
+
+/* NEXORA compact, independently scrollable service catalogue */
+.ig-services{
+  max-height:430px;
+  min-height:120px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  align-content:start;
+  padding:9px;
+  border:1px solid rgba(173,153,255,.24);
+  border-radius:14px;
+  background:rgba(7,9,26,.48);
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#8054c9 #17152d;
+}
+.ig-services::-webkit-scrollbar{width:7px}
+.ig-services::-webkit-scrollbar-track{background:#17152d;border-radius:10px}
+.ig-services::-webkit-scrollbar-thumb{background:#8054c9;border-radius:10px}
+@media(max-width:650px){
+  .ig-services{
+    max-height:360px;
+    padding:8px;
+    border-radius:12px;
+  }
+}

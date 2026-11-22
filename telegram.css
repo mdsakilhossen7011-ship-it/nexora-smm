@@ -20,3 +20,30 @@
 #telegramOrderForm input{display:block;width:100%;min-width:0;max-width:100%;min-height:44px;padding:12px 13px;border:1px solid #ffffff20;border-radius:10px;background:#090d20;color:#fff;outline:none;font-size:12px}
 #telegramOrderForm input:focus{border-color:#52baff;box-shadow:0 0 0 3px #299dff18}
 @media(max-width:420px){.ig-order-fields{grid-template-columns:minmax(0,1fr)}}
+
+
+/* NEXORA compact, independently scrollable service catalogue */
+.ig-services{
+  max-height:430px;
+  min-height:120px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  align-content:start;
+  padding:9px;
+  border:1px solid rgba(173,153,255,.24);
+  border-radius:14px;
+  background:rgba(7,9,26,.48);
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#8054c9 #17152d;
+}
+.ig-services::-webkit-scrollbar{width:7px}
+.ig-services::-webkit-scrollbar-track{background:#17152d;border-radius:10px}
+.ig-services::-webkit-scrollbar-thumb{background:#8054c9;border-radius:10px}
+@media(max-width:650px){
+  .ig-services{
+    max-height:360px;
+    padding:8px;
+    border-radius:12px;
+  }
+}
