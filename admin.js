@@ -308,7 +308,7 @@ if(importFacebookSmmexoButton){
    if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
    const usdToBdt=Number(currency.usd_to_bdt_rate||0);
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
-   const facebook=(data.services||[]).filter(service=>/facebook|fb\\s/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
+   const facebook=(data.services||[]).filter(service=>/facebook|fb\s/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
    const eligible=facebook.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=30;});
    if(!eligible.length){status.textContent="No Facebook services have a converted wholesale cost between ৳1 and ৳30 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+facebook.length+" Facebook services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
