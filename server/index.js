@@ -185,7 +185,7 @@ app.post("/api/admin/smmexo/services",requireAuth,requireAdmin,asyncRoute(async(
 }));
 
 app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
-  const parsed=z.object({serviceIds:z.array(z.string().trim().min(1).max(120)).min(1).max(100),facebookMarkupPercent:z.number().finite().min(0).max(100).optional(),instagramMarkupPercent:z.number().finite().min(0).max(100).optional(),tiktokMarkupPercent:z.number().finite().min(0).max(100).optional(),youtubeMarkupPercent:z.number().finite().min(0).max(100).optional(),telegramMarkupPercent:z.number().finite().min(0).max(100).optional()}).safeParse(req.body);
+  const parsed=z.object({serviceIds:z.array(z.string().trim().min(1).max(120)).min(1).max(100),facebookMarkupPercent:z.number().finite().min(0).max(100).optional(),instagramMarkupPercent:z.number().finite().min(0).max(100).optional(),tiktokMarkupPercent:z.number().finite().min(0).max(100).optional(),youtubeMarkupPercent:z.number().finite().min(0).max(100).optional(),telegramMarkupPercent:z.number().finite().min(0).max(100).optional(),expectedCategory:z.enum(["facebook","instagram","tiktok","youtube","telegram"]).optional()}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Select between 1 and 100 supplier services to import."});
   const apiKey=process.env.SMMEXO_API_KEY;
   if(!apiKey)return res.status(503).json({error:"SMMEXO_API_KEY is not configured in the hosting environment."});
@@ -233,9 +233,13 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
     }
     for(const item of selected){
       const serviceId=String(item.service??"");
+      const category=categoryFor(item);
+      if(parsed.data.expectedCategory&&category!==parsed.data.expectedCategory){
+        skipped.push({serviceId,reason:"Supplier category does not match the requested "+parsed.data.expectedCategory+" import."});
+        continue;
+      }
       const existing=await client.query("SELECT id FROM services WHERE provider_service_id=$1 LIMIT 1",[serviceId]);
       if(existing.rowCount){skipped.push({serviceId,reason:"Already imported."});continue;}
-      const category=categoryFor(item);
       const rate=Number(item.rate),supplierMin=Math.max(1,Math.floor(Number(item.min)||1)),supplierMax=Math.max(supplierMin,Math.floor(Number(item.max)||supplierMin));
       if(!category){skipped.push({serviceId,reason:"Unsupported category; no matching NEXORA category."});continue;}
       const socialCategory=["facebook","instagram","tiktok","youtube","telegram"].includes(category);
