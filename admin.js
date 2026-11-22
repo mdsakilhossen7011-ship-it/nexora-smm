@@ -281,6 +281,26 @@ async function enableEligibleFacebookServices(){
 document.getElementById("enableTikTokServices").addEventListener("click",enableEligibleTikTokServices);
 document.getElementById("enableYouTubeServices").addEventListener("click",enableEligibleYouTubeServices);
 document.getElementById("enableTelegramServices").addEventListener("click",enableEligibleTelegramServices);
+document.getElementById("bulkQuantityForm").addEventListener("submit",applyBulkEnabledServiceQuantities);
+async function applyBulkEnabledServiceQuantities(event){
+ event.preventDefault();
+ const minQuantity=Number(document.getElementById("bulkMinQuantity").value);
+ const maxQuantity=Number(document.getElementById("bulkMaxQuantity").value);
+ const button=document.getElementById("applyBulkQuantity");
+ const status=document.getElementById("bulkQuantityStatus");
+ if(!Number.isSafeInteger(minQuantity)||!Number.isSafeInteger(maxQuantity)||minQuantity<1||maxQuantity<1||minQuantity>maxQuantity||maxQuantity>10000000){
+  status.textContent="সঠিক Minimum ও Maximum দাও। Minimum যেন Maximum-এর বেশি না হয়।";return;
+ }
+ if(!confirm("Facebook, Instagram, TikTok, YouTube ও Telegram-এর বর্তমানে Enable থাকা সব সার্ভিসের Min "+minQuantity+" এবং Max "+maxQuantity+" করা হবে। Disabled সার্ভিস বদলাবে না। চালিয়ে যাবে?"))return;
+ button.disabled=true;status.textContent="Enabled সার্ভিসগুলোর Quantity Limit আপডেট হচ্ছে…";
+ try{
+  const data=await request("/admin/services/bulk-update-enabled-quantities",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({minQuantity,maxQuantity})});
+  const counts=data.counts||{};
+  status.textContent="আপডেট হয়েছে: মোট "+data.updatedCount+"টি। FB "+(counts.facebook||0)+", Instagram "+(counts.instagram||0)+", TikTok "+(counts.tiktok||0)+", YouTube "+(counts.youtube||0)+", Telegram "+(counts.telegram||0)+".";
+  await loadServices();
+ }catch(error){status.textContent="আপডেট করা যায়নি: "+error.message;}
+ finally{button.disabled=false;}
+}
 document.getElementById("bulkPricingForm").addEventListener("submit",applyBulkPricing);
 document.getElementById("selectAllServices").addEventListener("click",()=>{document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=true;selectedServiceIds.add(box.dataset.serviceId)});updateBulkPricingControls()});
 document.getElementById("resetServiceForm").addEventListener("click",resetServiceForm);

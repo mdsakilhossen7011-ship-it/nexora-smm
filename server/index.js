@@ -821,6 +821,22 @@ app.patch("/api/admin/services/bulk-pricing",requireAuth,requireAdmin,asyncRoute
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
 }));
 
+app.post("/api/admin/services/bulk-update-enabled-quantities",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({minQuantity:z.number().int().min(1).max(10000000),maxQuantity:z.number().int().min(1).max(10000000)}).safeParse(req.body);
+ if(!parsed.success||parsed.data.minQuantity>parsed.data.maxQuantity)return res.status(400).json({error:"Enter valid integer quantity limits; minimum must not exceed maximum."});
+ const {minQuantity,maxQuantity}=parsed.data;
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const updated=await client.query("UPDATE services SET min_quantity=$1,max_quantity=$2,updated_at=NOW() WHERE enabled=TRUE AND category=ANY($3::text[]) RETURNING id,category",[minQuantity,maxQuantity,["facebook","instagram","tiktok","youtube","telegram"]]);
+  const counts={facebook:0,instagram:0,tiktok:0,youtube:0,telegram:0};
+  for(const row of updated.rows)counts[row.category]=(counts[row.category]||0)+1;
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'enabled_smm_service_quantities_bulk_updated','service',$2::jsonb)",[req.user.id,JSON.stringify({min_quantity:minQuantity,max_quantity:maxQuantity,count:updated.rowCount,counts})]);
+  await client.query("COMMIT");
+  res.json({ok:true,updatedCount:updated.rowCount,counts,minQuantity,maxQuantity});
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
 app.post("/api/admin/services/bulk-enable-facebook",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const client=await pool.connect();
  try{
