@@ -483,7 +483,7 @@ if(importYouTubeSmmexoButton){
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
    const youtube=(data.services||[]).filter(service=>/youtube/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
    const eligible=youtube.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=200;});
-   if(!eligible.length){status.textContent="No YouTube services have a converted wholesale cost between ৳1 and ৳100 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+youtube.length+" YouTube services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
+   if(!eligible.length){status.textContent="No YouTube services have a converted wholesale cost between ৳1 and ৳200 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+youtube.length+" YouTube services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
    status.textContent="Found "+serviceIds.length+" YouTube services priced ৳1–৳200 per 1,000. Importing as disabled entries…";
    let importedCount=0,skippedCount=0,skipped=[];
