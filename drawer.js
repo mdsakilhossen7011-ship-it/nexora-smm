@@ -38,11 +38,20 @@
  document.addEventListener("keydown",event=>{if(event.key==="Escape")close();});
  window.addEventListener("resize",()=>{if(window.innerWidth>700)close();});
 
- // Restore both administrator settings destinations in the existing shared three-dot drawer.
+ // Admin-only links belong inside the authenticated account menu, never the public menu.
+ // Remove any stale/injected admin links first; a failed or anonymous session check shows none.
+ menu.querySelectorAll("[data-admin-menu],a[href^='/admin.html']").forEach(link=>link.remove());
  fetch("/api/me",{credentials:"same-origin",cache:"no-store"}).then(response=>response.ok?response.json():null).then(data=>{
    if(data?.user?.role!=="admin")return;
-   const entries=[["/admin.html?view=settings","Settings","settings"],["/admin.html?view=system-settings","System Settings","system-settings"]];
-   for(const [href,label,key] of entries){if(menu.querySelector(`[data-admin-menu="${key}"]`))continue;const link=document.createElement("a");link.href=href;link.dataset.adminMenu=key;link.innerHTML=`<span class="menu-icon" aria-hidden="true">⚙</span><span>${label}</span>`;const logout=menu.querySelector(".menu-logout")||menu.querySelector("#logoutBtn");if(logout)menu.insertBefore(link,logout);else menu.append(link);}
+   const target=menu.querySelector(".nav-account")||menu;
+   const entries=[["/admin.html?view=settings","Admin Settings","settings"],["/admin.html?view=system-settings","System Settings","system-settings"]];
+   for(const [href,label,key] of entries){
+     if(target.querySelector(`[data-admin-menu="${key}"]`))continue;
+     const link=document.createElement("a");link.href=href;link.dataset.adminMenu=key;
+     link.innerHTML=`<span class="menu-icon" aria-hidden="true">⚙</span><span>${label}</span>`;
+     const logout=target.querySelector(".menu-logout")||target.querySelector("#logoutBtn")||target.querySelector("#homeLogoutBtn");
+     if(logout)target.insertBefore(link,logout);else target.append(link);
+   }
  }).catch(()=>{});
  // Site-wide announcement bell beside the three-dot menu.
  const bell=document.createElement("button");
