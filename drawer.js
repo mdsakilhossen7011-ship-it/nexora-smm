@@ -65,13 +65,13 @@
  document.body.appendChild(noticeOverlay);
  const noticeList=noticeOverlay.querySelector(".nexora-notification-list");
  const noticeCount=bell.querySelector(".nexora-notification-count");
- const noticeKey="nexora_read_announcements_v1";
+ const noticeKey="nexora_read_notifications_v1";
  let noticeItems=[];
  const readIds=()=>{try{const value=JSON.parse(localStorage.getItem(noticeKey)||"[]");return new Set(Array.isArray(value)?value:[])}catch{return new Set()}};
  const updateNoticeBadge=()=>{const read=readIds(),count=noticeItems.filter(x=>!read.has(x.id)).length;noticeCount.textContent=count>99?"99+":String(count);noticeCount.hidden=count===0;bell.classList.toggle("has-unread",count>0);};
  const renderNotices=()=>{
    noticeList.replaceChildren();
-   if(!noticeItems.length){const empty=document.createElement("p");empty.className="nexora-notification-empty";empty.textContent="No new announcements right now.";noticeList.append(empty);return;}
+   if(!noticeItems.length){const empty=document.createElement("p");empty.className="nexora-notification-empty";empty.textContent="No new notifications right now.";noticeList.append(empty);return;}
    const read=readIds();
    noticeItems.forEach(item=>{
      const card=document.createElement("article");card.className="nexora-notification-item"+(read.has(item.id)?" is-read":"");
@@ -84,7 +84,7 @@
    });
  };
  const loadNotices=async()=>{
-   try{const response=await fetch("/api/public/announcements",{credentials:"same-origin",cache:"no-store"});if(!response.ok)throw new Error("Could not load alerts.");const data=await response.json();noticeItems=Array.isArray(data.announcements)?data.announcements:[];
+   try{const response=await fetch("/api/public/notifications",{credentials:"same-origin",cache:"no-store"});if(!response.ok)throw new Error("Could not load alerts.");const data=await response.json();noticeItems=Array.isArray(data.notifications)?data.notifications:[];
      updateNoticeBadge();if(!noticeOverlay.hidden)renderNotices();
    }catch(error){if(!noticeItems.length){noticeList.replaceChildren();const empty=document.createElement("p");empty.className="nexora-notification-empty";empty.textContent="Notifications are temporarily unavailable.";noticeList.append(empty);}}
  };
