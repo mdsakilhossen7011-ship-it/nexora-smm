@@ -185,7 +185,7 @@ app.post("/api/admin/smmexo/services",requireAuth,requireAdmin,asyncRoute(async(
 }));
 
 app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
-  const parsed=z.object({serviceIds:z.array(z.string().trim().min(1).max(120)).min(1).max(100),facebookMarkupPercent:z.number().finite().min(0).max(100).optional()}).safeParse(req.body);
+  const parsed=z.object({serviceIds:z.array(z.string().trim().min(1).max(120)).min(1).max(100),facebookMarkupPercent:z.number().finite().min(0).max(100).optional(),instagramMarkupPercent:z.number().finite().min(0).max(100).optional()}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Select between 1 and 100 supplier services to import."});
   const apiKey=process.env.SMMEXO_API_KEY;
   if(!apiKey)return res.status(503).json({error:"SMMEXO_API_KEY is not configured in the hosting environment."});
@@ -220,12 +220,13 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
   try{
     await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0");
     await client.query("BEGIN");
-    const markupPercent=parsed.data.facebookMarkupPercent;
+    const facebookMarkupPercent=parsed.data.facebookMarkupPercent;
+    const instagramMarkupPercent=parsed.data.instagramMarkupPercent;
     let usdToBdtRate=0;
-    if(markupPercent!==undefined){
+    if(facebookMarkupPercent!==undefined||instagramMarkupPercent!==undefined){
       const currencyResult=await client.query("SELECT usd_to_bdt_rate FROM currency_settings WHERE id=TRUE");
       usdToBdtRate=Number(currencyResult.rows[0]?.usd_to_bdt_rate||0);
-      if(!Number.isFinite(usdToBdtRate)||usdToBdtRate<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before applying Facebook pricing.");
+      if(!Number.isFinite(usdToBdtRate)||usdToBdtRate<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before applying social-service pricing.");
     }
     for(const item of selected){
       const serviceId=String(item.service??"");
@@ -241,15 +242,17 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
       const supplierType=String(item.type??"").slice(0,100);
       const refill=item.refill===true?"Yes":"No",cancel=item.cancel===true?"Yes":"No";
       let costMinor=0,sellingMinor=0,pricingMarkup=null,costBdt=0;
-      if(markupPercent!==undefined&&category==="facebook"){
+      const categoryMarkup=category==="facebook"?facebookMarkupPercent:category==="instagram"?instagramMarkupPercent:undefined;
+      if(categoryMarkup!==undefined&&(category==="facebook"||category==="instagram")){
         costBdt=rate*usdToBdtRate;
-        if(!Number.isFinite(costBdt)||costBdt<1||costBdt>30){
-          skipped.push({serviceId,reason:"Facebook wholesale cost is outside the ৳1–৳30 per 1,000 import range."});
+        const minimumCost=1,maximumCost=category==="facebook"?30:10;
+        if(!Number.isFinite(costBdt)||costBdt<minimumCost||costBdt>maximumCost){
+          skipped.push({serviceId,reason:(category==="facebook"?"Facebook":"Instagram")+" wholesale cost is outside the ৳"+minimumCost+"–৳"+maximumCost+" per 1,000 import range."});
           continue;
         }
         costMinor=Math.ceil(costBdt*100);
-        pricingMarkup=markupPercent;
-        sellingMinor=Math.ceil(costMinor*(1+markupPercent/100));
+        pricingMarkup=categoryMarkup;
+        sellingMinor=Math.ceil(costMinor*(1+categoryMarkup/100));
       }
       const pricingNote=pricingMarkup===null?"Supplier wholesale rate is stored in USD. Set a BDT purchase and selling price before enabling.":"BDT purchase cost: ৳"+(costMinor/100).toFixed(2)+" per 1,000. Customer selling price includes "+pricingMarkup+"% markup.";
       const description=("Imported from SMMEXO. Wholesale rate: $"+rate.toFixed(4)+" USD per 1,000. Supplier category: "+supplierCategory+". Type: "+supplierType+". Refill: "+refill+". Cancel: "+cancel+". "+pricingNote).slice(0,2000);
@@ -819,6 +822,17 @@ app.post("/api/admin/services/bulk-enable-facebook",requireAuth,requireAdmin,asy
   await client.query("BEGIN");
   const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='facebook' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 3000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'facebook_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
+  await client.query("COMMIT");
+  res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
+app.post("/api/admin/services/bulk-enable-instagram",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='instagram' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 1000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'instagram_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
   await client.query("COMMIT");
   res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
