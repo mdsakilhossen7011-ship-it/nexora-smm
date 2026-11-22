@@ -457,7 +457,7 @@ if(importSmmexoButton){
    const response=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(body)});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||("Import failed ("+response.status+")."));
-   smmexoSelectedIds.clear();const selectAllButton=document.getElementById("selectAllSmmexoPreview");if(selectAllButton){selectAllButton.disabled=true;selectAllButton.textContent="Select all preview";}status.textContent=config.label+" Import সম্পন্ন: "+data.importedCount+"টি যোগ হয়েছে, "+data.skippedCount+"টি বাদ গেছে। 10% লাভসহ সবগুলো Disabled।";
+   smmexoSelectedIds.clear();const selectAllButton=document.getElementById("selectAllSmmexoPreview");if(selectAllButton){selectAllButton.disabled=true;selectAllButton.textContent="Select all preview";}status.textContent=config.label+" Import সম্পন্ন: "+data.importedCount+"টি নতুন যোগ, "+data.skippedCount+"টি আগে থেকেই ছিল/বাদ গেছে। "+(data.enabledCount??0)+"টি সার্ভিস এখন Enabled; এই ক্যাটাগরির অন্য সার্ভিস Disabled।";
    if(data.skipped?.length)list.prepend(el("div","empty-admin",data.skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
    updateSmmexoImportButton();await loadServices();
   }catch(error){status.textContent="Import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
