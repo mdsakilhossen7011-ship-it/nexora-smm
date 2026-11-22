@@ -377,7 +377,7 @@ let smmexoPreviewCategory=null;
 const smmexoCategoryConfig={
  facebook:{label:"Facebook",pattern:/facebook/i,min:1,max:30,markupKey:"facebookMarkupPercent"},
  instagram:{label:"Instagram",pattern:/instagram/i,min:1,max:10,markupKey:"instagramMarkupPercent"},
- tiktok:{label:"TikTok",pattern:/tiktok|tik\\s?tok/i,min:1,max:10,markupKey:"tiktokMarkupPercent"},
+ tiktok:{label:"TikTok",pattern:/tiktok|tik\s?tok/i,min:1,max:10,markupKey:"tiktokMarkupPercent"},
  youtube:{label:"YouTube",pattern:/youtube/i,min:1,max:200,markupKey:"youtubeMarkupPercent"},
  telegram:{label:"Telegram",pattern:/telegram/i,min:1,max:100,markupKey:"telegramMarkupPercent"}
 };
