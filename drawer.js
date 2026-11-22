@@ -38,16 +38,6 @@
  document.addEventListener("keydown",event=>{if(event.key==="Escape")close();});
  window.addEventListener("resize",()=>{if(window.innerWidth>700)close();});
 
- // Show System Settings in the shared three-dot menu only for authenticated administrators.
- fetch("/api/me",{credentials:"same-origin",cache:"no-store"}).then(response=>response.ok?response.json():null).then(data=>{
-   if(data?.user?.role!=="admin"||menu.querySelector('[data-admin-system-settings]'))return;
-   const link=document.createElement("a");
-   link.href="/admin.html?view=system-settings";
-   link.dataset.adminSystemSettings="true";
-   link.innerHTML='<span class="menu-icon" aria-hidden="true">⚙</span><span>System Settings</span>';
-   const logout=menu.querySelector(".menu-logout")||menu.querySelector("#logoutBtn");
-   if(logout)menu.insertBefore(link,logout);else menu.append(link);
- }).catch(()=>{});
  // Site-wide announcement bell beside the three-dot menu.
  const bell=document.createElement("button");
  bell.type="button";bell.className="nexora-notification-bell";
