@@ -813,6 +813,17 @@ app.patch("/api/admin/services/bulk-pricing",requireAuth,requireAdmin,asyncRoute
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
 }));
 
+app.post("/api/admin/services/bulk-enable-facebook",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE enabled=FALSE AND category='facebook' AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND 3000 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' RETURNING id,name");
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'facebook_smmexo_services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({count:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
+  await client.query("COMMIT");
+  res.json({ok:true,enabledCount:updated.rowCount,services:updated.rows});
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
 app.patch("/api/admin/services/:id/status",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const parsed=z.object({enabled:z.boolean()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid service status."});
