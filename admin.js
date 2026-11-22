@@ -298,21 +298,31 @@ if(importFacebookSmmexoButton){
   const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
   importFacebookSmmexoButton.disabled=true;
   list.replaceChildren();
-  status.textContent="Fetching Facebook services from SMMEXO…";
+  status.textContent="Fetching Facebook services and current USD/BDT rate…";
   try{
-   const response=await fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}});
+   const [response,currency]=await Promise.all([
+    fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
+    request("/admin/currency")
+   ]);
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
+   const usdToBdt=Number(currency.usd_to_bdt_rate||0);
+   if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
    const facebook=(data.services||[]).filter(service=>/facebook|fb\s/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   if(!facebook.length){status.textContent="No Facebook services were identified in the current SMMEXO catalogue. Nothing was imported.";list.append(el("div","empty-admin","Check the supplier's category/name labels or use Fetch SMMEXO rates to inspect the full catalogue."));return;}
-   const serviceIds=facebook.map(service=>String(service.serviceId)).filter(Boolean);
-   status.textContent="Found "+serviceIds.length+" Facebook services. Importing as disabled catalogue entries…";
-   const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds})});
-   const result=await imported.json().catch(()=>({}));
-   if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
-   status.textContent="Facebook import complete: "+result.importedCount+" added, "+result.skippedCount+" skipped. All remain disabled; set BDT purchase/selling prices before enabling.";
-   if(result.skipped?.length)list.append(el("div","empty-admin",result.skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
-   facebook.forEach(service=>{const card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","$"+Number(service.rate).toFixed(4)+" / 1K"));const meta=el("div","request-meta");[["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card)});
+   const eligible=facebook.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=30;});
+   if(!eligible.length){status.textContent="No Facebook services have a converted wholesale cost between ৳1 and ৳30 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+facebook.length+" Facebook services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
+   const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
+   status.textContent="Found "+serviceIds.length+" Facebook services priced ৳1–৳30 per 1,000. Importing as disabled entries…";
+   let importedCount=0,skippedCount=0,skipped=[];
+   for(let i=0;i<serviceIds.length;i+=100){
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100)})});
+    const result=await imported.json().catch(()=>({}));
+    if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
+    importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
+   }
+   status.textContent="Facebook low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Filter: ৳1–৳30 supplier cost / 1K (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
+   if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
+   eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
    await loadServices();
   }catch(error){status.textContent="Facebook import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
   finally{importFacebookSmmexoButton.disabled=false;}
