@@ -240,41 +240,41 @@ document.getElementById("enableFacebookServices").addEventListener("click",enabl
 document.getElementById("enableInstagramServices").addEventListener("click",enableEligibleInstagramServices);
 async function enableEligibleInstagramServices(){
  const button=document.getElementById("enableInstagramServices"),status=document.getElementById("instagramBulkEnableStatus");
- if(!confirm("Enable all imported SMMEXO Instagram services with purchase cost ৳1–৳10 per 1,000 and a selling price above purchase cost? Only eligible Instagram services will be enabled."))return;
+ if(!confirm("Enable up to 30 eligible SMMEXO Instagram services (lowest purchase cost first). All other Instagram services, including previously enabled ones, will be disabled. Continue?"))return;
  button.disabled=true;status.textContent="Enabling eligible Instagram services…";
- try{const data=await request("/admin/services/bulk-enable-instagram",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" eligible Instagram services enabled.";await loadServices();}
+ try{const data=await request("/admin/services/bulk-enable-instagram",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" Instagram services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
  catch(error){status.textContent="Could not enable services: "+error.message;}
  finally{button.disabled=false;}
 }
 async function enableEligibleTikTokServices(){
  const button=document.getElementById("enableTikTokServices"),status=document.getElementById("tiktokBulkEnableStatus");
- if(!confirm("Enable all imported SMMEXO TikTok services with purchase cost ৳1–৳10 per 1,000 and a selling price above purchase cost? Only eligible TikTok services will be enabled."))return;
+ if(!confirm("Enable up to 30 eligible SMMEXO TikTok services (lowest purchase cost first). All other TikTok services, including previously enabled ones, will be disabled. Continue?"))return;
  button.disabled=true;status.textContent="Enabling eligible TikTok services…";
- try{const data=await request("/admin/services/bulk-enable-tiktok",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" eligible TikTok services enabled.";await loadServices();}
+ try{const data=await request("/admin/services/bulk-enable-tiktok",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" TikTok services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
  catch(error){status.textContent="Could not enable services: "+error.message;}
  finally{button.disabled=false;}
 }
 async function enableEligibleTelegramServices(){
  const button=document.getElementById("enableTelegramServices"),status=document.getElementById("telegramBulkEnableStatus");
- if(!confirm("Enable all imported SMMEXO Telegram services with purchase cost ৳1–৳100 per 1,000 and a selling price above purchase cost? Only eligible Telegram services will be enabled."))return;
+ if(!confirm("Enable up to 30 eligible SMMEXO Telegram services (lowest purchase cost first). All other Telegram services, including previously enabled ones, will be disabled. Continue?"))return;
  button.disabled=true;status.textContent="Enabling eligible Telegram services…";
- try{const data=await request("/admin/services/bulk-enable-telegram",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" eligible Telegram services enabled.";await loadServices();}
+ try{const data=await request("/admin/services/bulk-enable-telegram",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" Telegram services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
  catch(error){status.textContent="Could not enable services: "+error.message;}
  finally{button.disabled=false;}
 }
 async function enableEligibleYouTubeServices(){
  const button=document.getElementById("enableYouTubeServices"),status=document.getElementById("youtubeBulkEnableStatus");
- if(!confirm("Enable all imported SMMEXO YouTube services with purchase cost ৳1–৳200 per 1,000 and a selling price above purchase cost? Only eligible YouTube services will be enabled."))return;
+ if(!confirm("Enable up to 30 eligible SMMEXO YouTube services (lowest purchase cost first). All other YouTube services, including previously enabled ones, will be disabled. Continue?"))return;
  button.disabled=true;status.textContent="Enabling eligible YouTube services…";
- try{const data=await request("/admin/services/bulk-enable-youtube",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" eligible YouTube services enabled.";await loadServices();}
+ try{const data=await request("/admin/services/bulk-enable-youtube",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" YouTube services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
  catch(error){status.textContent="Could not enable services: "+error.message;}
  finally{button.disabled=false;}
 }
 async function enableEligibleFacebookServices(){
  const button=document.getElementById("enableFacebookServices"),status=document.getElementById("facebookBulkEnableStatus");
- if(!confirm("Enable all imported SMMEXO Facebook services with purchase cost ৳1–৳30 per 1,000 and a selling price above purchase cost? Only eligible Facebook services will be enabled."))return;
+ if(!confirm("Enable up to 30 eligible SMMEXO Facebook services (lowest purchase cost first). All other Facebook services, including previously enabled ones, will be disabled. Continue?"))return;
  button.disabled=true;status.textContent="Enabling eligible Facebook services…";
- try{const data=await request("/admin/services/bulk-enable-facebook",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" eligible Facebook services enabled.";await loadServices();}
+ try{const data=await request("/admin/services/bulk-enable-facebook",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" Facebook services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
  catch(error){status.textContent="Could not enable services: "+error.message;}
  finally{button.disabled=false;}
 }
