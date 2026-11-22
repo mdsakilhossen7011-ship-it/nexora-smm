@@ -221,7 +221,8 @@ app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(re
     await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0");
     await client.query("BEGIN");
     const facebookMarkupPercent=parsed.data.facebookMarkupPercent;
-    const instagramMarkupPercent=parsed.data.instagramMarkupPercent;\n    const tiktokMarkupPercent=parsed.data.tiktokMarkupPercent;
+    const instagramMarkupPercent=parsed.data.instagramMarkupPercent;
+    const tiktokMarkupPercent=parsed.data.tiktokMarkupPercent;
     let usdToBdtRate=0;
     if(facebookMarkupPercent!==undefined||instagramMarkupPercent!==undefined||tiktokMarkupPercent!==undefined){
       const currencyResult=await client.query("SELECT usd_to_bdt_rate FROM currency_settings WHERE id=TRUE");
