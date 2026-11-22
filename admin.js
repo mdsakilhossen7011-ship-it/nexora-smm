@@ -407,7 +407,7 @@ if(importTikTokSmmexoButton){
    if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
    const usdToBdt=Number(currency.usd_to_bdt_rate||0);
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
-   const tiktok=(data.services||[]).filter(service=>/tiktok|insta\b|ig\b/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
+   const tiktok=(data.services||[]).filter(service=>/tiktok|tik\s?tok/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
    const eligible=tiktok.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=10;});
    if(!eligible.length){status.textContent="No TikTok services have a converted wholesale cost between ৳1 and ৳10 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+tiktok.length+" TikTok services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
