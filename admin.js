@@ -361,244 +361,79 @@ const smmexoFetchButton=document.getElementById("fetchSmmexoServices");
 if(smmexoFetchButton){
  smmexoFetchButton.addEventListener("click",async()=>{
   const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
-  smmexoFetchButton.disabled=true;
-  status.textContent="Connecting to SMMEXO…";
-  list.replaceChildren();
-  smmexoSelectedIds.clear();
-  updateSmmexoImportButton();
+  smmexoFetchButton.disabled=true;list.replaceChildren();smmexoSelectedIds.clear();smmexoPreviewCategory=null;updateSmmexoImportButton();
+  status.textContent="Checking SMMEXO connection…";
   try{
    const response=await fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
-   status.textContent="Loaded "+data.count+" SMMEXO services · Currency: "+data.currency+" · Select services to import";
-   if(!Array.isArray(data.services)||!data.services.length){list.append(el("div","empty-admin","SMMEXO returned no services."));return;}
-   data.services.forEach(service=>{
-    const card=el("article","request-card"),head=el("div","request-head");
-    const selectLabel=document.createElement("label");
-    selectLabel.className="smmexo-select-label";
-    const checkbox=document.createElement("input");
-    checkbox.type="checkbox";
-    checkbox.setAttribute("aria-label","Select SMMEXO service "+service.serviceId);
-    checkbox.addEventListener("change",()=>{
-     if(checkbox.checked)smmexoSelectedIds.add(service.serviceId);
-     else smmexoSelectedIds.delete(service.serviceId);
-     updateSmmexoImportButton();
-    });
-    selectLabel.append(checkbox,document.createTextNode(" Select"));
-    head.append(selectLabel,el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","$"+Number(service.rate).toFixed(4)+" / 1K"));
-    const meta=el("div","request-meta");
-    [["Category",service.category],["Type",service.type],["Minimum",service.min],["Maximum",service.max],["Refill",service.refill?"Yes":"No"],["Cancel",service.cancel?"Yes":"No"]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));
-    card.append(head,meta);list.append(card);
-   });
-  }catch(error){status.textContent="Could not load SMMEXO catalogue";list.append(el("div","empty-admin admin-error",error.message));}
+   status.textContent="সংযোগ সফল! "+data.count+"টি SMMEXO সার্ভিস পাওয়া গেছে। এখন নিচের ক্যাটাগরি Preview করে পছন্দেরগুলো Select করো।";
+   list.append(el("div","empty-admin","পুরো তালিকা এখানে দেখানো হচ্ছে না—খুঁজে পাওয়া সহজ রাখতে ক্যাটাগরি অনুযায়ী সর্বোচ্চ ৩০টি করে দেখানো হবে।"));
+  }catch(error){status.textContent="SMMEXO connection failed";list.append(el("div","empty-admin admin-error",error.message));}
   finally{smmexoFetchButton.disabled=false;}
  });
 }
-const importFacebookSmmexoButton=document.getElementById("importFacebookSmmexo");
-if(importFacebookSmmexoButton){
- importFacebookSmmexoButton.addEventListener("click",async()=>{
-  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
-  importFacebookSmmexoButton.disabled=true;
-  list.replaceChildren();
-  status.textContent="Fetching Facebook services and current USD/BDT rate…";
-  try{
-   const [response,currency]=await Promise.all([
-    fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
-    request("/admin/currency")
-   ]);
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
-   const usdToBdt=Number(currency.usd_to_bdt_rate||0);
-   if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
-   const facebook=(data.services||[]).filter(service=>/facebook|fb\s/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=curateSmmexoServices(facebook,usdToBdt,1,30,30);
-   if(!eligible.length){status.textContent="No Facebook services have a converted wholesale cost between ৳1 and ৳30 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+facebook.length+" Facebook services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
-   const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
-   status.textContent="Found "+serviceIds.length+" Facebook services priced ৳1–৳30 per 1,000. Importing as disabled entries…";
-   let importedCount=0,skippedCount=0,skipped=[];
-   for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),facebookMarkupPercent:10,expectedCategory:"facebook"})});
-    const result=await imported.json().catch(()=>({}));
-    if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
-    importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
-   }
-   status.textContent="Facebook low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Purchase cost: ৳1–৳30 / 1K. Selling price: purchase cost + 10% markup (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
-   if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
-   eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
-   await loadServices();
-  }catch(error){status.textContent="Facebook import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
-  finally{importFacebookSmmexoButton.disabled=false;}
- });
+let smmexoPreviewCategory=null;
+const smmexoCategoryConfig={
+ facebook:{label:"Facebook",pattern:/facebook/i,min:1,max:30,markupKey:"facebookMarkupPercent"},
+ instagram:{label:"Instagram",pattern:/instagram/i,min:1,max:10,markupKey:"instagramMarkupPercent"},
+ tiktok:{label:"TikTok",pattern:/tiktok|tik\s?tok/i,min:1,max:10,markupKey:"tiktokMarkupPercent"},
+ youtube:{label:"YouTube",pattern:/youtube/i,min:1,max:200,markupKey:"youtubeMarkupPercent"},
+ telegram:{label:"Telegram",pattern:/telegram/i,min:1,max:100,markupKey:"telegramMarkupPercent"}
+};
+async function previewSmmexoCategory(category,button){
+ const config=smmexoCategoryConfig[category],status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
+ if(!config||!status||!list)return;
+ button.disabled=true;list.replaceChildren();smmexoSelectedIds.clear();smmexoPreviewCategory=null;updateSmmexoImportButton();
+ status.textContent="Loading "+config.label+" shortlist…";
+ try{
+  const [response,currency]=await Promise.all([
+   fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
+   request("/admin/currency")
+  ]);
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
+  const usdToBdt=Number(currency.usd_to_bdt_rate||0);
+  if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("আগে Settings → Currency থেকে USD/BDT rate ঠিক করো।");
+  const source=(data.services||[]).filter(service=>config.pattern.test(String(service.category||"")+" "+String(service.name||"")));
+  const eligible=curateSmmexoServices(source,usdToBdt,config.min,config.max,30);
+  if(!eligible.length){status.textContent=config.label+"-এ নির্ধারিত দামের মধ্যে যোগ্য সার্ভিস পাওয়া যায়নি।";list.append(el("div","empty-admin","Supplier থেকে "+source.length+"টি "+config.label+" সার্ভিস পাওয়া গেছে, কিন্তু দাম/quantity শর্তে কোনোটি মেলেনি।"));return;}
+  smmexoPreviewCategory=category;
+  status.textContent=config.label+": "+eligible.length+"টি সাশ্রয়ী সার্ভিস · ক্রয়মূল্য ৳"+config.min+"–৳"+config.max+" / 1K · বিক্রয়মূল্যে 10% লাভ। পছন্দমতো Select করো।";
+  eligible.forEach(service=>{
+   const cost=Number(service.rate)*usdToBdt,selling=Math.ceil(cost*110)/100;
+   const card=el("article","request-card"),head=el("div","request-head"),label=document.createElement("label"),checkbox=document.createElement("input");
+   label.className="smmexo-select-label";checkbox.type="checkbox";checkbox.setAttribute("aria-label","Select "+config.label+" service "+service.serviceId);
+   checkbox.addEventListener("change",()=>{if(checkbox.checked)smmexoSelectedIds.add(String(service.serviceId));else smmexoSelectedIds.delete(String(service.serviceId));updateSmmexoImportButton();});
+   label.append(checkbox,document.createTextNode(" Select"));
+   head.append(label,el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+cost.toFixed(2)+" / 1K"));
+   const meta=el("div","request-meta");
+   [["Type",service.type||"—"],["Selling price (+10%)","৳"+selling.toFixed(2)+" / 1K"],["Minimum",service.min],["Maximum",service.max],["Refill",service.refill?"Yes":"No"],["Cancel",service.cancel?"Yes":"No"]].forEach(([k,v])=>meta.append(el("span","",k+": "+String(v))));
+   card.append(head,meta);list.append(card);
+  });
+ }catch(error){smmexoPreviewCategory=null;status.textContent=config.label+" preview failed";list.append(el("div","empty-admin admin-error",error.message));}
+ finally{button.disabled=false;}
 }
-const importInstagramSmmexoButton=document.getElementById("importInstagramSmmexo");
-if(importInstagramSmmexoButton){
- importInstagramSmmexoButton.addEventListener("click",async()=>{
-  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
-  importInstagramSmmexoButton.disabled=true;
-  list.replaceChildren();
-  status.textContent="Fetching Instagram services and current USD/BDT rate…";
-  try{
-   const [response,currency]=await Promise.all([
-    fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
-    request("/admin/currency")
-   ]);
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
-   const usdToBdt=Number(currency.usd_to_bdt_rate||0);
-   if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
-   const instagram=(data.services||[]).filter(service=>/instagram|insta\b|ig\b/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=curateSmmexoServices(instagram,usdToBdt,1,10,30);
-   if(!eligible.length){status.textContent="No Instagram services have a converted wholesale cost between ৳1 and ৳10 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+instagram.length+" Instagram services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
-   const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
-   status.textContent="Found "+serviceIds.length+" Instagram services priced ৳1–৳10 per 1,000. Importing as disabled entries…";
-   let importedCount=0,skippedCount=0,skipped=[];
-   for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),instagramMarkupPercent:10,expectedCategory:"instagram"})});
-    const result=await imported.json().catch(()=>({}));
-    if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
-    importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
-   }
-   status.textContent="Instagram low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Purchase cost: ৳1–৳10 / 1K. Selling price: purchase cost + 10% markup (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
-   if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
-   eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
-   await loadServices();
-  }catch(error){status.textContent="Instagram import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
-  finally{importInstagramSmmexoButton.disabled=false;}
- });
-}
-const importTikTokSmmexoButton=document.getElementById("importTikTokSmmexo");
-if(importTikTokSmmexoButton){
- importTikTokSmmexoButton.addEventListener("click",async()=>{
-  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
-  importTikTokSmmexoButton.disabled=true;
-  list.replaceChildren();
-  status.textContent="Fetching TikTok services and current USD/BDT rate…";
-  try{
-   const [response,currency]=await Promise.all([
-    fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
-    request("/admin/currency")
-   ]);
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
-   const usdToBdt=Number(currency.usd_to_bdt_rate||0);
-   if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
-   const tiktok=(data.services||[]).filter(service=>/tiktok|tik\s?tok/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=curateSmmexoServices(tiktok,usdToBdt,1,10,30);
-   if(!eligible.length){status.textContent="No TikTok services have a converted wholesale cost between ৳1 and ৳10 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+tiktok.length+" TikTok services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
-   const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
-   status.textContent="Found "+serviceIds.length+" TikTok services priced ৳1–৳10 per 1,000. Importing as disabled entries…";
-   let importedCount=0,skippedCount=0,skipped=[];
-   for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),tiktokMarkupPercent:10,expectedCategory:"tiktok"})});
-    const result=await imported.json().catch(()=>({}));
-    if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
-    importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
-   }
-   status.textContent="TikTok low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Purchase cost: ৳1–৳10 / 1K. Selling price: purchase cost + 10% markup (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
-   if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
-   eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
-   await loadServices();
-  }catch(error){status.textContent="TikTok import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
-  finally{importTikTokSmmexoButton.disabled=false;}
- });
-}
-const importYouTubeSmmexoButton=document.getElementById("importYouTubeSmmexo");
-if(importYouTubeSmmexoButton){
- importYouTubeSmmexoButton.addEventListener("click",async()=>{
-  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
-  importYouTubeSmmexoButton.disabled=true;
-  list.replaceChildren();
-  status.textContent="Fetching YouTube services and current USD/BDT rate…";
-  try{
-   const [response,currency]=await Promise.all([
-    fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
-    request("/admin/currency")
-   ]);
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
-   const usdToBdt=Number(currency.usd_to_bdt_rate||0);
-   if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
-   const youtube=(data.services||[]).filter(service=>/youtube/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=curateSmmexoServices(youtube,usdToBdt,1,200,30);
-   if(!eligible.length){status.textContent="No YouTube services have a converted wholesale cost between ৳1 and ৳200 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+youtube.length+" YouTube services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
-   const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
-   status.textContent="Found "+serviceIds.length+" YouTube services priced ৳1–৳200 per 1,000. Importing as disabled entries…";
-   let importedCount=0,skippedCount=0,skipped=[];
-   for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),youtubeMarkupPercent:10,expectedCategory:"youtube"})});
-    const result=await imported.json().catch(()=>({}));
-    if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
-    importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
-   }
-   status.textContent="YouTube low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Purchase cost: ৳1–৳200 / 1K. Selling price: purchase cost + 10% markup (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
-   if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
-   eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
-   await loadServices();
-  }catch(error){status.textContent="YouTube import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
-  finally{importYouTubeSmmexoButton.disabled=false;}
- });
-}
-const importTelegramSmmexoButton=document.getElementById("importTelegramSmmexo");
-if(importTelegramSmmexoButton){
- importTelegramSmmexoButton.addEventListener("click",async()=>{
-  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
-  importTelegramSmmexoButton.disabled=true;
-  list.replaceChildren();
-  status.textContent="Fetching Telegram services and current USD/BDT rate…";
-  try{
-   const [response,currency]=await Promise.all([
-    fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
-    request("/admin/currency")
-   ]);
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
-   const usdToBdt=Number(currency.usd_to_bdt_rate||0);
-   if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
-   const telegram=(data.services||[]).filter(service=>/telegram/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=curateSmmexoServices(telegram,usdToBdt,1,100,30);
-   if(!eligible.length){status.textContent="No Telegram services have a converted wholesale cost between ৳1 and ৳100 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+telegram.length+" Telegram services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
-   const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
-   status.textContent="Found "+serviceIds.length+" Telegram services priced ৳1–৳100 per 1,000. Importing as disabled entries…";
-   let importedCount=0,skippedCount=0,skipped=[];
-   for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),telegramMarkupPercent:10,expectedCategory:"telegram"})});
-    const result=await imported.json().catch(()=>({}));
-    if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
-    importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
-   }
-   status.textContent="Telegram low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Purchase cost: ৳1–৳100 / 1K. Selling price: purchase cost + 10% markup (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
-   if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
-   eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
-   await loadServices();
-  }catch(error){status.textContent="Telegram import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
-  finally{importTelegramSmmexoButton.disabled=false;}
- });
+for(const [category,id] of [["facebook","importFacebookSmmexo"],["instagram","importInstagramSmmexo"],["tiktok","importTikTokSmmexo"],["youtube","importYouTubeSmmexo"],["telegram","importTelegramSmmexo"]]){
+ const button=document.getElementById(id);if(button)button.addEventListener("click",()=>previewSmmexoCategory(category,button));
 }
 const importSmmexoButton=document.getElementById("importSmmexoSelected");
 if(importSmmexoButton){
  importSmmexoButton.addEventListener("click",async()=>{
-  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
-  const serviceIds=[...smmexoSelectedIds];
-  if(!serviceIds.length)return;
-  importSmmexoButton.disabled=true;
-  status.textContent="Importing "+serviceIds.length+" selected services…";
+  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList"),config=smmexoCategoryConfig[smmexoPreviewCategory],serviceIds=[...smmexoSelectedIds];
+  if(!serviceIds.length||!config)return;
+  if(!confirm("তুমি "+serviceIds.length+"টি "+config.label+" সার্ভিস Import করতে চাও? এগুলো Disabled থাকবে।"))return;
+  importSmmexoButton.disabled=true;status.textContent=serviceIds.length+"টি নির্বাচিত "+config.label+" সার্ভিস Import হচ্ছে…";
   try{
-   const response=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds})});
+   const body={serviceIds,expectedCategory:smmexoPreviewCategory};body[config.markupKey]=10;
+   const response=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(body)});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||("Import failed ("+response.status+")."));
-   smmexoSelectedIds.clear();
-   status.textContent="Imported "+data.importedCount+" services; skipped "+data.skippedCount+". All imported services are disabled until pricing is set.";
-   if(data.skipped?.length){
-    const note=el("div","empty-admin");
-    note.textContent=data.skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ");
-    list.prepend(note);
-   }
-   updateSmmexoImportButton();
-   await loadServices();
-  }catch(error){
-   status.textContent="Import failed";
-   list.prepend(el("div","empty-admin admin-error",error.message));
-  }finally{updateSmmexoImportButton();}
+   smmexoSelectedIds.clear();status.textContent=config.label+" Import সম্পন্ন: "+data.importedCount+"টি যোগ হয়েছে, "+data.skippedCount+"টি বাদ গেছে। 10% লাভসহ সবগুলো Disabled।";
+   if(data.skipped?.length)list.prepend(el("div","empty-admin",data.skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
+   updateSmmexoImportButton();await loadServices();
+  }catch(error){status.textContent="Import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
+  finally{updateSmmexoImportButton();}
  });
 }
 async function applyFFResellerFivePercentMarkup(){
