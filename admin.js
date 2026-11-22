@@ -315,12 +315,12 @@ if(importFacebookSmmexoButton){
    status.textContent="Found "+serviceIds.length+" Facebook services priced ৳1–৳30 per 1,000. Importing as disabled entries…";
    let importedCount=0,skippedCount=0,skipped=[];
    for(let i=0;i<serviceIds.length;i+=100){
-    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100)})});
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),facebookMarkupPercent:10})});
     const result=await imported.json().catch(()=>({}));
     if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
     importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
    }
-   status.textContent="Facebook low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Filter: ৳1–৳30 supplier cost / 1K (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
+   status.textContent="Facebook low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Purchase cost: ৳1–৳30 / 1K. Selling price: purchase cost + 10% markup (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
    if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
    eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
    await loadServices();
