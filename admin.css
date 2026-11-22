@@ -123,3 +123,14 @@ html:has(.admin-body),body.admin-body{width:100%;min-width:0;max-width:100%;marg
 .smmexo-enable-card .user-action{width:100%;min-height:42px;border-color:#6545a0;background:#302052;color:#f0e4ff}
 .smmexo-enable-card p{margin:0;color:#9299b8;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
 .smmexo-enable-card p[role="status"]:not(:empty){min-height:32px}
+
+/* Dedicated System Settings view opened from the admin-only three-dot menu. */
+.system-settings-view .admin-sidebar,.system-settings-view #sidebarScrim{display:none!important}
+.system-settings-view .admin-shell{display:block!important}
+.system-settings-view .admin-main{width:100%!important;max-width:1100px!important;margin:0 auto!important}
+.system-settings-view .admin-page:not(#page-settings){display:none!important}
+.system-settings-view #page-settings{display:block!important}
+.system-settings-view #page-settings.active{display:block!important}
+.system-settings-view .admin-toolbar{margin-bottom:18px}
+.system-settings-view #backToAdmin[hidden]{display:none!important}
+.system-settings-view #backToAdmin:not([hidden]){display:inline-flex!important;align-items:center;text-decoration:none}
