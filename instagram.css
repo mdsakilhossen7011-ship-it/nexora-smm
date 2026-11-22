@@ -2,8 +2,8 @@
 
 /* NEXORA compact, independently scrollable service catalogue */
 .ig-services{
-  max-height:430px;
-  min-height:120px;
+  max-height:400px;
+  min-height:100px;
   overflow-y:auto;
   overflow-x:hidden;
   align-content:start;
@@ -20,7 +20,7 @@
 .ig-services::-webkit-scrollbar-thumb{background:#8054c9;border-radius:10px}
 @media(max-width:650px){
   .ig-services{
-    max-height:360px;
+    max-height:330px;
     padding:8px;
     border-radius:12px;
   }
