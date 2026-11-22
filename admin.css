@@ -128,9 +128,10 @@ html:has(.admin-body),body.admin-body{width:100%;min-width:0;max-width:100%;marg
 .system-settings-view .admin-sidebar,.system-settings-view #sidebarScrim{display:none!important}
 .system-settings-view .admin-shell{display:block!important}
 .system-settings-view .admin-main{width:100%!important;max-width:1100px!important;margin:0 auto!important}
-.system-settings-view .admin-page:not(#page-settings){display:none!important}
-.system-settings-view #page-settings{display:block!important}
-.system-settings-view #page-settings.active{display:block!important}
+.system-settings-view .admin-page:not(#page-settings):not(#page-system-settings){display:none!important}
+.system-settings-view #page-settings,.system-settings-view #page-system-settings{display:block!important}
+.system-settings-view #page-settings:not(.active),.system-settings-view #page-system-settings:not(.active){display:none!important}
+.system-settings-view #page-settings.active,.system-settings-view #page-system-settings.active{display:block!important}
 .system-settings-view .admin-toolbar{margin-bottom:18px}
 .system-settings-view #backToAdmin[hidden]{display:none!important}
 .system-settings-view #backToAdmin:not([hidden]){display:inline-flex!important;align-items:center;text-decoration:none}
