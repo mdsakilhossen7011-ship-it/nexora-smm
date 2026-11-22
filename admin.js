@@ -237,6 +237,15 @@ document.getElementById("serviceSearch").addEventListener("input",loadServices);
 document.getElementById("serviceCategoryFilter").addEventListener("change",loadServices);
 document.getElementById("serviceForm").addEventListener("submit",saveService);
 document.getElementById("enableFacebookServices").addEventListener("click",enableEligibleFacebookServices);
+document.getElementById("enableInstagramServices").addEventListener("click",enableEligibleInstagramServices);
+async function enableEligibleInstagramServices(){
+ const button=document.getElementById("enableInstagramServices"),status=document.getElementById("instagramBulkEnableStatus");
+ if(!confirm("Enable all imported SMMEXO Instagram services with purchase cost ৳1–৳10 per 1,000 and a selling price above purchase cost? Only eligible Instagram services will be enabled."))return;
+ button.disabled=true;status.textContent="Enabling eligible Instagram services…";
+ try{const data=await request("/admin/services/bulk-enable-instagram",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" eligible Instagram services enabled.";await loadServices();}
+ catch(error){status.textContent="Could not enable services: "+error.message;}
+ finally{button.disabled=false;}
+}
 async function enableEligibleFacebookServices(){
  const button=document.getElementById("enableFacebookServices"),status=document.getElementById("facebookBulkEnableStatus");
  if(!confirm("Enable all imported SMMEXO Facebook services with purchase cost ৳1–৳30 per 1,000 and a selling price above purchase cost? Only eligible Facebook services will be enabled."))return;
@@ -335,6 +344,42 @@ if(importFacebookSmmexoButton){
    await loadServices();
   }catch(error){status.textContent="Facebook import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
   finally{importFacebookSmmexoButton.disabled=false;}
+ });
+}
+const importInstagramSmmexoButton=document.getElementById("importInstagramSmmexo");
+if(importInstagramSmmexoButton){
+ importInstagramSmmexoButton.addEventListener("click",async()=>{
+  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
+  importInstagramSmmexoButton.disabled=true;
+  list.replaceChildren();
+  status.textContent="Fetching Instagram services and current USD/BDT rate…";
+  try{
+   const [response,currency]=await Promise.all([
+    fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
+    request("/admin/currency")
+   ]);
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
+   const usdToBdt=Number(currency.usd_to_bdt_rate||0);
+   if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
+   const instagram=(data.services||[]).filter(service=>/instagram|insta\b|ig\b/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
+   const eligible=instagram.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=10;});
+   if(!eligible.length){status.textContent="No Instagram services have a converted wholesale cost between ৳1 and ৳10 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+instagram.length+" Instagram services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
+   const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
+   status.textContent="Found "+serviceIds.length+" Instagram services priced ৳1–৳10 per 1,000. Importing as disabled entries…";
+   let importedCount=0,skippedCount=0,skipped=[];
+   for(let i=0;i<serviceIds.length;i+=100){
+    const imported=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds:serviceIds.slice(i,i+100),instagramMarkupPercent:10})});
+    const result=await imported.json().catch(()=>({}));
+    if(!imported.ok)throw new Error(result.error||("Import failed ("+imported.status+")."));
+    importedCount+=Number(result.importedCount||0);skippedCount+=Number(result.skippedCount||0);skipped.push(...(result.skipped||[]));
+   }
+   status.textContent="Instagram low-rate import complete: "+importedCount+" added, "+skippedCount+" skipped. Purchase cost: ৳1–৳10 / 1K. Selling price: purchase cost + 10% markup (converted at ৳"+usdToBdt.toFixed(2)+"/USD). All imported services remain disabled.";
+   if(skipped.length)list.append(el("div","empty-admin",skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
+   eligible.forEach(service=>{const costBdt=Number(service.rate)*usdToBdt,card=el("article","request-card"),head=el("div","request-head");head.append(el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+costBdt.toFixed(2)+" / 1K"));const meta=el("div","request-meta");[["Supplier rate","$"+Number(service.rate).toFixed(4)+" / 1K"],["Category",service.category],["Minimum",service.min],["Maximum",service.max]].forEach(([label,value])=>meta.append(el("span","",label+": "+String(value??"—"))));card.append(head,meta);list.append(card);});
+   await loadServices();
+  }catch(error){status.textContent="Instagram import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
+  finally{importInstagramSmmexoButton.disabled=false;}
  });
 }
 const importSmmexoButton=document.getElementById("importSmmexoSelected");
