@@ -320,6 +320,22 @@ function updateSmmexoImportButton(){
  button.disabled=smmexoSelectedIds.size===0;
  button.textContent="Import selected ("+smmexoSelectedIds.size+")";
 }
+function curateSmmexoServices(services,usdToBdt,minCost,maxCost,limit=10){
+ const seen=new Set();
+ return services
+  .map(service=>({...service,costBdt:Number(service.rate)*usdToBdt}))
+  .filter(service=>Number.isFinite(service.costBdt)&&service.costBdt>=minCost&&service.costBdt<=maxCost&&Number(service.min)<=1000&&Number(service.max)>=1000)
+  .sort((a,b)=>{
+   const score=s=>Number(s.refill===true)+Number(s.cancel===true);
+   return score(b)-score(a)||a.costBdt-b.costBdt||String(a.name).localeCompare(String(b.name));
+  })
+  .filter(service=>{
+   const key=String(service.name||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+   if(!key||seen.has(key))return false;
+   seen.add(key);return true;
+  })
+  .slice(0,limit);
+}
 const smmexoFetchButton=document.getElementById("fetchSmmexoServices");
 if(smmexoFetchButton){
  smmexoFetchButton.addEventListener("click",async()=>{
@@ -374,7 +390,7 @@ if(importFacebookSmmexoButton){
    const usdToBdt=Number(currency.usd_to_bdt_rate||0);
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
    const facebook=(data.services||[]).filter(service=>/facebook|fb\s/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=facebook.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=30;});
+   const eligible=curateSmmexoServices(facebook,usdToBdt,1,30);
    if(!eligible.length){status.textContent="No Facebook services have a converted wholesale cost between ৳1 and ৳30 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+facebook.length+" Facebook services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
    status.textContent="Found "+serviceIds.length+" Facebook services priced ৳1–৳30 per 1,000. Importing as disabled entries…";
@@ -410,7 +426,7 @@ if(importInstagramSmmexoButton){
    const usdToBdt=Number(currency.usd_to_bdt_rate||0);
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
    const instagram=(data.services||[]).filter(service=>/instagram|insta\b|ig\b/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=instagram.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=10;});
+   const eligible=curateSmmexoServices(instagram,usdToBdt,1,10);
    if(!eligible.length){status.textContent="No Instagram services have a converted wholesale cost between ৳1 and ৳10 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+instagram.length+" Instagram services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
    status.textContent="Found "+serviceIds.length+" Instagram services priced ৳1–৳10 per 1,000. Importing as disabled entries…";
@@ -446,7 +462,7 @@ if(importTikTokSmmexoButton){
    const usdToBdt=Number(currency.usd_to_bdt_rate||0);
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
    const tiktok=(data.services||[]).filter(service=>/tiktok|tik\s?tok/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=tiktok.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=10;});
+   const eligible=curateSmmexoServices(tiktok,usdToBdt,1,10);
    if(!eligible.length){status.textContent="No TikTok services have a converted wholesale cost between ৳1 and ৳10 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+tiktok.length+" TikTok services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
    status.textContent="Found "+serviceIds.length+" TikTok services priced ৳1–৳10 per 1,000. Importing as disabled entries…";
@@ -482,7 +498,7 @@ if(importYouTubeSmmexoButton){
    const usdToBdt=Number(currency.usd_to_bdt_rate||0);
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
    const youtube=(data.services||[]).filter(service=>/youtube/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=youtube.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=200;});
+   const eligible=curateSmmexoServices(youtube,usdToBdt,1,200);
    if(!eligible.length){status.textContent="No YouTube services have a converted wholesale cost between ৳1 and ৳200 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+youtube.length+" YouTube services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
    status.textContent="Found "+serviceIds.length+" YouTube services priced ৳1–৳200 per 1,000. Importing as disabled entries…";
@@ -518,7 +534,7 @@ if(importTelegramSmmexoButton){
    const usdToBdt=Number(currency.usd_to_bdt_rate||0);
    if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before importing by BDT rate.");
    const telegram=(data.services||[]).filter(service=>/telegram/.test((String(service.category||"")+" "+String(service.name||"")).toLowerCase()));
-   const eligible=telegram.filter(service=>{const costBdt=Number(service.rate)*usdToBdt;return Number.isFinite(costBdt)&&costBdt>=1&&costBdt<=100;});
+   const eligible=curateSmmexoServices(telegram,usdToBdt,1,100);
    if(!eligible.length){status.textContent="No Telegram services have a converted wholesale cost between ৳1 and ৳100 per 1,000. Nothing was imported.";list.append(el("div","empty-admin","Checked "+telegram.length+" Telegram services using ৳"+usdToBdt.toFixed(2)+" per USD."));return;}
    const serviceIds=eligible.map(service=>String(service.serviceId)).filter(Boolean);
    status.textContent="Found "+serviceIds.length+" Telegram services priced ৳1–৳100 per 1,000. Importing as disabled entries…";
