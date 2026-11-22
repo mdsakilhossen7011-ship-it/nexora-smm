@@ -339,11 +339,11 @@ function curateSmmexoServices(services,usdToBdt,minCost,maxCost,limit=30){
  eligible.forEach(service=>{
   const name=String(service.name||"").toLowerCase();
   let type="other";
-  if(/\\b(likes?|hearts?|reactions?)\\b/.test(name))type="like";
-  else if(/\\b(comments?|replies)\\b/.test(name))type="comment";
-  else if(/\\b(views?|watchtime|watch time|impressions)\\b/.test(name))type="view";
-  else if(/\\b(follows?|followers?|subscribers?)\\b/.test(name))type="follow";
-  else if(/\\b(shares?|reposts?)\\b/.test(name))type="share";
+  if(/\b(likes?|hearts?|reactions?)\b/.test(name))type="like";
+  else if(/\b(comments?|replies)\b/.test(name))type="comment";
+  else if(/\b(views?|watchtime|watch time|impressions)\b/.test(name))type="view";
+  else if(/\b(follows?|followers?|subscribers?)\b/.test(name))type="follow";
+  else if(/\b(shares?|reposts?)\b/.test(name))type="share";
   buckets.get(type).push(service);
  });
  const selected=[];
