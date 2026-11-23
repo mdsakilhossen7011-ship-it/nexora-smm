@@ -202,7 +202,7 @@ async function loadServices(){
   status.textContent=services.length+" of "+all.length+" services";
   if(!services.length){list.append(el("div","empty-admin","No matching services found."));return}
   services.forEach(s=>{
-   const card=el("article","request-card service-card"),head=el("div","request-head"),identity=el("div","user-identity"),selectLabel=el("label","smmexo-select-label"),selectBox=el("input");
+   const card=el("article","request-card service-card"),head=el("div","request-head"),identity=el("div","user-identity"),selectLabel=el("label","service-select-label"),selectBox=el("input");
    selectBox.type="checkbox";selectBox.dataset.serviceId=s.id;selectBox.checked=selectedServiceIds.has(s.id);selectBox.setAttribute("aria-label","Select "+s.name+" for bulk pricing");selectBox.addEventListener("change",()=>{if(selectBox.checked)selectedServiceIds.add(s.id);else selectedServiceIds.delete(s.id);updateBulkPricingControls()});selectLabel.append(selectBox,document.createTextNode(" Select"));
    identity.append(el("strong","",s.name),el("span","user-subline",(serviceCategories[s.category]||s.category)+" · "+(s.provider_service_id||"No supplier ID")));head.append(selectLabel);
    head.append(identity,el("span","request-status user-state "+(s.enabled?"is-active":"is-blocked"),s.enabled?"ENABLED":"DISABLED"));card.append(head);
@@ -298,49 +298,6 @@ document.getElementById("serviceCategoryFilter").addEventListener("change",loadS
 document.getElementById("serviceForm").addEventListener("submit",saveService);
 document.getElementById("enableFacebookServices").addEventListener("click",enableEligibleFacebookServices);
 document.getElementById("enableInstagramServices").addEventListener("click",enableEligibleInstagramServices);
-async function enableEligibleInstagramServices(){
- const button=document.getElementById("enableInstagramServices"),status=document.getElementById("instagramBulkEnableStatus");
- if(!confirm("Enable up to 30 eligible SMMEXO Instagram services (lowest purchase cost first). All other Instagram services, including previously enabled ones, will be disabled. Continue?"))return;
- button.disabled=true;status.textContent="Enabling eligible Instagram services…";
- try{const data=await request("/admin/services/bulk-enable-instagram",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" Instagram services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
- catch(error){status.textContent="Could not enable services: "+error.message;}
- finally{button.disabled=false;}
-}
-async function enableEligibleTikTokServices(){
- const button=document.getElementById("enableTikTokServices"),status=document.getElementById("tiktokBulkEnableStatus");
- if(!confirm("Enable up to 30 eligible SMMEXO TikTok services (lowest purchase cost first). All other TikTok services, including previously enabled ones, will be disabled. Continue?"))return;
- button.disabled=true;status.textContent="Enabling eligible TikTok services…";
- try{const data=await request("/admin/services/bulk-enable-tiktok",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" TikTok services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
- catch(error){status.textContent="Could not enable services: "+error.message;}
- finally{button.disabled=false;}
-}
-async function enableEligibleTelegramServices(){
- const button=document.getElementById("enableTelegramServices"),status=document.getElementById("telegramBulkEnableStatus");
- if(!confirm("Enable up to 30 eligible SMMEXO Telegram services (lowest purchase cost first). All other Telegram services, including previously enabled ones, will be disabled. Continue?"))return;
- button.disabled=true;status.textContent="Enabling eligible Telegram services…";
- try{const data=await request("/admin/services/bulk-enable-telegram",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" Telegram services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
- catch(error){status.textContent="Could not enable services: "+error.message;}
- finally{button.disabled=false;}
-}
-async function enableEligibleYouTubeServices(){
- const button=document.getElementById("enableYouTubeServices"),status=document.getElementById("youtubeBulkEnableStatus");
- if(!confirm("Enable up to 30 eligible SMMEXO YouTube services (lowest purchase cost first). All other YouTube services, including previously enabled ones, will be disabled. Continue?"))return;
- button.disabled=true;status.textContent="Enabling eligible YouTube services…";
- try{const data=await request("/admin/services/bulk-enable-youtube",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" YouTube services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
- catch(error){status.textContent="Could not enable services: "+error.message;}
- finally{button.disabled=false;}
-}
-async function enableEligibleFacebookServices(){
- const button=document.getElementById("enableFacebookServices"),status=document.getElementById("facebookBulkEnableStatus");
- if(!confirm("Enable up to 30 eligible SMMEXO Facebook services (lowest purchase cost first). All other Facebook services, including previously enabled ones, will be disabled. Continue?"))return;
- button.disabled=true;status.textContent="Enabling eligible Facebook services…";
- try{const data=await request("/admin/services/bulk-enable-facebook",{method:"POST",headers:{"Accept":"application/json"}});status.textContent=data.enabledCount+" Facebook services enabled; "+data.disabledCount+" old services disabled.";await loadServices();}
- catch(error){status.textContent="Could not enable services: "+error.message;}
- finally{button.disabled=false;}
-}
-document.getElementById("enableTikTokServices").addEventListener("click",enableEligibleTikTokServices);
-document.getElementById("enableYouTubeServices").addEventListener("click",enableEligibleYouTubeServices);
-document.getElementById("enableTelegramServices").addEventListener("click",enableEligibleTelegramServices);
 document.getElementById("bulkQuantityForm").addEventListener("submit",applyBulkEnabledServiceQuantities);
 async function applyBulkEnabledServiceQuantities(event){
  event.preventDefault();
@@ -373,157 +330,6 @@ document.getElementById("sidebarScrim").addEventListener("click",()=>{document.g
 const search=document.getElementById("adminSearch"),results=document.getElementById("searchResults");search.addEventListener("input",()=>{const q=search.value.trim().toLowerCase();results.textContent="";if(!q){results.hidden=true;return}const matches=Object.entries(titles).filter(([key,v])=>(key+" "+v.join(" ")).toLowerCase().includes(q));matches.forEach(([key,v])=>{const b=el("button","",v[0]+" — "+v[1]);b.addEventListener("click",()=>{showPage(key);search.value=""});results.append(b)});if(!matches.length)results.append(el("button","","No matching admin section"));results.hidden=false});
 document.addEventListener("click",e=>{if(!results.contains(e.target)&&e.target!==search)results.hidden=true});
 
-const smmexoSelectedIds=new Set();
-function updateSmmexoImportButton(){
- const button=document.getElementById("importSmmexoSelected");
- if(!button)return;
- button.disabled=smmexoSelectedIds.size===0;
- button.textContent="Import selected ("+smmexoSelectedIds.size+")";
-}
-function curateSmmexoServices(services,usdToBdt,minCost,maxCost,limit=30){
- const seen=new Set();
- const eligible=services
-  .map(service=>({...service,costBdt:Number(service.rate)*usdToBdt}))
-  .filter(service=>Number.isFinite(service.costBdt)&&service.costBdt>=minCost&&service.costBdt<=maxCost&&Number(service.min)<=1000&&Number(service.max)>=1000)
-  .sort((a,b)=>{
-   const score=s=>Number(s.refill===true)+Number(s.cancel===true);
-   return score(b)-score(a)||a.costBdt-b.costBdt||String(a.name).localeCompare(String(b.name));
-  })
-  .filter(service=>{
-   const key=String(service.name||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-   if(!key||seen.has(key))return false;
-   seen.add(key);return true;
-  });
- const types=["like","comment","view","follow","share","other"];
- const buckets=new Map(types.map(type=>[type,[]]));
- eligible.forEach(service=>{
-  const name=String(service.name||"").toLowerCase();
-  let type="other";
-  if(/\b(likes?|hearts?|reactions?)\b/.test(name))type="like";
-  else if(/\b(comments?|replies)\b/.test(name))type="comment";
-  else if(/\b(views?|watchtime|watch time|impressions)\b/.test(name))type="view";
-  else if(/\b(follows?|followers?|subscribers?)\b/.test(name))type="follow";
-  else if(/\b(shares?|reposts?)\b/.test(name))type="share";
-  buckets.get(type).push(service);
- });
- const selected=[];
- // Facebook customers need affordable video/Reels views most:
- // reserve up to half of the shortlist for the lowest-cost view services.
- const viewServices=buckets.get("view").sort((a,b)=>a.costBdt-b.costBdt||
-  (Number(b.refill===true)+Number(b.cancel===true))-(Number(a.refill===true)+Number(a.cancel===true)));
- const viewTarget=Math.min(15,Math.ceil(limit/2));
- selected.push(...viewServices.splice(0,viewTarget));
- // Fill the remaining slots fairly across other service types, while allowing
- // additional views only after the other core categories get a chance.
- const remainingTypes=["like","comment","follow","share","other","view"];
- while(selected.length<limit){
-  let added=false;
-  for(const type of remainingTypes){
-   const next=buckets.get(type).shift();
-   if(next){selected.push(next);added=true;if(selected.length>=limit)break;}
-  }
-  if(!added)break;
- }
- return selected;
-}
-const smmexoFetchButton=document.getElementById("fetchSmmexoServices");
-if(smmexoFetchButton){
- smmexoFetchButton.addEventListener("click",async()=>{
-  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
-  smmexoFetchButton.disabled=true;list.replaceChildren();smmexoSelectedIds.clear();smmexoPreviewCategory=null;updateSmmexoImportButton();
-  status.textContent="Checking SMMEXO connection…";
-  try{
-   const response=await fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}});
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
-   status.textContent="সংযোগ সফল! "+data.count+"টি SMMEXO সার্ভিস পাওয়া গেছে। এখন নিচের ক্যাটাগরি Preview করে পছন্দেরগুলো Select করো।";
-   list.append(el("div","empty-admin","পুরো তালিকা এখানে দেখানো হচ্ছে না—খুঁজে পাওয়া সহজ রাখতে ক্যাটাগরি অনুযায়ী সর্বোচ্চ ৩০টি করে দেখানো হবে।"));
-  }catch(error){status.textContent="SMMEXO connection failed";list.append(el("div","empty-admin admin-error",error.message));}
-  finally{smmexoFetchButton.disabled=false;}
- });
-}
-let smmexoPreviewCategory=null;
-const smmexoCategoryConfig={
- facebook:{label:"Facebook",pattern:/facebook/i,min:1,max:30,markupKey:"facebookMarkupPercent"},
- instagram:{label:"Instagram",pattern:/instagram/i,min:1,max:10,markupKey:"instagramMarkupPercent"},
- tiktok:{label:"TikTok",pattern:/tiktok|tik\s?tok/i,min:1,max:10,markupKey:"tiktokMarkupPercent"},
- youtube:{label:"YouTube",pattern:/youtube/i,min:1,max:200,markupKey:"youtubeMarkupPercent"},
- telegram:{label:"Telegram",pattern:/telegram/i,min:1,max:100,markupKey:"telegramMarkupPercent"}
-};
-async function previewSmmexoCategory(category,button){
- const config=smmexoCategoryConfig[category],status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList");
- if(!config||!status||!list)return;
- button.disabled=true;list.replaceChildren();smmexoSelectedIds.clear();smmexoPreviewCategory=null;updateSmmexoImportButton();const selectAllButton=document.getElementById("selectAllSmmexoPreview");if(selectAllButton){selectAllButton.disabled=true;selectAllButton.textContent="Select all preview";}
- status.textContent="Loading "+config.label+" shortlist…";
- try{
-  const [response,currency]=await Promise.all([
-   fetch("/api/admin/smmexo/services",{method:"POST",credentials:"include",headers:{"Accept":"application/json"}}),
-   request("/admin/currency")
-  ]);
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.error||("Supplier request failed ("+response.status+")."));
-  const usdToBdt=Number(currency.usd_to_bdt_rate||0);
-  if(!Number.isFinite(usdToBdt)||usdToBdt<=0)throw new Error("আগে Settings → Currency থেকে USD/BDT rate ঠিক করো।");
-  const source=(data.services||[]).filter(service=>config.pattern.test(String(service.category||"")+" "+String(service.name||"")));
-  const eligible=curateSmmexoServices(source,usdToBdt,config.min,config.max,30);
-  if(!eligible.length){status.textContent=config.label+"-এ নির্ধারিত দামের মধ্যে যোগ্য সার্ভিস পাওয়া যায়নি।";list.append(el("div","empty-admin","Supplier থেকে "+source.length+"টি "+config.label+" সার্ভিস পাওয়া গেছে, কিন্তু দাম/quantity শর্তে কোনোটি মেলেনি।"));return;}
-  smmexoPreviewCategory=category;
-  status.textContent=config.label+": "+eligible.length+"টি সাশ্রয়ী সার্ভিস · ক্রয়মূল্য ৳"+config.min+"–৳"+config.max+" / 1K · বিক্রয়মূল্যে 10% লাভ। পছন্দমতো Select করো।";
-  eligible.forEach(service=>{
-   const cost=Number(service.rate)*usdToBdt,selling=Math.ceil(cost*110)/100;
-   const card=el("article","request-card"),head=el("div","request-head"),label=document.createElement("label"),checkbox=document.createElement("input");
-   label.className="smmexo-select-label";checkbox.type="checkbox";checkbox.className="smmexo-service-select";checkbox.dataset.serviceId=String(service.serviceId);checkbox.setAttribute("aria-label","Select "+config.label+" service "+service.serviceId);
-   checkbox.addEventListener("change",()=>{if(checkbox.checked)smmexoSelectedIds.add(String(service.serviceId));else smmexoSelectedIds.delete(String(service.serviceId));updateSmmexoImportButton();});
-   label.append(checkbox,document.createTextNode(" Select"));
-   head.append(label,el("strong","","#"+service.serviceId+" · "+service.name),el("span","request-status","৳"+cost.toFixed(2)+" / 1K"));
-   const meta=el("div","request-meta");
-   [["Type",service.type||"—"],["Selling price (+10%)","৳"+selling.toFixed(2)+" / 1K"],["Minimum",service.min],["Maximum",service.max],["Refill",service.refill?"Yes":"No"],["Cancel",service.cancel?"Yes":"No"]].forEach(([k,v])=>meta.append(el("span","",k+": "+String(v))));
-   card.append(head,meta);list.append(card);
-  });
-  const selectAllButton=document.getElementById("selectAllSmmexoPreview");
-  if(selectAllButton){selectAllButton.disabled=false;selectAllButton.textContent="Select all preview";}
- }catch(error){smmexoPreviewCategory=null;status.textContent=config.label+" preview failed";list.append(el("div","empty-admin admin-error",error.message));}
- finally{button.disabled=false;}
-}
-for(const [category,id] of [["facebook","importFacebookSmmexo"],["instagram","importInstagramSmmexo"],["tiktok","importTikTokSmmexo"],["youtube","importYouTubeSmmexo"],["telegram","importTelegramSmmexo"]]){
- const button=document.getElementById(id);if(button)button.addEventListener("click",()=>previewSmmexoCategory(category,button));
-}
-const selectAllSmmexoButton=document.getElementById("selectAllSmmexoPreview");
-if(selectAllSmmexoButton){
- selectAllSmmexoButton.disabled=true;
- selectAllSmmexoButton.addEventListener("click",()=>{
-  const list=document.getElementById("smmexoSupplierList");
-  const checkboxes=[...list.querySelectorAll('input[type="checkbox"].smmexo-service-select')];
-  if(!checkboxes.length)return;
-  const selectAll=checkboxes.some(checkbox=>!checkbox.checked);
-  checkboxes.forEach(checkbox=>{
-   checkbox.checked=selectAll;
-   const id=checkbox.dataset.serviceId;
-   if(selectAll)smmexoSelectedIds.add(id);else smmexoSelectedIds.delete(id);
-  });
-  selectAllSmmexoButton.textContent=selectAll?"Deselect all":"Select all preview";
-  updateSmmexoImportButton();
- });
-}
-const importSmmexoButton=document.getElementById("importSmmexoSelected");
-if(importSmmexoButton){
- importSmmexoButton.addEventListener("click",async()=>{
-  const status=document.getElementById("smmexoSupplierStatus"),list=document.getElementById("smmexoSupplierList"),config=smmexoCategoryConfig[smmexoPreviewCategory],serviceIds=[...smmexoSelectedIds];
-  if(!serviceIds.length||!config)return;
-  if(!confirm("তুমি "+serviceIds.length+"টি "+config.label+" সার্ভিস Import করতে চাও? এগুলো Disabled থাকবে।"))return;
-  importSmmexoButton.disabled=true;status.textContent=serviceIds.length+"টি নির্বাচিত "+config.label+" সার্ভিস Import হচ্ছে…";
-  try{
-   const body={serviceIds,expectedCategory:smmexoPreviewCategory};body[config.markupKey]=10;
-   const response=await fetch("/api/admin/smmexo/import",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(body)});
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||("Import failed ("+response.status+")."));
-   smmexoSelectedIds.clear();const selectAllButton=document.getElementById("selectAllSmmexoPreview");if(selectAllButton){selectAllButton.disabled=true;selectAllButton.textContent="Select all preview";}status.textContent=config.label+" Import সম্পন্ন: "+data.importedCount+"টি নতুন যোগ, "+data.skippedCount+"টি আগে থেকেই ছিল/বাদ গেছে। "+(data.enabledCount??0)+"টি সার্ভিস এখন Enabled; এই ক্যাটাগরির অন্য সার্ভিস Disabled।";
-   if(data.skipped?.length)list.prepend(el("div","empty-admin",data.skipped.map(item=>"#"+item.serviceId+": "+item.reason).join(" · ")));
-   updateSmmexoImportButton();await loadServices();
-  }catch(error){status.textContent="Import failed";list.prepend(el("div","empty-admin admin-error",error.message));}
-  finally{updateSmmexoImportButton();}
- });
-}
 async function applyFFResellerFivePercentMarkup(){
  const button=document.getElementById("applyFFResellerFivePercent"),status=document.getElementById("ffResellerPricingStatus");
  if(!button||!status)return;
