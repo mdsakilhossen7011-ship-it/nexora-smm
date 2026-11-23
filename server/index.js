@@ -430,6 +430,21 @@ async function refundFFResellerOrder(orderId,userId,note){
   throw error;
  }finally{client.release();}
 }
+async function disableInvalidSmmexoService(orderId,userId,reason){
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const found=await client.query("SELECT s.id,s.name,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2 FOR UPDATE OF s",[orderId,userId]);
+  if(!found.rowCount){await client.query("COMMIT");return false;}
+  const service=found.rows[0];
+  const updated=await client.query("UPDATE services SET enabled=FALSE,updated_at=NOW() WHERE id=$1 AND enabled=TRUE RETURNING id",[service.id]);
+  if(updated.rowCount){
+   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'smmexo_invalid_service_id_auto_disabled','service',$2,$3::jsonb)",[userId,service.id,JSON.stringify({order_id:orderId,provider_service_id:service.provider_service_id,reason:String(reason||"Invalid SMMEXO service ID").slice(0,300)})]);
+  }
+  await client.query("COMMIT");
+  return updated.rowCount>0;
+ }catch(error){await client.query("ROLLBACK");console.error("Could not disable invalid SMMEXO service:",error.message);return false;}finally{client.release();}
+}
 async function syncFFResellerOrder(orderId,userId){
  // Network lookup is deliberately outside the DB transaction/row lock.
  const found=await pool.query("SELECT o.provider_order_id,o.status,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
@@ -647,8 +662,13 @@ async function createOrder(req,res){
   }catch(error){
    if(error.providerRejected){
     await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: SMMEXO rejected order — "+error.message);
+    const invalidServiceId=/incorrect service id|invalid service id|service id.{0,20}(invalid|incorrect)/i.test(error.message);
+    if(invalidServiceId)await disableInvalidSmmexoService(orderId,req.user.id,error.message);
     const refunded=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
-    return res.status(502).json({order:refunded.rows[0],error:error.message+" Your wallet was refunded.",refunded:true});
+    const customerMessage=invalidServiceId
+      ?"This service is temporarily unavailable. Your wallet has been refunded. Please choose another service."
+      :"Your order could not be completed. Your wallet has been refunded. Please try another service.";
+    return res.status(502).json({order:refunded.rows[0],error:customerMessage,refunded:true});
    }
    console.error("SMMEXO order submission uncertain:",{orderId,message:error.message});
    const held=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
