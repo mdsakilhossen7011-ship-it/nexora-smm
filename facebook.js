@@ -13,3 +13,51 @@ function showNexoraOrderFailedPopup(message){
  const dismiss=()=>{overlay.remove();document.body.style.overflow=""};close.addEventListener("click",dismiss);overlay.addEventListener("click",e=>{if(e.target===overlay)dismiss()});
  card.append(mark,brand,title,copy,link,close);overlay.append(card);document.body.append(overlay);document.body.style.overflow="hidden";close.focus();
 }
+
+/* Genuine Meta Ads request intake: records requests only; no wallet debit or campaign launch. */
+(()=>{
+ const open=document.getElementById("openRealAdsForm"),panel=document.getElementById("realAdsFormPanel"),form=document.getElementById("realAdsForm");
+ if(!open||!panel||!form)return;
+ const feedback=document.getElementById("realAdsFeedback"),historyBox=document.getElementById("realAdsHistory"),custom=document.getElementById("realAdsCustomBudget"),submit=document.getElementById("realAdsSubmit");
+ open.addEventListener("click",()=>{panel.hidden=!panel.hidden;if(!panel.hidden){panel.scrollIntoView({behavior:"smooth",block:"start"});loadHistory();}});
+ document.querySelectorAll('input[name="realAdsBudget"]').forEach(r=>r.addEventListener("change",()=>{custom.hidden=r.value!=="custom";custom.required=r.value==="custom";}));
+ const statusLabel=s=>({pending:"Pending review",reviewing:"Under review",approved:"Approved for manual setup",rejected:"Not approved",completed:"Completed",canceled:"Canceled"}[s]||s);
+ async function loadHistory(){
+  historyBox.textContent="Loading your requests…";
+  try{
+   const me=await fetch("/api/me",{credentials:"include",cache:"no-store"});
+   if(me.status===401){historyBox.textContent="Log in to view your requests.";return;}
+   if(!me.ok)throw Error("Could not verify your account.");
+   const response=await fetch("/api/real-ads/orders",{credentials:"include",cache:"no-store"}),data=await response.json();
+   if(!response.ok)throw Error(data.error||"Could not load requests.");
+   historyBox.replaceChildren();
+   if(!data.orders?.length){historyBox.textContent="You have not submitted a Real Ads request yet.";return;}
+   data.orders.forEach(order=>{
+    const item=document.createElement("article");item.className="fb-realads-history-item";
+    const top=document.createElement("div"),strong=document.createElement("strong"),state=document.createElement("span");
+    strong.textContent="৳"+Number(order.budget_bdt).toLocaleString("en-BD")+" budget";state.textContent=statusLabel(order.status);state.className="fb-realads-state";top.append(strong,state);
+    const id=document.createElement("small");id.textContent="Request "+order.id;
+    const link=document.createElement("a");link.href=order.video_url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Open Facebook video";
+    const date=document.createElement("small");date.textContent=new Date(order.created_at).toLocaleString();item.append(top,id,link,date);
+    if(order.admin_note){const note=document.createElement("p");note.textContent="NEXORA update: "+order.admin_note;item.append(note);}
+    historyBox.append(item);
+   });
+  }catch(error){historyBox.textContent=error.message;}
+ }
+ form.addEventListener("submit",async event=>{
+  event.preventDefault();feedback.textContent="Checking account…";submit.disabled=true;
+  try{
+   const me=await fetch("/api/me",{credentials:"include",cache:"no-store"});
+   if(me.status===401){feedback.textContent="Please log in to submit a Real Ads request.";location.href="/#login";return;}
+   if(!me.ok)throw Error("Could not verify your account.");
+   const chosen=document.querySelector('input[name="realAdsBudget"]:checked')?.value,budgetBdt=chosen==="custom"?Number(custom.value):Number(chosen);
+   if(!Number.isSafeInteger(budgetBdt)||budgetBdt<100||budgetBdt>100000)throw Error("Budget must be between ৳100 and ৳100,000.");
+   const response=await fetch("/api/real-ads/orders",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({videoUrl:document.getElementById("realAdsVideoUrl").value.trim(),budgetBdt,note:document.getElementById("realAdsNote").value.trim()})});
+   const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||"Could not save your request.");
+   feedback.textContent="Request received! No wallet balance was deducted. NEXORA will review it before any campaign or payment.";
+   form.reset();custom.hidden=true;custom.required=false;await loadHistory();
+  }catch(error){feedback.textContent=error.message;}
+  finally{submit.disabled=false;}
+ });
+ loadHistory();
+})();
