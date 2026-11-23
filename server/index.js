@@ -871,6 +871,35 @@ app.post("/api/admin/orders/:id/confirm-delivered",requireAuth,requireAdmin,asyn
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
 }));
 
+app.post("/api/admin/orders/:id/social-status",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+  const parsed=z.object({status:z.enum(["completed","refunded"]),reason:z.string().trim().min(5).max(250)}).safeParse(req.body);
+  if(!parsed.success)return res.status(400).json({error:"Choose Complete/Success or Reject and provide a reason (5–250 characters)."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const found=await client.query("SELECT o.id,o.user_id,o.charge_minor,o.status,s.category FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 FOR UPDATE OF o",[req.params.id]);
+    if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Order not found."});}
+    const o=found.rows[0];
+    if(!["facebook","instagram","tiktok","youtube","telegram"].includes(o.category)){await client.query("ROLLBACK");return res.status(400).json({error:"Manual social-order status is only available for Facebook, Instagram, TikTok, YouTube and Telegram orders."});}
+    if(!["pending","processing"].includes(o.status)){await client.query("ROLLBACK");return res.status(409).json({error:"This order is already finalized. Refresh the order history."});}
+    let refunded="0";
+    if(parsed.data.status==="refunded"){
+      const amount=BigInt(o.charge_minor);
+      if(amount>0n){
+        const wallet=await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2 RETURNING user_id",[amount.toString(),o.user_id]);
+        if(!wallet.rowCount)throw new Error("Customer wallet account was not found; refund was not applied.");
+        await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note,created_by) VALUES($1,$2,'refund',$3,$4,$5)",[o.user_id,amount.toString(),o.id,"Social order rejected and refunded: "+parsed.data.reason,req.user.id]);
+      }
+      refunded=amount.toString();
+    }
+    const updated=await client.query("UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2 AND status=$3 RETURNING id,status", [parsed.data.status,o.id,o.status]);
+    if(!updated.rowCount){await client.query("ROLLBACK");return res.status(409).json({error:"Order status changed. Refresh and try again."});}
+    await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'order',$3,$4::jsonb)",[req.user.id,parsed.data.status==="completed"?"social_order_marked_completed":"social_order_rejected_refunded",o.id,JSON.stringify({category:o.category,previous_status:o.status,status:parsed.data.status,reason:parsed.data.reason,refunded_minor:refunded})]);
+    await client.query("COMMIT");
+    res.json({ok:true,status:parsed.data.status,refunded_minor:refunded});
+  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+
 app.post("/api/admin/orders/:id/cancel-refund",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const parsed=z.object({reason:z.string().trim().min(5).max(250)}).safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Enter a cancellation reason (5–250 characters)."});
