@@ -4,7 +4,7 @@ const money=v=>"৳"+(Number(v||0)/100).toFixed(2);
 let adminUsdToBdtRate=0;
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
 const titles={overview:["Overview","Your panel at a glance."],users:["Users","Manage customer accounts and wallet access."],orders:["Orders","Review and manage customer orders."],services:["Services","Manage gaming and social media services."],finance:["Finance","Review deposits, withdrawals and payment requests."],growth:["Growth & Referrals","Referral performance and commission controls."],support:["Support","Customer tickets and live support."],website:["Website Content","Manage website content and announcements."],notifications:["Notifications","Create and manage messages shown only in the notification bell."],settings:["Settings","General system configuration."],"system-settings":["System Settings","Payment, deposit, withdrawal and service quantity controls."],activity:["Activity Logs","Review administrative actions."]};
-function showPage(page){if(page==="support"){location.href="/support-admin";return}if(!titles[page])return;document.querySelectorAll(".admin-page").forEach(x=>x.classList.toggle("active",x.id==="page-"+page));document.querySelectorAll(".admin-nav").forEach(x=>x.classList.toggle("active",x.dataset.page===page));document.getElementById("pageTitle").textContent=titles[page][0];document.getElementById("pageSubtitle").textContent=titles[page][1];document.getElementById("adminSidebar").classList.remove("open");document.getElementById("sidebarScrim").classList.remove("show");document.getElementById("sidebarToggle").setAttribute("aria-expanded","false");document.getElementById("searchResults").hidden=true;if(page==="users")loadUsers();if(page==="orders")loadOrders();if(page==="services")loadServices();if(page==="finance")loadFinance();if(page==="growth")loadGrowth();if(page==="website")loadAnnouncements();if(page==="notifications")loadNotifications();if(page==="settings"){loadSystem();}if(page==="system-settings"){loadPaymentSettings();loadCryptoPaymentSettings();loadMaintenanceSettings();loadCurrencySettings();loadMoneyLimits();}if(page==="activity")loadActivity()}
+function showPage(page){if(page==="support"){location.href="/support-admin";return}if(!titles[page])return;document.querySelectorAll(".admin-page").forEach(x=>x.classList.toggle("active",x.id==="page-"+page));document.querySelectorAll(".admin-nav").forEach(x=>x.classList.toggle("active",x.dataset.page===page));document.getElementById("pageTitle").textContent=titles[page][0];document.getElementById("pageSubtitle").textContent=titles[page][1];document.getElementById("adminSidebar").classList.remove("open");document.getElementById("sidebarScrim").classList.remove("show");document.getElementById("sidebarToggle").setAttribute("aria-expanded","false");document.getElementById("searchResults").hidden=true;if(page==="users")loadUsers();if(page==="orders"){loadOrders();loadRealAdsOrders();}if(page==="services")loadServices();if(page==="finance")loadFinance();if(page==="growth")loadGrowth();if(page==="website")loadAnnouncements();if(page==="notifications")loadNotifications();if(page==="settings"){loadSystem();}if(page==="system-settings"){loadPaymentSettings();loadCryptoPaymentSettings();loadMaintenanceSettings();loadCurrencySettings();loadMoneyLimits();}if(page==="activity")loadActivity()}
 async function loadGrowth(){
  const status=document.getElementById("growthStatus"),leaders=document.getElementById("growthLeaders"),referrals=document.getElementById("growthReferrals");
  if(!status||!leaders||!referrals)return;
@@ -56,6 +56,32 @@ async function loadUsers(){
    actions.append(details,balance,toggle);card.append(actions,detailBox);list.append(card);
   });
  }catch(e){status.textContent="Could not load users";list.append(el("div","empty-admin admin-error",e.message))}
+}
+
+async function loadRealAdsOrders(){
+ const status=document.getElementById("realAdsAdminStatus"),list=document.getElementById("realAdsAdminList");if(!status||!list)return;
+ status.textContent="Loading Real Ads requests…";list.textContent="";
+ try{
+  const params=new URLSearchParams(),search=document.getElementById("realAdsAdminSearch")?.value.trim(),filter=document.getElementById("realAdsAdminFilter")?.value;
+  if(search)params.set("search",search);if(filter)params.set("status",filter);
+  const data=await request("/admin/real-ads/orders?"+params.toString()),orders=data.orders||[];status.textContent=orders.length+" request"+(orders.length===1?"":"s")+" loaded";
+  if(!orders.length){list.append(el("div","empty-admin","No matching Real Ads requests."));return;}
+  const labels={pending:"Pending",reviewing:"Reviewing",approved:"Approved for manual setup",rejected:"Rejected",completed:"Completed",canceled:"Canceled"};
+  orders.forEach(order=>{
+   const card=el("article","request-card order-card"),head=el("div","request-head"),identity=el("div","user-identity");
+   identity.append(el("strong","","৳"+Number(order.budget_bdt).toLocaleString("en-BD")+" · Facebook Real Ads"),el("span","user-subline",(order.full_name||"Customer")+" (@"+(order.username||"—")+") · "+(order.email||"—")));
+   head.append(identity,el("span","request-status user-state",labels[order.status]||order.status));card.append(head);
+   const meta=el("div","request-meta");
+   [["Request ID",order.id],["Customer phone",order.phone||"Not provided"],["Budget","৳"+Number(order.budget_bdt).toLocaleString("en-BD")],["Submitted",new Date(order.created_at).toLocaleString()],["Customer note",order.note||"—"]].forEach(([k,v])=>meta.append(el("span","",k+": "+String(v))));
+   const video=el("a","user-action","Open Facebook video");video.href=order.video_url;video.target="_blank";video.rel="noopener noreferrer";meta.append(video);card.append(meta);
+   const controls=el("div","user-actions"),select=document.createElement("select");select.className="user-action";select.setAttribute("aria-label","Request status");
+   ["pending","reviewing","approved","rejected","completed","canceled"].forEach(value=>{const option=document.createElement("option");option.value=value;option.textContent=labels[value];option.selected=value===order.status;select.append(option)});
+   const note=document.createElement("input");note.className="user-action";note.type="text";note.maxLength=1000;note.placeholder="Admin note for customer";note.value=order.admin_note||"";
+   const save=el("button","user-action","Save status");
+   save.addEventListener("click",async()=>{save.disabled=true;try{await request("/admin/real-ads/orders/"+encodeURIComponent(order.id),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:select.value,adminNote:note.value.trim()})});await loadRealAdsOrders()}catch(error){alert(error.message);save.disabled=false}});
+   controls.append(select,note,save);card.append(controls);list.append(card);
+  });
+ }catch(error){status.textContent="Could not load Real Ads requests";list.append(el("div","empty-admin admin-error",error.message));}
 }
 async function loadOrders(){
  const status=document.getElementById("ordersStatus"),list=document.getElementById("ordersList");
@@ -240,6 +266,9 @@ document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",(
 document.getElementById("refreshAdmin").addEventListener("click",()=>{const active=document.querySelector(".admin-page.active");if(active?.id==="page-users")loadUsers();else if(active?.id==="page-orders")loadOrders();else if(active?.id==="page-services")loadServices();else if(active?.id==="page-growth")loadGrowth();else if(active?.id==="page-website")loadAnnouncements();else if(active?.id==="page-settings")loadSystem();else if(active?.id==="page-system-settings"){loadPaymentSettings();loadCryptoPaymentSettings();loadMaintenanceSettings();loadCurrencySettings();loadMoneyLimits();}else if(active?.id==="page-activity")loadActivity();else loadFinance()});
 document.getElementById("refreshUsers").addEventListener("click",loadUsers);
 document.getElementById("refreshOrders").addEventListener("click",loadOrders);
+document.getElementById("refreshRealAdsAdmin").addEventListener("click",loadRealAdsOrders);
+document.getElementById("realAdsAdminSearch").addEventListener("input",loadRealAdsOrders);
+document.getElementById("realAdsAdminFilter").addEventListener("change",loadRealAdsOrders);
 document.getElementById("refreshServices").addEventListener("click",loadServices);
 document.getElementById("refreshGrowth").addEventListener("click",loadGrowth);
 document.getElementById("announcementForm").addEventListener("submit",saveAnnouncement);
