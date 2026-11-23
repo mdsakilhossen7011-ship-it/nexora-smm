@@ -25,3 +25,17 @@
     border-radius:12px;
   }
 }
+
+
+/* Featured genuine Meta Ads service — isolated addition, existing SMM catalogue unchanged */
+.fb-realboost{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(230px,.75fr);gap:20px;align-items:center;margin-top:18px;padding:22px;border:1px solid rgba(83,164,255,.34);border-radius:18px;background:radial-gradient(circle at 8% 0%,rgba(35,119,242,.22),transparent 48%),linear-gradient(125deg,#111d3b,#17132e 68%,#11152b);box-shadow:0 12px 35px #0003}
+.fb-realboost h2{margin:7px 0 8px;font-size:clamp(19px,3vw,25px);color:#fff}
+.fb-realboost-copy>p{margin:0;color:#c5d3ed;font-size:12px;line-height:1.7}
+.fb-realboost-budgets{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0 9px}
+.fb-realboost-budgets span{padding:7px 11px;border:1px solid #579bff55;border-radius:9px;background:#1877f21c;color:#dceaff;font-size:10px;font-weight:800}
+.fb-realboost-copy>small{color:#9eafd0;font-size:10px;line-height:1.5}
+.fb-realboost-status{padding:15px;border:1px solid rgba(190,165,255,.24);border-radius:13px;background:rgba(7,11,29,.58)}
+.fb-realboost-pill{display:inline-flex;padding:5px 8px;border-radius:6px;background:#a56a1c2b;border:1px solid #e4aa4a55;color:#ffd58b;font-size:9px;font-weight:900;letter-spacing:1px}
+.fb-realboost-status strong{display:block;margin-top:10px;color:#fff;font-size:12px;line-height:1.5}
+.fb-realboost-status p{margin:7px 0 0;color:#aebbd5;font-size:10px;line-height:1.65}
+@media(max-width:650px){.fb-realboost{grid-template-columns:1fr;gap:13px;padding:15px 12px;border-radius:15px}.fb-realboost-status{padding:12px}}
