@@ -38,21 +38,9 @@
  document.addEventListener("keydown",event=>{if(event.key==="Escape")close();});
  window.addEventListener("resize",()=>{if(window.innerWidth>700)close();});
 
- // Admin-only links belong inside the authenticated account menu, never the public menu.
- // Remove any stale/injected admin links first; a failed or anonymous session check shows none.
+ // Never expose administrator settings in the customer three-dot menu.
+ // Admin controls remain available only through the separately protected admin interface.
  menu.querySelectorAll("[data-admin-menu],a[href^='/admin.html']").forEach(link=>link.remove());
- fetch("/api/me",{credentials:"same-origin",cache:"no-store"}).then(response=>response.ok?response.json():null).then(data=>{
-   if(data?.user?.role!=="admin")return;
-   const target=menu.querySelector(".nav-account")||menu;
-   const entries=[["/admin.html?view=settings","Admin Settings","settings"],["/admin.html?view=system-settings","System Settings","system-settings"]];
-   for(const [href,label,key] of entries){
-     if(target.querySelector(`[data-admin-menu="${key}"]`))continue;
-     const link=document.createElement("a");link.href=href;link.dataset.adminMenu=key;
-     link.innerHTML=`<span class="menu-icon" aria-hidden="true">⚙</span><span>${label}</span>`;
-     const logout=target.querySelector(".menu-logout")||target.querySelector("#logoutBtn")||target.querySelector("#homeLogoutBtn");
-     if(logout)target.insertBefore(link,logout);else target.append(link);
-   }
- }).catch(()=>{});
  // Site-wide announcement bell beside the three-dot menu.
  const bell=document.createElement("button");
  bell.type="button";bell.className="nexora-notification-bell";
