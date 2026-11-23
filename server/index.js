@@ -1048,26 +1048,7 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS mime_type VARCHAR(40)"))
   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)"))
   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS supplier_rate_usd_per_1000 NUMERIC(18,8) NOT NULL DEFAULT 0 CHECK(supplier_rate_usd_per_1000 >= 0)"))
-  .then(()=>pool.query("UPDATE services SET enabled=FALSE,provider_service_id=NULL,supplier_rate_usd_per_1000=0,description='Archived legacy social service. Supplier integration removed; this service is disabled.' WHERE description LIKE 'Imported from SMMEXO.%' OR (category IN ('facebook','instagram','tiktok','youtube','telegram') AND provider_service_id ~ '^[0-9]+
-  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS currency_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE),usd_to_bdt_rate NUMERIC(12,4) NOT NULL DEFAULT 0 CHECK(usd_to_bdt_rate>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_by UUID REFERENCES users(id) ON DELETE SET NULL)"))
-  .then(()=>pool.query("INSERT INTO currency_settings(id,usd_to_bdt_rate) VALUES(TRUE,0) ON CONFLICT(id) DO NOTHING"))
-  // Seed requested Free Fire packages; order fulfilment remains globally disabled until a supplier is verified.
-  .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire','25 Diamonds','Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',80000,0,25,25,NULL,TRUE WHERE NOT EXISTS (SELECT 1 FROM services WHERE category='free_fire' AND lower(name)=lower('25 Diamonds'))"))
-  .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire','50 Diamonds','Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',80000,0,50,50,NULL,TRUE WHERE NOT EXISTS (SELECT 1 FROM services WHERE category='free_fire' AND lower(name)=lower('50 Diamonds'))"))
-  .then(()=>pool.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,min_quantity,max_quantity,provider_service_id,enabled) SELECT 'free_fire',v.name,'Fixed-price Free Fire diamond package. Supplier fulfilment is not yet enabled.',v.rate,0,v.qty,v.qty,NULL,TRUE FROM (VALUES ('100 Diamonds',80000,100),('210 Diamonds',76190,210),('530 Diamonds',75471,530),('1,060 Diamonds',75471,1060)) AS v(name,rate,qty) WHERE NOT EXISTS (SELECT 1 FROM services s WHERE s.category='free_fire' AND lower(s.name)=lower(v.name))"))
-  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS commission_accounts (user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, balance_minor BIGINT NOT NULL DEFAULT 0 CHECK(balance_minor>=0), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
-  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS user_api_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,key_hash TEXT NOT NULL UNIQUE,key_prefix VARCHAR(24) NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),last_used_at TIMESTAMPTZ,revoked_at TIMESTAMPTZ)"))
-  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS user_api_keys_user_active_idx ON user_api_keys(user_id,created_at DESC) WHERE revoked_at IS NULL"))
-  .then(()=>pool.query("CREATE UNIQUE INDEX IF NOT EXISTS money_requests_deposit_trx_unique ON money_requests(method,lower(trx_id)) WHERE request_type='deposit' AND trx_id IS NOT NULL"))
-  .then(()=>app.listen(port,()=>{
-    console.log("NEXORA API listening on port "+port);
-    cleanupExpiredSupportMessages().catch(error=>console.error("Initial support message cleanup failed",error));
-    const supportCleanupTimer=setInterval(()=>{
-      cleanupExpiredSupportMessages().catch(error=>console.error("Scheduled support message cleanup failed",error));
-    },30*1000);
-    supportCleanupTimer.unref();
-  }))
-  .catch(error=>{console.error("Database initialization failed",error);process.exit(1);});)"))
+  .then(()=>pool.query("UPDATE services SET enabled=FALSE,provider_service_id=NULL,supplier_rate_usd_per_1000=0,description='Archived legacy social service. Supplier integration removed; this service is disabled.' WHERE description LIKE 'Imported from SMMEXO.%' OR (category IN ('facebook','instagram','tiktok','youtube','telegram') AND provider_service_id ~ '^[0-9]+$')"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS currency_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE),usd_to_bdt_rate NUMERIC(12,4) NOT NULL DEFAULT 0 CHECK(usd_to_bdt_rate>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_by UUID REFERENCES users(id) ON DELETE SET NULL)"))
   .then(()=>pool.query("INSERT INTO currency_settings(id,usd_to_bdt_rate) VALUES(TRUE,0) ON CONFLICT(id) DO NOTHING"))
   // Seed requested Free Fire packages; order fulfilment remains globally disabled until a supplier is verified.
