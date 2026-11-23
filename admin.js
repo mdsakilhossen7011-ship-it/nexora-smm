@@ -296,8 +296,6 @@ document.getElementById("referralSettingsForm").addEventListener("submit",saveRe
 document.getElementById("serviceSearch").addEventListener("input",loadServices);
 document.getElementById("serviceCategoryFilter").addEventListener("change",loadServices);
 document.getElementById("serviceForm").addEventListener("submit",saveService);
-document.getElementById("enableFacebookServices").addEventListener("click",enableEligibleFacebookServices);
-document.getElementById("enableInstagramServices").addEventListener("click",enableEligibleInstagramServices);
 document.getElementById("bulkQuantityForm").addEventListener("submit",applyBulkEnabledServiceQuantities);
 async function applyBulkEnabledServiceQuantities(event){
  event.preventDefault();
