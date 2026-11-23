@@ -643,7 +643,7 @@ async function createOrder(req,res){
    if(!/^[0-9]+$/.test(providerOrderId))throw Object.assign(new Error("SMMEXO did not return a valid order ID. Order held for admin checking."),{uncertain:true});
    await pool.query("UPDATE orders SET provider_order_id=$2,updated_at=NOW() WHERE id=$1",[orderId,"smmexo:"+providerOrderId]);
    orderRow=(await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId])).rows[0];
-   return res.status(201).json({order:orderRow,message:"Order accepted by SMMEXO. Track it in Order History."});
+   return res.status(201).json({order:orderRow,message:"Your order has been received successfully. Track it in Order History."});
   }catch(error){
    if(error.providerRejected){
     await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: SMMEXO rejected order — "+error.message);
