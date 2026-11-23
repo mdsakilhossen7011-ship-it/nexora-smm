@@ -117,6 +117,24 @@ async function loadOrders(){
     });
     actions.append(reconcile);
    }
+   if(["facebook","instagram","tiktok","youtube","telegram"].includes(o.category)&&["pending","processing"].includes(o.status)){
+    const complete=el("button","user-action success","Complete / Success");
+    complete.addEventListener("click",async()=>{
+     if(!confirm("Mark this social-service order as COMPLETED / SUCCESS? Only do this after confirming the supplier delivered the order."))return;
+     complete.disabled=true;
+     try{await request("/admin/orders/"+encodeURIComponent(o.id)+"/social-status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"completed",reason:"Admin confirmed successful social-service delivery."})});alert("Order marked COMPLETED / SUCCESS.");await loadOrders()}catch(e){alert(e.message);complete.disabled=false}
+    });
+    const reject=el("button","user-action danger","Reject & Refund");
+    reject.addEventListener("click",async()=>{
+     const reason=prompt("Rejection reason (5–250 characters). The order charge will be refunded to the customer's wallet:");
+     if(reason===null)return;
+     if(reason.trim().length<5||reason.trim().length>250){alert("Reason must be 5–250 characters.");return}
+     if(!confirm("Reject this social-service order and refund "+money(o.charge_minor)+" to the customer's wallet?"))return;
+     reject.disabled=true;
+     try{const result=await request("/admin/orders/"+encodeURIComponent(o.id)+"/social-status",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"refunded",reason:reason.trim()})});alert("Order rejected. "+money(result.refunded_minor)+" refunded to the customer's wallet.");await loadOrders()}catch(e){alert(e.message);reject.disabled=false}
+    });
+    actions.append(complete,reject);
+   }
    if(o.status==="pending"){
     const cancel=el("button","user-action danger","Cancel & refund");
     cancel.addEventListener("click",async()=>{const reason=prompt("Cancellation reason (5–250 characters):");if(reason===null)return;if(reason.trim().length<5||reason.trim().length>250){alert("Reason must be 5–250 characters.");return}if(!confirm("Cancel this pending order and return "+money(o.charge_minor)+" to the customer's wallet?"))return;cancel.disabled=true;try{const result=await request("/admin/orders/"+encodeURIComponent(o.id)+"/cancel-refund",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:reason.trim()})});alert(result.status==="refunded"?"Order canceled and wallet refund recorded.":"Order canceled. No charge was present to refund.");await loadOrders()}catch(e){alert(e.message);cancel.disabled=false}});
