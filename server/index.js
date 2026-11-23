@@ -157,148 +157,6 @@ async function requireAuth(req, res, next) {
   } catch (e) { next(e); }
 }
 const requireAdmin = (req,res,next) => req.user?.role === "admin" ? next() : res.status(403).json({error:"Administrator access required."});
-app.post("/api/admin/smmexo/services",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
-  const apiKey=process.env.SMMEXO_API_KEY;
-  if(!apiKey) return res.status(503).json({error:"SMMEXO_API_KEY is not configured in the hosting environment."});
-  const body=new URLSearchParams({key:apiKey,action:"services"});
-  let upstream;
-  try {
-    upstream=await fetch("https://smmexo.com/api/v2",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body,signal:AbortSignal.timeout(15000)});
-  } catch(error) {
-    return res.status(502).json({error:error.name==="TimeoutError"?"SMMEXO did not respond within 15 seconds.":"Could not connect to SMMEXO."});
-  }
-  const data=await upstream.json().catch(()=>null);
-  if(!upstream.ok) return res.status(502).json({error:"SMMEXO returned HTTP "+upstream.status+"."});
-  if(!Array.isArray(data)) return res.status(502).json({error:data?.error||data?.message||"SMMEXO returned an unexpected service-list response."});
-  const services=data.map(item=>({
-    serviceId:String(item.service??""),
-    name:String(item.name??""),
-    type:String(item.type??""),
-    category:String(item.category??""),
-    rate:Number(item.rate),
-    min:Number(item.min),
-    max:Number(item.max),
-    refill:item.refill===true,
-    cancel:item.cancel===true
-  })).filter(item=>item.serviceId&&item.name&&Number.isFinite(item.rate)&&Number.isFinite(item.min)&&Number.isFinite(item.max));
-  res.set("Cache-Control","no-store").json({supplier:"SMMEXO",currency:"USD",count:services.length,services});
-}));
-
-app.post("/api/admin/smmexo/import",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
-  const parsed=z.object({serviceIds:z.array(z.string().trim().min(1).max(120)).min(1).max(100),facebookMarkupPercent:z.number().finite().min(0).max(100).optional(),instagramMarkupPercent:z.number().finite().min(0).max(100).optional(),tiktokMarkupPercent:z.number().finite().min(0).max(100).optional(),youtubeMarkupPercent:z.number().finite().min(0).max(100).optional(),telegramMarkupPercent:z.number().finite().min(0).max(100).optional(),expectedCategory:z.enum(["facebook","instagram","tiktok","youtube","telegram"]).optional()}).safeParse(req.body);
-  if(!parsed.success)return res.status(400).json({error:"Select between 1 and 100 supplier services to import."});
-  const apiKey=process.env.SMMEXO_API_KEY;
-  if(!apiKey)return res.status(503).json({error:"SMMEXO_API_KEY is not configured in the hosting environment."});
-  const body=new URLSearchParams({key:apiKey,action:"services"});
-  let upstream;
-  try{
-    upstream=await fetch("https://smmexo.com/api/v2",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body,signal:AbortSignal.timeout(15000)});
-  }catch(error){
-    return res.status(502).json({error:error.name==="TimeoutError"?"SMMEXO did not respond within 15 seconds.":"Could not connect to SMMEXO."});
-  }
-  const supplierData=await upstream.json().catch(()=>null);
-  if(!upstream.ok)return res.status(502).json({error:"SMMEXO returned HTTP "+upstream.status+"."});
-  if(!Array.isArray(supplierData))return res.status(502).json({error:supplierData?.error||supplierData?.message||"SMMEXO returned an unexpected service-list response."});
-  const selectedIds=[...new Set(parsed.data.serviceIds)];
-  const selected=supplierData.filter(item=>selectedIds.includes(String(item.service??"")));
-  const foundIds=new Set(selected.map(item=>String(item.service??"")));
-  const skipped=selectedIds.filter(id=>!foundIds.has(id)).map(id=>({serviceId:id,reason:"Not found in the current SMMEXO catalogue."}));
-  const imported=[];
-  const batchServiceIds=[];
-  const client=await pool.connect();
-  const categoryFor=(item)=>{
-    const source=(String(item.category??"")+" "+String(item.name??"")).toLowerCase();
-    if(source.includes("instagram"))return "instagram";
-    if(source.includes("facebook"))return "facebook";
-    if(source.includes("tiktok")||source.includes("tik tok"))return "tiktok";
-    if(source.includes("youtube"))return "youtube";
-    if(source.includes("telegram"))return "telegram";
-    if(source.includes("free fire"))return "free_fire";
-    if(source.includes("pubg"))return "pubg_mobile";
-    if(source.includes("mobile legends")||source.includes("mlbb"))return "mlbb";
-    return null;
-  };
-  try{
-    await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0");
-    await client.query("BEGIN");
-    const facebookMarkupPercent=parsed.data.facebookMarkupPercent;
-    const instagramMarkupPercent=parsed.data.instagramMarkupPercent;
-    const tiktokMarkupPercent=parsed.data.tiktokMarkupPercent;
-    const youtubeMarkupPercent=parsed.data.youtubeMarkupPercent;
-    const telegramMarkupPercent=parsed.data.telegramMarkupPercent;
-    let usdToBdtRate=0;
-    if(facebookMarkupPercent!==undefined||instagramMarkupPercent!==undefined||tiktokMarkupPercent!==undefined||youtubeMarkupPercent!==undefined||telegramMarkupPercent!==undefined){
-      const currencyResult=await client.query("SELECT usd_to_bdt_rate FROM currency_settings WHERE id=TRUE");
-      usdToBdtRate=Number(currencyResult.rows[0]?.usd_to_bdt_rate||0);
-      if(!Number.isFinite(usdToBdtRate)||usdToBdtRate<=0)throw new Error("Set a valid USD to BDT exchange rate in Admin Panel → Settings → Currency before applying social-service pricing.");
-    }
-    for(const item of selected){
-      const serviceId=String(item.service??"");
-      const category=categoryFor(item);
-      if(parsed.data.expectedCategory&&category!==parsed.data.expectedCategory){
-        skipped.push({serviceId,reason:"Supplier category does not match the requested "+parsed.data.expectedCategory+" import."});
-        continue;
-      }
-      const existing=await client.query("SELECT id,category FROM services WHERE provider_service_id=$1 LIMIT 1",[serviceId]);
-      if(existing.rowCount){if(existing.rows[0].category===category)batchServiceIds.push(existing.rows[0].id);skipped.push({serviceId,reason:"Already imported."});continue;}
-      const rate=Number(item.rate),supplierMin=Math.max(1,Math.floor(Number(item.min)||1)),supplierMax=Math.max(supplierMin,Math.floor(Number(item.max)||supplierMin));
-      if(!category){skipped.push({serviceId,reason:"Unsupported category; no matching NEXORA category."});continue;}
-      const socialCategory=["facebook","instagram","tiktok","youtube","telegram"].includes(category);
-      const min=socialCategory?1000:supplierMin,max=socialCategory?1000000:supplierMax;
-      if(!serviceId||!String(item.name??"").trim()||!Number.isFinite(rate)||rate<0||!Number.isFinite(min)||!Number.isFinite(max)){
-        skipped.push({serviceId,reason:"Supplier returned invalid service details."});continue;
-      }
-      const supplierCategory=String(item.category??"").slice(0,500);
-      const supplierType=String(item.type??"").slice(0,100);
-      const refill=item.refill===true?"Yes":"No",cancel=item.cancel===true?"Yes":"No";
-      let costMinor=0,sellingMinor=0,pricingMarkup=null,costBdt=0;
-      const categoryMarkup=category==="facebook"?facebookMarkupPercent:category==="instagram"?instagramMarkupPercent:category==="tiktok"?tiktokMarkupPercent:category==="youtube"?youtubeMarkupPercent:category==="telegram"?telegramMarkupPercent:undefined;
-      if(categoryMarkup!==undefined&&(category==="facebook"||category==="instagram"||category==="tiktok"||category==="youtube"||category==="telegram")){
-        costBdt=rate*usdToBdtRate;
-        const minimumCost=1,maximumCost=category==="facebook"?30:category==="youtube"?200:category==="telegram"?100:10;
-        if(!Number.isFinite(costBdt)||costBdt<minimumCost||costBdt>maximumCost){
-          skipped.push({serviceId,reason:(category==="facebook"?"Facebook":category==="instagram"?"Instagram":category==="tiktok"?"TikTok":category==="youtube"?"YouTube":"Telegram")+" wholesale cost is outside the ৳"+minimumCost+"–৳"+maximumCost+" per 1,000 import range."});
-          continue;
-        }
-        costMinor=Math.ceil(costBdt*100);
-        pricingMarkup=categoryMarkup;
-        sellingMinor=Math.ceil(costMinor*(1+categoryMarkup/100));
-      }
-      const pricingNote=pricingMarkup===null?"Supplier wholesale rate is stored in USD. Set a BDT purchase and selling price before enabling.":"BDT purchase cost: ৳"+(costMinor/100).toFixed(2)+" per 1,000. Customer selling price includes "+pricingMarkup+"% markup.";
-      const description=("Imported from SMMEXO. Wholesale rate: $"+rate.toFixed(4)+" USD per 1,000. Supplier category: "+supplierCategory+". Type: "+supplierType+". Refill: "+refill+". Cancel: "+cancel+". "+pricingNote).slice(0,2000);
-      const inserted=await client.query(
-        "INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,supplier_rate_usd_per_1000,min_quantity,max_quantity,provider_service_id,enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE) RETURNING id",
-        [category,String(item.name).trim().slice(0,160),description,sellingMinor,costMinor,rate,min,max,serviceId]
-      );
-      await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'smmexo_service_imported','service',$2,$3::jsonb)",[req.user.id,inserted.rows[0].id,JSON.stringify({supplier:"SMMEXO",supplier_service_id:serviceId,wholesale_rate_usd_per_1000:rate,category,purchase_cost_bdt_per_1000:costMinor/100,selling_price_bdt_per_1000:sellingMinor/100,markup_percent:pricingMarkup})]);
-      imported.push({serviceId,name:String(item.name).trim().slice(0,160),id:inserted.rows[0].id});
-      batchServiceIds.push(inserted.rows[0].id);
-    }
-    let enabledCount=0;
-    if(parsed.data.expectedCategory&&batchServiceIds.length){
-      const category=parsed.data.expectedCategory;
-      await client.query("INSERT INTO smmexo_import_batches(category,service_ids,created_by) VALUES($1,$2::uuid[],$3)",[category,batchServiceIds,req.user.id]);
-      // Import is the explicit activation action for this selected SMMEXO batch.
-      // Keep only this category's latest selected batch active; other categories are untouched.
-      await client.query("UPDATE services SET enabled=FALSE,updated_at=NOW() WHERE category=$1 AND enabled=TRUE",[category]);
-      const maxCostMinor=category==="facebook"?3000:category==="youtube"?20000:category==="telegram"?10000:1000;
-      const activated=await client.query(
-        "WITH candidates AS (SELECT id FROM services WHERE id=ANY($1::uuid[]) AND category=$2 AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND $3 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' ORDER BY cost_per_1000_minor ASC,id ASC LIMIT 30) UPDATE services s SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() FROM candidates c WHERE s.id=c.id RETURNING s.id,s.name",
-        [batchServiceIds,category,maxCostMinor]
-      );
-      enabledCount=activated.rowCount;
-      await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,$2,'service',$3::jsonb)",[req.user.id,category+"_smmexo_services_imported_and_enabled",JSON.stringify({category,batch_service_count:batchServiceIds.length,enabled_count:enabledCount,service_ids:activated.rows.map(x=>x.id)})]);
-    }
-    await client.query("COMMIT");
-  }catch(error){
-    await client.query("ROLLBACK");
-    throw error;
-  }finally{client.release();}
-  res.set("Cache-Control","no-store").json({imported,skipped,importedCount:imported.length,skippedCount:skipped.length,batchServiceCount:batchServiceIds.length});
-}));
-
-
-
 app.post("/api/admin/ff-reseller/import-catalogue",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const catalog=[["BD Server","25 Diamonds","25",19.5,25],["BD Server","50 Diamonds","50",33.8,50],["BD Server","Weekly Lite","LITE",35.1,1],["BD Server","Level Up 6","LV6",35.1,1],["BD Server","Level Up 10","LV10",62.4,1],["BD Server","Level Up 15","LV15",62.4,1],["BD Server","Level Up 20","LV20",62.4,1],["BD Server","Level Up 25","LV25",62.4,1],["BD Server","115 Diamonds","115",74.1,115],["BD Server","Level Up 30","LV30",88.4,1],["BD Server","240 Diamonds","240",146.9,240],["BD Server","Weekly","WEEKLY",149.5,1],["BD Server","610 Diamonds","610",371.8,610],["BD Server","Monthly","MONTHLY",734.5,1],["BD Server","1240 Diamonds","1240",741,1240],["BD Server","2530 Diamonds","2530",1487.2,2530],["Indonesia Server","50 Diamonds","INDO50",49.4,50],["Indonesia Server","70 Diamonds","INDO70",68.9,70],["Indonesia Server","140 Diamonds","INDO140",137.8,140],["Indonesia Server","Weekly","INDO_WEEKLY",208,1],["Indonesia Server","355 Diamonds","INDO355",343.2,355],["Indonesia Server","Monthly","INDO_MONTHLY",624,1],["Indonesia Server","720 Diamonds","INDO720",686.4,720],["Indonesia Server","7290 Diamonds","INDO7290",6864,7290],["UniPin Voucher BD","25 Diamond Code","U25",19.5,25],["UniPin Voucher BD","50 Diamond Code","U50",33.8,50],["UniPin Voucher BD","115 Diamond Code","U115",74.1,115],["UniPin Voucher BD","240 Diamond Code","U240",146.9,240],["UniPin Voucher BD","Weekly Code","U161",149.5,1],["UniPin Voucher BD","610 Diamond Code","U610",371.8,610],["UniPin Voucher BD","1240 Diamond Code","U1240",741,1240],["UniPin Voucher BD","2530 Diamond Code","U2530",1487.2,2530]];
  const client=await pool.connect();const imported=[],skipped=[];
@@ -430,21 +288,6 @@ async function refundFFResellerOrder(orderId,userId,note){
   throw error;
  }finally{client.release();}
 }
-async function disableInvalidSmmexoService(orderId,userId,reason){
- const client=await pool.connect();
- try{
-  await client.query("BEGIN");
-  const found=await client.query("SELECT s.id,s.name,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2 FOR UPDATE OF s",[orderId,userId]);
-  if(!found.rowCount){await client.query("COMMIT");return false;}
-  const service=found.rows[0];
-  const updated=await client.query("UPDATE services SET enabled=FALSE,updated_at=NOW() WHERE id=$1 AND enabled=TRUE RETURNING id",[service.id]);
-  if(updated.rowCount){
-   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'smmexo_invalid_service_id_auto_disabled','service',$2,$3::jsonb)",[userId,service.id,JSON.stringify({order_id:orderId,provider_service_id:service.provider_service_id,reason:String(reason||"Invalid SMMEXO service ID").slice(0,300)})]);
-  }
-  await client.query("COMMIT");
-  return updated.rowCount>0;
- }catch(error){await client.query("ROLLBACK");console.error("Could not disable invalid SMMEXO service:",error.message);return false;}finally{client.release();}
-}
 async function syncFFResellerOrder(orderId,userId){
  // Network lookup is deliberately outside the DB transaction/row lock.
  const found=await pool.query("SELECT o.provider_order_id,o.status,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
@@ -520,7 +363,7 @@ app.get("/api/real-ads/orders",requireAuth,asyncRoute(async(req,res)=>{
 }));
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const pending=await pool.query("SELECT o.id,o.provider_order_id FROM orders o WHERE o.user_id=$1 AND o.status='processing' AND o.provider_order_id IS NOT NULL ORDER BY o.created_at ASC LIMIT 20",[req.user.id]);
-  for(const item of pending.rows){if(String(item.provider_order_id||'').startsWith('smmexo:'))await syncSmmexoOrder(item.id,req.user.id);else await syncFFResellerOrder(item.id,req.user.id);}
+  for(const item of pending.rows)await syncFFResellerOrder(item.id,req.user.id);
   const result=await pool.query("SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,s.name AS service_name,s.category FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 100",[req.user.id]);
   res.json({orders:result.rows});
 }));
@@ -535,53 +378,6 @@ async function ffResellerRequest(path,body){
  const message=String(typeof data==="string"?data:(data?.message||data?.error||""));
  if(/insufficient balance|stock is not available|package not found|unauthorized|invalid/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data,providerRejected:true});
  return data;
-}
-async function smmexoRequest(fields){
- const key=process.env.SMMEXO_API_KEY;
- if(!key)throw Object.assign(new Error("SMMEXO_API_KEY is not configured in Render."),{status:503,providerRejected:true});
- const body=new URLSearchParams({key,...fields});
- let response;
- try{response=await fetch("https://smmexo.com/api/v2",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body,signal:AbortSignal.timeout(20000)});}
- catch(error){throw Object.assign(new Error("SMMEXO response is uncertain. Do not submit this order again."),{status:502,uncertain:true});}
- const data=await response.json().catch(()=>null);
- if(!response.ok)throw Object.assign(new Error("SMMEXO returned HTTP "+response.status+"."),{status:502,uncertain:true});
- if(!data||typeof data!=="object"||Array.isArray(data))throw Object.assign(new Error("SMMEXO returned an unexpected response."),{status:502,uncertain:true});
- const error=String(data.error||data.message||"");
- if(error||data.success===false)throw Object.assign(new Error(error||"SMMEXO rejected the order."),{status:400,providerRejected:true});
- return data;
-}
-async function refundSmmexoPartial(orderId,userId,remains,quantity){
- const client=await pool.connect();
- try{
-  await client.query("BEGIN");
-  const found=await client.query("SELECT charge_minor,quantity FROM orders WHERE id=$1 AND user_id=$2 AND status='processing' FOR UPDATE",[orderId,userId]);
-  if(!found.rowCount){await client.query("COMMIT");return false;}
-  const total=BigInt(found.rows[0].quantity);
-  const left=BigInt(Math.max(0,Math.min(Number(total),Number(remains)||0)));
-  const amount=(BigInt(found.rows[0].charge_minor)*left)/total;
-  await client.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1",[orderId]);
-  if(amount>0n){
-   await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount.toString(),userId]);
-   await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,$4)",[userId,amount.toString(),orderId,"SMMEXO partial-order refund for "+left.toString()+" undelivered units"]);
-  }
-  await client.query("COMMIT");return true;
- }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
-}
-async function syncSmmexoOrder(orderId,userId){
- const found=await pool.query("SELECT o.provider_order_id,o.status,o.quantity FROM orders o WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
- if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_order_id||"").startsWith("smmexo:"))return;
- const providerOrderId=String(found.rows[0].provider_order_id).slice(7);
- let data;
- try{data=await smmexoRequest({action:"status",order:providerOrderId});}
- catch(error){console.error("SMMEXO status lookup failed:",{orderId,message:error.message});return;}
- const status=String(data.status||"").trim().toLowerCase();
- if(["failed","failure","error","canceled","cancelled"].includes(status)){
-  await refundFFResellerOrder(orderId,userId,"Automatic refund: SMMEXO order status "+status);return;
- }
- if(["completed","complete","success","successful"].includes(status)){
-  await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
- }
- if(status==="partial")await refundSmmexoPartial(orderId,userId,data.remains,found.rows[0].quantity);
 }
 function ffProviderStatus(data){
  const terminalComplete=new Set(["success","successful","completed","complete","delivered","done"]);
@@ -606,7 +402,7 @@ async function createOrder(req,res){
  const parsed=z.object({serviceId:z.string().uuid(),requestId:z.string().uuid().optional(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid order details."});
  const orderId=parsed.data.requestId||crypto.randomUUID();
- const client=await pool.connect();let committed=false;let orderRow=null;let ffContext=null;let smmexoContext=null;
+ const client=await pool.connect();let committed=false;let orderRow=null;let ffContext=null;
  try{
   await client.query("BEGIN");
   const prior=await client.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1 AND user_id=$2",[orderId,req.user.id]);
@@ -616,10 +412,8 @@ async function createOrder(req,res){
   const s=svc.rows[0],q=parsed.data.quantity,isFF=s.category==="free_fire",providerId=String(s.provider_service_id||"");
   if(!isFF&&parsed.data.target.trim().length<2){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid target for this service."});}
   const isFFReseller=isFF&&providerId.startsWith("ffreseller:");
-  const isSmmexo=!isFF&&["facebook","instagram","tiktok","youtube","telegram"].includes(s.category)&&/^[0-9]+$/.test(providerId);
-  if(!isFF&&!isSmmexo){await client.query("ROLLBACK");return res.status(503).json({error:"This service has no verified supplier route. No balance was deducted."});}
-  if(isSmmexo&&!process.env.SMMEXO_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"SMMEXO API key is not configured. No balance was deducted."});}
-  if(isFFReseller&&process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}
+    if(!isFF){await client.query("ROLLBACK");return res.status(503).json({error:"This service has no verified supplier route. No balance was deducted."});}
+if(isFFReseller&&process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}
   if(isFFReseller&&!process.env.FF_RESELLER_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller API key is not configured. No balance was deducted."});}
   if(!isFFReseller&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
   const isVoucher=isFFReseller&&providerId.startsWith("ffreseller:U");
@@ -640,7 +434,6 @@ async function createOrder(req,res){
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'order',$3,$4::jsonb)",[req.user.id,isFFReseller?"ff_reseller_order_queued":"order_submitted",orderId,JSON.stringify({provider:isFFReseller?"FF_RESELLER":null,tag:isFFReseller?providerId.slice("ffreseller:".length):null,isVoucher,requestId:orderId})]);
   await client.query("COMMIT");committed=true;orderRow=inserted.rows[0];
   if(isFFReseller)ffContext={tag:providerId.slice("ffreseller:".length),isVoucher,packageCount,target:parsed.data.target};
-  if(isSmmexo)smmexoContext={serviceId:providerId,target:parsed.data.target,quantity:q};
  }catch(error){if(!committed)await client.query("ROLLBACK");throw error;}finally{client.release();}
  if(ffContext){
   let providerData;
@@ -664,30 +457,6 @@ async function createOrder(req,res){
    if(error.providerRejected){await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: "+error.message);const refunded=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);return res.status(502).json({order:refunded.rows[0],error:error.message,refunded:true});}
    const refreshed=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
    return res.status(201).json({order:refreshed.rows[0],message:error.uncertain?"Supplier response timed out or was unavailable. Order is held for status checking; do not submit it again.":"Order is held for admin verification. Do not submit it again.",providerPending:true});
-  }
- }
- if(smmexoContext){
-  try{
-   const providerData=await smmexoRequest({action:"add",service:smmexoContext.serviceId,link:smmexoContext.target,quantity:String(smmexoContext.quantity)});
-   const providerOrderId=String(providerData.order||"");
-   if(!/^[0-9]+$/.test(providerOrderId))throw Object.assign(new Error("SMMEXO did not return a valid order ID. Order held for admin checking."),{uncertain:true});
-   await pool.query("UPDATE orders SET provider_order_id=$2,updated_at=NOW() WHERE id=$1",[orderId,"smmexo:"+providerOrderId]);
-   orderRow=(await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId])).rows[0];
-   return res.status(201).json({order:orderRow,message:"Your order has been received successfully. Track it in Order History."});
-  }catch(error){
-   if(error.providerRejected){
-    await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: SMMEXO rejected order — "+error.message);
-    const invalidServiceId=/incorrect service id|invalid service id|service id.{0,20}(invalid|incorrect)/i.test(error.message);
-    if(invalidServiceId)await disableInvalidSmmexoService(orderId,req.user.id,error.message);
-    const refunded=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
-    const customerMessage=invalidServiceId
-      ?"This service is temporarily unavailable. Your wallet has been refunded. Please choose another service."
-      :"Your order could not be completed. Your wallet has been refunded. Please try another service.";
-    return res.status(502).json({order:refunded.rows[0],error:customerMessage,refunded:true});
-   }
-   console.error("SMMEXO order submission uncertain:",{orderId,message:error.message});
-   const held=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
-   return res.status(201).json({order:held.rows[0],message:"Supplier response is uncertain. Order held for admin checking; do not submit it again.",providerPending:true});
   }
  }
  return res.status(201).json({order:orderRow,message:"Order submitted."});
@@ -956,7 +725,7 @@ app.post("/api/admin/orders/:id/cancel-refund",requireAuth,requireAdmin,asyncRou
 
 
 app.get("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
- const r=await pool.query("SELECT s.id,s.category,s.name,s.description,s.price_per_1000_minor,s.cost_per_1000_minor,s.supplier_rate_usd_per_1000,s.min_quantity,s.max_quantity,s.provider_service_id,s.enabled,s.created_at,s.updated_at,(SELECT COUNT(*) FROM orders o WHERE o.service_id=s.id)::int AS order_count FROM services s ORDER BY s.category,s.name");
+ const r=await pool.query("SELECT s.id,s.category,s.name,s.description,s.price_per_1000_minor,s.cost_per_1000_minor,s.supplier_rate_usd_per_1000,s.min_quantity,s.max_quantity,s.provider_service_id,s.enabled,s.created_at,s.updated_at,(SELECT COUNT(*) FROM orders o WHERE o.service_id=s.id)::int AS order_count FROM services s WHERE s.description NOT LIKE 'Archived legacy social service.%' ORDER BY s.category,s.name");
  res.json({services:r.rows});
 }));
 app.post("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
@@ -1007,32 +776,6 @@ app.post("/api/admin/services/bulk-update-enabled-quantities",requireAuth,requir
   res.json({ok:true,updatedCount:updated.rowCount,counts,minQuantity,maxQuantity});
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
 }));
-
-const smmexoEnableRules={
- facebook:{maxCost:3000,action:"facebook_smmexo_services_bulk_enabled"},
- instagram:{maxCost:1000,action:"instagram_smmexo_services_bulk_enabled"},
- tiktok:{maxCost:1000,action:"tiktok_smmexo_services_bulk_enabled"},
- youtube:{maxCost:20000,action:"youtube_smmexo_services_bulk_enabled"},
- telegram:{maxCost:10000,action:"telegram_smmexo_services_bulk_enabled"}
-};
-for(const [category,rule] of Object.entries(smmexoEnableRules)){
- app.post("/api/admin/services/bulk-enable-"+category,requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
-  const client=await pool.connect();
-  try{
-   await client.query("BEGIN");
-   const disabled=await client.query("UPDATE services SET enabled=FALSE,updated_at=NOW() WHERE category=$1 AND enabled=TRUE RETURNING id",[category]);
-   const batch=await client.query("SELECT id,service_ids FROM smmexo_import_batches WHERE category=$1 ORDER BY created_at DESC LIMIT 1",[category]);
-   const batchIds=batch.rows[0]?.service_ids||[];
-   const updated=batchIds.length?await client.query(
-    "WITH candidates AS (SELECT id FROM services WHERE id=ANY($1::uuid[]) AND category=$2 AND provider_service_id IS NOT NULL AND supplier_rate_usd_per_1000 IS NOT NULL AND cost_per_1000_minor BETWEEN 100 AND $3 AND price_per_1000_minor>cost_per_1000_minor AND description LIKE 'Imported from SMMEXO.%' ORDER BY cost_per_1000_minor ASC,id ASC LIMIT 30) UPDATE services s SET enabled=TRUE,min_quantity=1000,max_quantity=1000000,updated_at=NOW() FROM candidates c WHERE s.id=c.id RETURNING s.id,s.name",
-    [batchIds,category,rule.maxCost]
-   ): {rows:[],rowCount:0};
-   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,$2,'service',$3::jsonb)",[req.user.id,rule.action,JSON.stringify({category,batch_id:batch.rows[0]?.id||null,limit:30,disabledCount:disabled.rowCount,enabledCount:updated.rowCount,service_ids:updated.rows.map(x=>x.id)})]);
-   await client.query("COMMIT");
-   res.json({ok:true,category,limit:30,disabledCount:disabled.rowCount,enabledCount:updated.rowCount,services:updated.rows});
-  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
- }));
-}
 
 app.patch("/api/admin/services/:id/status",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const parsed=z.object({enabled:z.boolean()}).safeParse(req.body);
@@ -1305,6 +1048,7 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS mime_type VARCHAR(40)"))
   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)"))
   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS supplier_rate_usd_per_1000 NUMERIC(18,8) NOT NULL DEFAULT 0 CHECK(supplier_rate_usd_per_1000 >= 0)"))
+  .then(()=>pool.query("UPDATE services SET enabled=FALSE,provider_service_id=NULL,supplier_rate_usd_per_1000=0,description='Archived legacy social service. Supplier integration removed; this service is disabled.' WHERE description LIKE 'Imported from SMMEXO.%' OR (category IN ('facebook','instagram','tiktok','youtube','telegram') AND provider_service_id ~ '^[0-9]+$')"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS currency_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE),usd_to_bdt_rate NUMERIC(12,4) NOT NULL DEFAULT 0 CHECK(usd_to_bdt_rate>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_by UUID REFERENCES users(id) ON DELETE SET NULL)"))
   .then(()=>pool.query("INSERT INTO currency_settings(id,usd_to_bdt_rate) VALUES(TRUE,0) ON CONFLICT(id) DO NOTHING"))
   // Seed requested Free Fire packages; order fulfilment remains globally disabled until a supplier is verified.
