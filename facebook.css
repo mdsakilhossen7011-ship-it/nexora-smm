@@ -28,6 +28,27 @@
 
 
 /* Featured genuine Meta Ads service — isolated addition, existing SMM catalogue unchanged */
+/* Compact featured boost panel so the existing Facebook catalogue stays higher on screen */
+.fb-realboost{gap:12px;margin-top:12px;padding:13px 15px;border-radius:14px}
+.fb-realboost h2{margin:4px 0 5px;font-size:clamp(17px,2.5vw,21px)}
+.fb-realboost-copy>p{font-size:10px;line-height:1.45}
+.fb-realboost-budgets{gap:5px;margin:8px 0 5px}
+.fb-realboost-budgets span{padding:5px 8px;border-radius:7px;font-size:9px}
+.fb-realboost-copy>small{font-size:9px;line-height:1.35}
+.fb-realboost-status{padding:10px;border-radius:10px}
+.fb-realboost-pill{padding:4px 7px;font-size:8px}
+.fb-realboost-status strong{margin-top:6px;font-size:10px;line-height:1.35}
+.fb-realboost-status p{margin:4px 0 0;font-size:9px;line-height:1.4}
+@media(max-width:650px){
+ .fb-realboost{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:9px;padding:10px;border-radius:12px}
+ .fb-realboost-status{padding:8px}
+ .fb-realboost-copy>p{font-size:9px}
+ .fb-realboost-budgets{gap:4px;margin:6px 0 4px}
+ .fb-realboost-budgets span{padding:4px 6px;font-size:8px}
+ .fb-realboost-status strong{font-size:9px}
+ .fb-realboost-status p{font-size:8px;line-height:1.35}
+}
+@media(max-width:390px){.fb-realboost{grid-template-columns:1fr}.fb-realboost-status{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center}.fb-realboost-status strong{margin:0}.fb-realboost-status p{grid-column:1/-1}}
 .fb-realboost{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(230px,.75fr);gap:20px;align-items:center;margin-top:18px;padding:22px;border:1px solid rgba(83,164,255,.34);border-radius:18px;background:radial-gradient(circle at 8% 0%,rgba(35,119,242,.22),transparent 48%),linear-gradient(125deg,#111d3b,#17132e 68%,#11152b);box-shadow:0 12px 35px #0003}
 .fb-realboost h2{margin:7px 0 8px;font-size:clamp(19px,3vw,25px);color:#fff}
 .fb-realboost-copy>p{margin:0;color:#c5d3ed;font-size:12px;line-height:1.7}
