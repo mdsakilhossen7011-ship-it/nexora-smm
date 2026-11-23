@@ -135,7 +135,7 @@ async function loadOrders(){
     });
     actions.append(complete,reject);
    }
-   if(o.status==="pending"){
+   if(o.status==="pending"&&!["facebook","instagram","tiktok","youtube","telegram"].includes(o.category)){
     const cancel=el("button","user-action danger","Cancel & refund");
     cancel.addEventListener("click",async()=>{const reason=prompt("Cancellation reason (5–250 characters):");if(reason===null)return;if(reason.trim().length<5||reason.trim().length>250){alert("Reason must be 5–250 characters.");return}if(!confirm("Cancel this pending order and return "+money(o.charge_minor)+" to the customer's wallet?"))return;cancel.disabled=true;try{const result=await request("/admin/orders/"+encodeURIComponent(o.id)+"/cancel-refund",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:reason.trim()})});alert(result.status==="refunded"?"Order canceled and wallet refund recorded.":"Order canceled. No charge was present to refund.");await loadOrders()}catch(e){alert(e.message);cancel.disabled=false}});
     actions.append(cancel);
