@@ -115,14 +115,6 @@ html:has(.admin-body),body.admin-body{width:100%;min-width:0;max-width:100%;marg
 #activitySearch,#activityAction{min-width:0;flex:1 1 180px}
 @media(max-width:600px){#systemStatus .request-head{align-items:flex-start;flex-direction:column}#systemStatus .request-status{max-width:100%;text-align:left}}
 
-/* Unified SMMEXO category enable controls */
-.smmexo-enable-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
-.smmexo-enable-card{display:flex;flex-direction:column;gap:10px;min-width:0;padding:15px;border:1px solid #34345e;border-radius:13px;background:linear-gradient(145deg,#171a35,#101329)}
-.smmexo-enable-card strong{display:block;color:#fff;font-size:14px}
-.smmexo-enable-card small{display:block;margin-top:5px;color:#a9afd0;font-size:11px}
-.smmexo-enable-card .user-action{width:100%;min-height:42px;border-color:#6545a0;background:#302052;color:#f0e4ff}
-.smmexo-enable-card p{margin:0;color:#9299b8;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
-.smmexo-enable-card p[role="status"]:not(:empty){min-height:32px}
 
 /* Dedicated System Settings view opened from the admin-only three-dot menu. */
 .system-settings-view .admin-sidebar,.system-settings-view #sidebarScrim{display:none!important}
