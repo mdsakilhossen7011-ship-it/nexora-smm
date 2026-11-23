@@ -503,6 +503,21 @@ app.post("/api/webhooks/ff-reseller",ffWebhookLimiter,asyncRoute(async(req,res)=
   return res.json({ok:true,status:refunded?"refunded":"unchanged"});
  }
 }));
+
+app.post("/api/real-ads/orders",requireAuth,rateLimit({windowMs:60*60*1000,limit:10,standardHeaders:true,legacyHeaders:false,message:{error:"Too many Real Ads requests. Try again later."}}),asyncRoute(async(req,res)=>{
+ const parsed=z.object({videoUrl:z.string().trim().url().max(500),budgetBdt:z.number().int().min(100).max(100000),note:z.string().trim().max(500).optional().default("")}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Enter a valid Facebook video link and a budget between ৳100 and ৳100,000."});
+ let video;try{video=new URL(parsed.data.videoUrl)}catch{return res.status(400).json({error:"Enter a valid Facebook video link."});}
+ const host=video.hostname.toLowerCase().replace(/^www\./,"");
+ if(!["facebook.com","m.facebook.com","fb.watch","web.facebook.com"].includes(host))return res.status(400).json({error:"Only Facebook video, Reel or post links are accepted."});
+ if(video.protocol!=="https:")return res.status(400).json({error:"Use a secure https:// Facebook link."});
+ const created=await pool.query("INSERT INTO real_ads_orders(user_id,video_url,budget_bdt,note,status) VALUES($1,$2,$3,$4,'pending') RETURNING id,video_url,budget_bdt,note,status,created_at",[req.user.id,video.toString(),parsed.data.budgetBdt,parsed.data.note]);
+ res.status(201).json({order:created.rows[0],message:"Your Real Ads request was saved. No wallet balance was deducted."});
+}));
+app.get("/api/real-ads/orders",requireAuth,asyncRoute(async(req,res)=>{
+ const result=await pool.query("SELECT id,video_url,budget_bdt,note,status,admin_note,created_at,updated_at FROM real_ads_orders WHERE user_id=$1 ORDER BY created_at DESC LIMIT 30",[req.user.id]);
+ res.set("Cache-Control","no-store").json({orders:result.rows});
+}));
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const pending=await pool.query("SELECT o.id,o.provider_order_id FROM orders o WHERE o.user_id=$1 AND o.status='processing' AND o.provider_order_id IS NOT NULL ORDER BY o.created_at ASC LIMIT 20",[req.user.id]);
   for(const item of pending.rows){if(String(item.provider_order_id||'').startsWith('smmexo:'))await syncSmmexoOrder(item.id,req.user.id);else await syncFFResellerOrder(item.id,req.user.id);}
@@ -822,6 +837,22 @@ app.patch("/api/admin/users/:id/status",requireAuth,requireAdmin,asyncRoute(asyn
     await client.query("COMMIT");
     res.json({ok:true,status:updated.rows[0].status});
   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+
+app.get("/api/admin/real-ads/orders",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const allowed=["pending","reviewing","approved","rejected","completed","canceled"];
+ const status=allowed.includes(req.query.status)?req.query.status:null;
+ const search=String(req.query.search||"").trim().slice(0,100),term=search?("%"+search+"%"):null;
+ const result=await pool.query("SELECT r.id,r.video_url,r.budget_bdt,r.note,r.status,r.admin_note,r.created_at,r.updated_at,u.full_name,u.username,u.email,u.phone FROM real_ads_orders r JOIN users u ON u.id=r.user_id WHERE ($1::text IS NULL OR r.status=$1) AND ($2::text IS NULL OR r.video_url ILIKE $2 OR u.full_name ILIKE $2 OR u.username ILIKE $2 OR u.email ILIKE $2 OR r.id::text ILIKE $2) ORDER BY r.created_at DESC LIMIT 200",[status,term]);
+ res.set("Cache-Control","no-store").json({orders:result.rows});
+}));
+app.patch("/api/admin/real-ads/orders/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({status:z.enum(["pending","reviewing","approved","rejected","completed","canceled"]),adminNote:z.string().trim().max(1000).optional().default("")}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Choose a valid request status."});
+ const updated=await pool.query("UPDATE real_ads_orders SET status=$1,admin_note=$2,updated_at=NOW() WHERE id=$3 RETURNING id,status,admin_note,updated_at",[parsed.data.status,parsed.data.adminNote,req.params.id]);
+ if(!updated.rowCount)return res.status(404).json({error:"Real Ads request not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'real_ads_order',$3,$4::jsonb)",[req.user.id,"real_ads_"+parsed.data.status,req.params.id,JSON.stringify({status:parsed.data.status,adminNote:parsed.data.adminNote})]);
+ res.json({ok:true,order:updated.rows[0]});
 }));
 app.get("/api/admin/orders",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
   const search=String(req.query.search||"").trim().slice(0,100);
@@ -1266,6 +1297,9 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS ticket_messages_ticket_date_idx ON ticket_messages(ticket_id,created_at)"))
   .then(()=>pool.query("CREATE INDEX IF NOT EXISTS ticket_messages_created_at_idx ON ticket_messages(created_at)"))
   
+  .then(()=>pool.query("CREATE TABLE IF NOT EXISTS real_ads_orders (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,video_url TEXT NOT NULL,budget_bdt INTEGER NOT NULL CHECK(budget_bdt BETWEEN 100 AND 100000),note VARCHAR(500) NOT NULL DEFAULT '',status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','reviewing','approved','rejected','completed','canceled')),admin_note VARCHAR(1000) NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS real_ads_orders_user_date_idx ON real_ads_orders(user_id,created_at DESC)"))
+  .then(()=>pool.query("CREATE INDEX IF NOT EXISTS real_ads_orders_status_date_idx ON real_ads_orders(status,created_at DESC)"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS support_attachments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),message_id UUID NOT NULL REFERENCES ticket_messages(id) ON DELETE CASCADE,public_id VARCHAR(255) NOT NULL UNIQUE,secure_url TEXT NOT NULL,format VARCHAR(20) NOT NULL,bytes BIGINT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"))
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS data BYTEA"))
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS mime_type VARCHAR(40)"))
