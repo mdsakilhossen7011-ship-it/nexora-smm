@@ -520,8 +520,25 @@ async function smmexoRequest(fields){
  if(error||data.success===false)throw Object.assign(new Error(error||"SMMEXO rejected the order."),{status:400,providerRejected:true});
  return data;
 }
+async function refundSmmexoPartial(orderId,userId,remains,quantity){
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const found=await client.query("SELECT charge_minor,quantity FROM orders WHERE id=$1 AND user_id=$2 AND status='processing' FOR UPDATE",[orderId,userId]);
+  if(!found.rowCount){await client.query("COMMIT");return false;}
+  const total=BigInt(found.rows[0].quantity);
+  const left=BigInt(Math.max(0,Math.min(Number(total),Number(remains)||0)));
+  const amount=(BigInt(found.rows[0].charge_minor)*left)/total;
+  await client.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1",[orderId]);
+  if(amount>0n){
+   await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount.toString(),userId]);
+   await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,$4)",[userId,amount.toString(),orderId,"SMMEXO partial-order refund for "+left.toString()+" undelivered units"]);
+  }
+  await client.query("COMMIT");return true;
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}
 async function syncSmmexoOrder(orderId,userId){
- const found=await pool.query("SELECT o.provider_order_id,o.status FROM orders o WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
+ const found=await pool.query("SELECT o.provider_order_id,o.status,o.quantity FROM orders o WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
  if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_order_id||"").startsWith("smmexo:"))return;
  const providerOrderId=String(found.rows[0].provider_order_id).slice(7);
  let data;
@@ -534,6 +551,7 @@ async function syncSmmexoOrder(orderId,userId){
  if(["completed","complete","success","successful"].includes(status)){
   await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
  }
+ if(status==="partial")await refundSmmexoPartial(orderId,userId,data.remains,found.rows[0].quantity);
 }
 function ffProviderStatus(data){
  const terminalComplete=new Set(["success","successful","completed","complete","delivered","done"]);
