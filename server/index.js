@@ -489,8 +489,8 @@ app.post("/api/webhooks/ff-reseller",ffWebhookLimiter,asyncRoute(async(req,res)=
  }
 }));
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
-  const pending=await pool.query("SELECT o.id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 AND o.status='processing' AND s.provider_service_id LIKE 'ffreseller:%' AND s.provider_service_id NOT LIKE 'ffreseller:U%' AND o.provider_order_id IS NOT NULL ORDER BY o.created_at ASC LIMIT 10",[req.user.id]);
-  for(const item of pending.rows)await syncFFResellerOrder(item.id,req.user.id);
+  const pending=await pool.query("SELECT o.id,o.provider_order_id FROM orders o WHERE o.user_id=$1 AND o.status='processing' AND o.provider_order_id IS NOT NULL ORDER BY o.created_at ASC LIMIT 20",[req.user.id]);
+  for(const item of pending.rows){if(String(item.provider_order_id||'').startsWith('smmexo:'))await syncSmmexoOrder(item.id,req.user.id);else await syncFFResellerOrder(item.id,req.user.id);}
   const result=await pool.query("SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,s.name AS service_name,s.category FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 100",[req.user.id]);
   res.json({orders:result.rows});
 }));
@@ -505,6 +505,35 @@ async function ffResellerRequest(path,body){
  const message=String(typeof data==="string"?data:(data?.message||data?.error||""));
  if(/insufficient balance|stock is not available|package not found|unauthorized|invalid/i.test(message))throw Object.assign(new Error(message),{status:400,provider:data,providerRejected:true});
  return data;
+}
+async function smmexoRequest(fields){
+ const key=process.env.SMMEXO_API_KEY;
+ if(!key)throw Object.assign(new Error("SMMEXO_API_KEY is not configured in Render."),{status:503,providerRejected:true});
+ const body=new URLSearchParams({key,...fields});
+ let response;
+ try{response=await fetch("https://smmexo.com/api/v2",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body,signal:AbortSignal.timeout(20000)});}
+ catch(error){throw Object.assign(new Error("SMMEXO response is uncertain. Do not submit this order again."),{status:502,uncertain:true});}
+ const data=await response.json().catch(()=>null);
+ if(!response.ok)throw Object.assign(new Error("SMMEXO returned HTTP "+response.status+"."),{status:502,uncertain:true});
+ if(!data||typeof data!=="object"||Array.isArray(data))throw Object.assign(new Error("SMMEXO returned an unexpected response."),{status:502,uncertain:true});
+ const error=String(data.error||data.message||"");
+ if(error||data.success===false)throw Object.assign(new Error(error||"SMMEXO rejected the order."),{status:400,providerRejected:true});
+ return data;
+}
+async function syncSmmexoOrder(orderId,userId){
+ const found=await pool.query("SELECT o.provider_order_id,o.status FROM orders o WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
+ if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_order_id||"").startsWith("smmexo:"))return;
+ const providerOrderId=String(found.rows[0].provider_order_id).slice(7);
+ let data;
+ try{data=await smmexoRequest({action:"status",order:providerOrderId});}
+ catch(error){console.error("SMMEXO status lookup failed:",{orderId,message:error.message});return;}
+ const status=String(data.status||"").trim().toLowerCase();
+ if(["failed","failure","error","canceled","cancelled"].includes(status)){
+  await refundFFResellerOrder(orderId,userId,"Automatic refund: SMMEXO order status "+status);return;
+ }
+ if(["completed","complete","success","successful"].includes(status)){
+  await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
+ }
 }
 function ffProviderStatus(data){
  const terminalComplete=new Set(["success","successful","completed","complete","delivered","done"]);
@@ -529,7 +558,7 @@ async function createOrder(req,res){
  const parsed=z.object({serviceId:z.string().uuid(),requestId:z.string().uuid().optional(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid order details."});
  const orderId=parsed.data.requestId||crypto.randomUUID();
- const client=await pool.connect();let committed=false;let orderRow=null;let ffContext=null;
+ const client=await pool.connect();let committed=false;let orderRow=null;let ffContext=null;let smmexoContext=null;
  try{
   await client.query("BEGIN");
   const prior=await client.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1 AND user_id=$2",[orderId,req.user.id]);
@@ -539,6 +568,9 @@ async function createOrder(req,res){
   const s=svc.rows[0],q=parsed.data.quantity,isFF=s.category==="free_fire",providerId=String(s.provider_service_id||"");
   if(!isFF&&parsed.data.target.trim().length<2){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid target for this service."});}
   const isFFReseller=isFF&&providerId.startsWith("ffreseller:");
+  const isSmmexo=!isFF&&["facebook","instagram","tiktok","youtube","telegram"].includes(s.category)&&/^[0-9]+$/.test(providerId);
+  if(!isFF&&!isSmmexo){await client.query("ROLLBACK");return res.status(503).json({error:"This service has no verified supplier route. No balance was deducted."});}
+  if(isSmmexo&&!process.env.SMMEXO_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"SMMEXO API key is not configured. No balance was deducted."});}
   if(isFFReseller&&process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}
   if(isFFReseller&&!process.env.FF_RESELLER_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller API key is not configured. No balance was deducted."});}
   if(!isFFReseller&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
@@ -560,6 +592,7 @@ async function createOrder(req,res){
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'order',$3,$4::jsonb)",[req.user.id,isFFReseller?"ff_reseller_order_queued":"order_submitted",orderId,JSON.stringify({provider:isFFReseller?"FF_RESELLER":null,tag:isFFReseller?providerId.slice("ffreseller:".length):null,isVoucher,requestId:orderId})]);
   await client.query("COMMIT");committed=true;orderRow=inserted.rows[0];
   if(isFFReseller)ffContext={tag:providerId.slice("ffreseller:".length),isVoucher,packageCount,target:parsed.data.target};
+  if(isSmmexo)smmexoContext={serviceId:providerId,target:parsed.data.target,quantity:q};
  }catch(error){if(!committed)await client.query("ROLLBACK");throw error;}finally{client.release();}
  if(ffContext){
   let providerData;
@@ -583,6 +616,25 @@ async function createOrder(req,res){
    if(error.providerRejected){await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: "+error.message);const refunded=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);return res.status(502).json({order:refunded.rows[0],error:error.message,refunded:true});}
    const refreshed=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
    return res.status(201).json({order:refreshed.rows[0],message:error.uncertain?"Supplier response timed out or was unavailable. Order is held for status checking; do not submit it again.":"Order is held for admin verification. Do not submit it again.",providerPending:true});
+  }
+ }
+ if(smmexoContext){
+  try{
+   const providerData=await smmexoRequest({action:"add",service:smmexoContext.serviceId,link:smmexoContext.target,quantity:String(smmexoContext.quantity)});
+   const providerOrderId=String(providerData.order||"");
+   if(!/^[0-9]+$/.test(providerOrderId))throw Object.assign(new Error("SMMEXO did not return a valid order ID. Order held for admin checking."),{uncertain:true});
+   await pool.query("UPDATE orders SET provider_order_id=$2,updated_at=NOW() WHERE id=$1",[orderId,"smmexo:"+providerOrderId]);
+   orderRow=(await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId])).rows[0];
+   return res.status(201).json({order:orderRow,message:"Order accepted by SMMEXO. Track it in Order History."});
+  }catch(error){
+   if(error.providerRejected){
+    await refundFFResellerOrder(orderId,req.user.id,"Automatic refund: SMMEXO rejected order — "+error.message);
+    const refunded=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
+    return res.status(502).json({order:refunded.rows[0],error:error.message+" Your wallet was refunded.",refunded:true});
+   }
+   console.error("SMMEXO order submission uncertain:",{orderId,message:error.message});
+   const held=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
+   return res.status(201).json({order:held.rows[0],message:"Supplier response is uncertain. Order held for admin checking; do not submit it again.",providerPending:true});
   }
  }
  return res.status(201).json({order:orderRow,message:"Order submitted."});
