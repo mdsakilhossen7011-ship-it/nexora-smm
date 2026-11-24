@@ -64,27 +64,37 @@ function serviceKindFor(service) {
 }
 
 function selectBalancedServices(services, limit = 100) {
-  const groups = new Map();
+  const categories = new Map();
   for (const service of services) {
-    const key = service.__category + ":" + service.__kind;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(service);
+    const category = service.__category;
+    if (!categories.has(category)) categories.set(category, new Map());
+    const groups = categories.get(category);
+    const kind = service.__kind;
+    if (!groups.has(kind)) groups.set(kind, []);
+    groups.get(kind).push(service);
   }
-  const buckets = [...groups.values()];
-  for (const bucket of buckets) {
-    bucket.sort((a, b) => Number(a.rate) - Number(b.rate) ||
-      Number(b.max) - Number(a.max) || String(a.service).localeCompare(String(b.service)));
-  }
+  const kindOrder = ["followers","subscribers","members","likes","comments","views","watchtime","reactions","shares","saves","story_views","live_views","other"];
   const selected = [];
-  for (let round = 0; selected.length < limit; round++) {
-    let added = false;
+  for (const groups of categories.values()) {
+    const buckets = [...groups.entries()]
+      .sort((a, b) => kindOrder.indexOf(a[0]) - kindOrder.indexOf(b[0]))
+      .map(([, bucket]) => bucket);
     for (const bucket of buckets) {
-      if (bucket[round] && selected.length < limit) {
-        selected.push(bucket[round]);
-        added = true;
-      }
+      bucket.sort((a, b) => Number(a.rate) - Number(b.rate) ||
+        Number(b.max) - Number(a.max) || String(a.service).localeCompare(String(b.service)));
     }
-    if (!added) break;
+    let categoryCount = 0;
+    for (let round = 0; categoryCount < limit; round++) {
+      let added = false;
+      for (const bucket of buckets) {
+        if (bucket[round] && categoryCount < limit) {
+          selected.push(bucket[round]);
+          categoryCount++;
+          added = true;
+        }
+      }
+      if (!added) break;
+    }
   }
   return selected;
 }
