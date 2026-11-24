@@ -1277,3 +1277,12 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 .freefire-game-icon img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
 
 .footer-api-contact{display:grid;gap:5px;margin-top:16px;padding:13px 15px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.035);max-width:420px}.footer-api-contact strong{color:var(--text,#fff);font-size:13px}.footer-api-contact span{color:var(--muted,#aab1c5);font-size:12px}.footer-api-contact a{width:max-content;max-width:100%;color:#72c7ff;font-size:13px;font-weight:800;text-decoration:none;overflow-wrap:anywhere}.footer-api-contact a:hover{text-decoration:underline}
+
+/* Google one-click sign-in */
+.auth-divider{display:flex;align-items:center;gap:12px;margin:18px 0 13px;color:#8f94b5;font-size:9px;font-weight:800;letter-spacing:1.5px}
+.auth-divider:before,.auth-divider:after{content:"";height:1px;flex:1;background:#ffffff24}
+.google-signin-host{display:flex;justify-content:center;min-height:42px;width:100%;overflow:hidden}
+.google-signin-host>div{max-width:100%}
+.google-signin-host.google-signin-loading{opacity:.55;pointer-events:none}
+.light-theme .auth-divider{color:#737895}
+.light-theme .auth-divider:before,.light-theme .auth-divider:after{background:#17182c24}

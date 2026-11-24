@@ -133,6 +133,84 @@ authForm.addEventListener("submit", async (event) => {
   }
 });
 
+
+async function initializeGoogleSignIn() {
+  const host = document.getElementById("googleSignInButton");
+  if (!host) return;
+  try {
+    const configResponse = await fetch((window.NEXORA_API_URL || "/api") + "/auth/google-config", { credentials: "same-origin" });
+    const config = await configResponse.json().catch(() => ({}));
+    if (!configResponse.ok || !config.clientId) {
+      host.textContent = "Google sign-in is temporarily unavailable.";
+      return;
+    }
+    const loadGoogleScript = () => new Promise((resolve, reject) => {
+      if (window.google?.accounts?.id) return resolve();
+      const existing = document.querySelector('script[data-nexora-google="1"]');
+      if (existing) {
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", reject, { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.dataset.nexoraGoogle = "1";
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+    await loadGoogleScript();
+    window.google.accounts.id.initialize({
+      client_id: config.clientId,
+      callback: window.handleNexoraGoogleCredential,
+      auto_select: false,
+      cancel_on_tap_outside: true
+    });
+    window.google.accounts.id.renderButton(host, {
+      type: "standard",
+      theme: "outline",
+      size: "large",
+      text: "continue_with",
+      shape: "rectangular",
+      width: Math.min(340, Math.max(240, host.clientWidth || 320)),
+      logo_alignment: "left"
+    });
+  } catch (_error) {
+    host.textContent = "Google sign-in could not load. Please try again.";
+  }
+}
+
+window.handleNexoraGoogleCredential = async (googleResponse) => {
+  if (!googleResponse?.credential) {
+    authNotice.textContent = "Google did not return a sign-in credential. Please try again.";
+    return;
+  }
+  const googleHost = document.getElementById("googleSignInButton");
+  if (googleHost) googleHost.classList.add("google-signin-loading");
+  authNotice.textContent = "Verifying your Google account…";
+  try {
+    const response = await fetch((window.NEXORA_API_URL || "/api") + "/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ credential: googleResponse.credential })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Google sign-in failed.");
+    authNotice.textContent = result.created ? "Your NEXORA account was created." : "Google sign-in successful.";
+    window.location.href = requestedDestination && requestedDestination.startsWith("/") && !requestedDestination.startsWith("//") ? requestedDestination : "/";
+  } catch (error) {
+    authNotice.textContent = error.message || "Google sign-in failed. Please try again.";
+    if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
+  } finally {
+    if (googleHost) googleHost.classList.remove("google-signin-loading");
+  }
+};
+
+initializeGoogleSignIn();
+
 const themeButton = document.createElement("button");
 themeButton.type = "button";
 themeButton.className = "btn btn-ghost theme-toggle";
