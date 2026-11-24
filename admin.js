@@ -193,6 +193,22 @@ async function applyBulkPricing(event){
   selectedServiceIds.clear();updateBulkPricingControls();await loadServices();alert("Updated prices for "+data.updatedCount+" services.");
  }catch(error){alert(error.message)}finally{updateBulkPricingControls()}
 }
+async function checkSmmCoderConnection(){
+ const status=document.getElementById("smmCoderStatus"),result=document.getElementById("smmCoderSyncResult"),button=document.getElementById("checkSmmCoder");
+ if(!status||!result)return;
+ button.disabled=true;status.textContent="Checking API…";result.textContent="Contacting SMMCoder securely from the NEXORA server…";
+ try{const d=await request("/admin/smmcoder/status");if(!d.connected){status.textContent="Not configured";result.textContent=d.message||"Add the provider API key in Render Environment.";return;}status.textContent="Connected";result.textContent="API connected · "+d.serviceCount+" provider services · Balance: "+Number(d.balance||0).toFixed(4)+" "+(d.currency||"USD")+" · Order submission "+(d.ordersEnabled?"enabled":"disabled");}
+ catch(e){status.textContent="Connection failed";result.textContent=e.message;}
+ finally{button.disabled=false;}
+}
+async function syncSmmCoderServices(){
+ const button=document.getElementById("syncSmmCoder"),status=document.getElementById("smmCoderStatus"),result=document.getElementById("smmCoderSyncResult");
+ if(!confirm("Fetch SMMCoder's current service list and import supported Facebook, Instagram, TikTok, YouTube and Telegram services with a 7% markup? New services remain DISABLED; existing service enable/disable states are preserved."))return;
+ button.disabled=true;status.textContent="Syncing…";result.textContent="Fetching provider catalogue and calculating prices…";
+ try{const d=await request("/admin/smmcoder/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});status.textContent="Sync complete";result.textContent="Imported "+d.importedCount+" · Updated "+d.updatedCount+" · Skipped "+d.skippedCount+" · Markup 7%. All newly imported services remain disabled.";await loadServices();}
+ catch(e){status.textContent="Sync failed";result.textContent=e.message;}
+ finally{button.disabled=false;}
+}
 async function loadServices(){
  const status=document.getElementById("servicesStatus"),list=document.getElementById("servicesList");if(!status||!list)return;
  status.textContent="Loading services…";list.textContent="";
@@ -270,6 +286,8 @@ document.getElementById("refreshRealAdsAdmin").addEventListener("click",loadReal
 document.getElementById("realAdsAdminSearch").addEventListener("input",loadRealAdsOrders);
 document.getElementById("realAdsAdminFilter").addEventListener("change",loadRealAdsOrders);
 document.getElementById("refreshServices").addEventListener("click",loadServices);
+document.getElementById("checkSmmCoder").addEventListener("click",checkSmmCoderConnection);
+document.getElementById("syncSmmCoder").addEventListener("click",syncSmmCoderServices);
 document.getElementById("refreshGrowth").addEventListener("click",loadGrowth);
 document.getElementById("announcementForm").addEventListener("submit",saveAnnouncement);
 document.getElementById("refreshAnnouncements").addEventListener("click",loadAnnouncements);
