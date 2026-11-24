@@ -947,16 +947,6 @@ app.post("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res
  await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'service_created','service',$2,$3::jsonb)",[req.user.id,r.rows[0].id,JSON.stringify({category:d.category,name:d.name,price_minor:price,cost_minor:cost})]);
  res.status(201).json({ok:true,id:r.rows[0].id,enabled:false});
 }));
-app.patch("/api/admin/services/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
- const parsed=z.object({category:z.enum(["facebook","tiktok","instagram","youtube","telegram","free_fire","pubg_mobile","mlbb"]),name:z.string().trim().min(2).max(160),description:z.string().trim().max(2000),price:z.number().finite().min(0).max(10000000),cost:z.number().finite().min(0).max(10000000),minQuantity:z.number().int().min(1).max(10000000),maxQuantity:z.number().int().min(1).max(10000000),providerServiceId:z.string().trim().max(120)}).safeParse(req.body);
- if(!parsed.success)return res.status(400).json({error:"Invalid service details."});
- const d=parsed.data;if(d.maxQuantity<d.minQuantity)return res.status(400).json({error:"Maximum quantity must be at least minimum quantity."});
- const r=await pool.query("UPDATE services SET category=$1,name=$2,description=$3,price_per_1000_minor=$4,cost_per_1000_minor=$5,min_quantity=$6,max_quantity=$7,provider_service_id=$8,updated_at=NOW() WHERE id=$9 RETURNING id",[d.category,d.name,d.description,Math.round(d.price*100),Math.round(d.cost*100),d.minQuantity,d.maxQuantity,d.providerServiceId||null,req.params.id]);
- if(!r.rowCount)return res.status(404).json({error:"Service not found."});
- await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'service_updated','service',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({category:d.category,name:d.name,price:d.price,cost:d.cost})]);
- res.json({ok:true});
-}));
-
 app.patch("/api/admin/services/bulk-pricing",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const parsed=z.object({serviceIds:z.array(z.string().uuid()).min(1).max(500),price:z.number().finite().min(0).max(10000000),cost:z.number().finite().min(0).max(10000000)}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Select 1–500 services and enter valid BDT prices."});
@@ -969,6 +959,35 @@ app.patch("/api/admin/services/bulk-pricing",requireAuth,requireAdmin,asyncRoute
   await client.query("COMMIT");
   res.json({ok:true,updatedCount:updated.rowCount});
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
+
+app.patch("/api/admin/services/bulk-enable",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({serviceIds:z.array(z.string().uuid()).min(1).max(60)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Select 1–60 valid services from one category."});
+ const serviceIds=[...new Set(parsed.data.serviceIds)];
+ if(serviceIds.length!==parsed.data.serviceIds.length)return res.status(400).json({error:"Duplicate service IDs are not allowed."});
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE id=ANY($1::uuid[]) RETURNING id,category",[serviceIds]);
+  if(updated.rowCount!==serviceIds.length){await client.query("ROLLBACK");return res.status(404).json({error:"Some selected services were not found. No services were enabled; refresh and try again."});}
+  const counts={};
+  for(const row of updated.rows)counts[row.category]=(counts[row.category]||0)+1;
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({service_ids:serviceIds,count:updated.rowCount,category_counts:counts})]);
+  await client.query("COMMIT");
+  res.json({ok:true,enabledCount:updated.rowCount,counts});
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
+app.patch("/api/admin/services/:id",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({category:z.enum(["facebook","tiktok","instagram","youtube","telegram","free_fire","pubg_mobile","mlbb"]),name:z.string().trim().min(2).max(160),description:z.string().trim().max(2000),price:z.number().finite().min(0).max(10000000),cost:z.number().finite().min(0).max(10000000),minQuantity:z.number().int().min(1).max(10000000),maxQuantity:z.number().int().min(1).max(10000000),providerServiceId:z.string().trim().max(120)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Invalid service details."});
+ const d=parsed.data;if(d.maxQuantity<d.minQuantity)return res.status(400).json({error:"Maximum quantity must be at least minimum quantity."});
+ const r=await pool.query("UPDATE services SET category=$1,name=$2,description=$3,price_per_1000_minor=$4,cost_per_1000_minor=$5,min_quantity=$6,max_quantity=$7,provider_service_id=$8,updated_at=NOW() WHERE id=$9 RETURNING id",[d.category,d.name,d.description,Math.round(d.price*100),Math.round(d.cost*100),d.minQuantity,d.maxQuantity,d.providerServiceId||null,req.params.id]);
+ if(!r.rowCount)return res.status(404).json({error:"Service not found."});
+ await pool.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,'service_updated','service',$2,$3::jsonb)",[req.user.id,req.params.id,JSON.stringify({category:d.category,name:d.name,price:d.price,cost:d.cost})]);
+ res.json({ok:true});
 }));
 
 app.post("/api/admin/services/bulk-update-enabled-quantities",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
