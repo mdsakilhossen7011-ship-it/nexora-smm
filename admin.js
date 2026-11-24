@@ -209,7 +209,7 @@ async function selectAndEnableVisibleServices(){
  if(!disabledCount){status.textContent="এই ৬০টি সার্ভিস আগেই Enable আছে।";return;}
  const categoryName=serviceCategories[category]||category;
  if(!confirm(categoryName+" Category-র সর্বনিম্ন দামের "+services.length+"টি সার্ভিস একসাথে Enable হবে। Supplier mapping ও order fulfilment যাচাই করা আছে তো?"))return;
- button.disabled=true;status.textContent="৬০টি সার্ভিস Select ও Enable হচ্ছে…";
+ button.disabled=true;status.textContent=services.length+"টি সার্ভিস Select ও Enable হচ্ছে…";
  serviceIds.forEach(id=>selectedServiceIds.add(id));
  document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=serviceIds.includes(box.dataset.serviceId)});
  updateBulkPricingControls();
