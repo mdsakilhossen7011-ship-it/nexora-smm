@@ -310,10 +310,15 @@ app.post("/api/auth/login", asyncRoute(async(req,res)=>{
   res.cookie("nexora_session",raw,cookieOptions).json({ok:true});
 }));
 
-app.post("/api/auth/logout",requireAuth,asyncRoute(async(req,res)=>{
-  const raw=req.headers.authorization?.startsWith("Bearer ")?req.headers.authorization.slice(7):req.headers.cookie?.split(";").map(v=>v.trim()).find(v=>v.startsWith("nexora_session="))?.slice("nexora_session=".length);
-  if(raw) await pool.query("DELETE FROM sessions WHERE token_hash=$1",[hashToken(decodeURIComponent(raw))]);
-  res.clearCookie("nexora_session",{...cookieOptions,maxAge:undefined}).json({ok:true});
+app.post("/api/auth/logout",asyncRoute(async(req,res)=>{
+  // Logout must also work when a session has expired or become invalid.
+  const raw=req.headers.authorization?.startsWith("Bearer ")?req.headers.authorization.slice(7):req.headers["x-session-token"]||req.headers.cookie?.split(";").map(v=>v.trim()).find(v=>v.startsWith("nexora_session="))?.slice("nexora_session=".length);
+  if(raw){
+    let token=raw;
+    try{token=decodeURIComponent(raw);}catch(_error){}
+    await pool.query("DELETE FROM sessions WHERE token_hash=$1",[hashToken(token)]);
+  }
+  res.set("Cache-Control","no-store").clearCookie("nexora_session",{...cookieOptions,maxAge:undefined}).json({ok:true});
 }));
 app.get("/api/developer/api-key",requireAuth,asyncRoute(async(req,res)=>{
  const r=await pool.query("SELECT key_prefix,created_at,last_used_at FROM user_api_keys WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1",[req.user.id]);
