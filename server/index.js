@@ -911,6 +911,7 @@ app.post("/api/admin/smmcoder/sync",requireAuth,requireAdmin,asyncRoute(async(re
  if(!Array.isArray(raw))return res.status(502).json({error:"SMMCoder service list response is not a valid array."});
  const client=await pool.connect();const imported=[],updated=[],skipped=[],valid=[];
  const categories=["facebook","instagram","tiktok","youtube","telegram"];
+ const counts={facebook:0,instagram:0,tiktok:0,youtube:0,telegram:0};
  try{
   await client.query("BEGIN");
   for(const item of raw){
@@ -921,7 +922,6 @@ app.post("/api/admin/smmcoder/sync",requireAuth,requireAdmin,asyncRoute(async(re
    valid.push({...item,__providerId:providerId,__category:category,__kind:smmCoderServiceKind(item)});
   }
   const selected=smmCoderSelectBalanced(valid,100);
-  const counts={facebook:0,instagram:0,tiktok:0,youtube:0,telegram:0};
   for(const category of categories){
    const ids=selected.filter(item=>item.__category===category).map(item=>"smmcoder:"+item.__providerId);
    if(valid.some(item=>item.__category===category)){
