@@ -255,7 +255,7 @@ async function syncSmmCoderServices(){
  const button=document.getElementById("syncSmmCoder"),status=document.getElementById("smmCoderStatus"),result=document.getElementById("smmCoderSyncResult");
  if(!confirm("Fetch SMMCoder's current service list and import supported Facebook, Instagram, TikTok, YouTube and Telegram services with a 7% markup? New services remain DISABLED; existing service enable/disable states are preserved."))return;
  button.disabled=true;status.textContent="Syncing…";result.textContent="Fetching provider catalogue and calculating prices…";
- try{const d=await request("/admin/smmcoder/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});status.textContent="Sync complete";result.textContent="Imported "+d.importedCount+" · Updated "+d.updatedCount+" · Skipped "+d.skippedCount+" · Markup 7%. All newly imported services remain disabled.";await loadServices();}
+ try{const d=await request("/admin/smmcoder/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});status.textContent="Sync complete";const c=d.counts||{};result.textContent="Imported "+d.importedCount+" · Updated "+d.updatedCount+" · Skipped "+d.skippedCount+" · Per platform: FB "+(c.facebook||0)+", IG "+(c.instagram||0)+", TikTok "+(c.tiktok||0)+", YouTube "+(c.youtube||0)+", Telegram "+(c.telegram||0)+" · ৳135/USD · +7%. New services remain disabled.";await loadServices();}
  catch(e){status.textContent="Sync failed";result.textContent=e.message;}
  finally{button.disabled=false;}
 }
