@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS orders (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS orders_user_date_idx ON orders(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS orders_service_id_idx ON orders(service_id);
 
 CREATE TABLE IF NOT EXISTS money_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
