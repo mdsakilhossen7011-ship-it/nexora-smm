@@ -8,6 +8,8 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { Pool } = require("pg");
 const { z } = require("zod");
+const smmCoderRequest = require("./smmcoder").request;
+const smmCoderCategory = require("./smmcoder").categoryFor;
 
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: true } : false });
@@ -349,7 +351,7 @@ app.patch("/api/me",requireAuth,asyncRoute(async(req,res)=>{
  res.json({user:updated.rows[0]});
 }));
 app.get("/api/services",asyncRoute(async(_req,res)=>{
-  const result=await pool.query("SELECT id,category,name,description,price_per_1000_minor,min_quantity,max_quantity,provider_service_id FROM services WHERE enabled=true ORDER BY category,name");
+  const result=await pool.query("SELECT id,category,name,description,price_per_1000_minor,min_quantity,max_quantity,provider_service_id,provider_type,provider_refill,provider_cancel,provider_delivery_time FROM services WHERE enabled=true ORDER BY category,name");
   res.json({services:result.rows});
 }));
 app.get("/api/public/recent-orders",asyncRoute(async(_req,res)=>{
@@ -449,7 +451,11 @@ app.get("/api/real-ads/orders",requireAuth,asyncRoute(async(req,res)=>{
 }));
 app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
   const pending=await pool.query("SELECT o.id,o.provider_order_id FROM orders o WHERE o.user_id=$1 AND o.status='processing' AND o.provider_order_id IS NOT NULL ORDER BY o.created_at ASC LIMIT 20",[req.user.id]);
-  for(const item of pending.rows)await syncFFResellerOrder(item.id,req.user.id);
+  for(const item of pending.rows){
+    const route=await pool.query("SELECT provider_service_id FROM services WHERE id=(SELECT service_id FROM orders WHERE id=$1)",[item.id]);
+    if(String(route.rows[0]?.provider_service_id||"").startsWith("smmcoder:"))await syncSmmCoderOrder(item.id,req.user.id);
+    else await syncFFResellerOrder(item.id,req.user.id);
+  }
   const result=await pool.query("SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,s.name AS service_name,s.category FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 100",[req.user.id]);
   res.json({orders:result.rows});
 }));
@@ -484,24 +490,49 @@ function ffProviderStatus(data){
  if(statuses.some(value=>terminalComplete.has(value)))return"completed";
  return"processing";
 }
+async function refundSmmCoderOrder(orderId,userId,note){
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const updated=await client.query("UPDATE orders SET status='refunded',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing' RETURNING charge_minor",[orderId,userId]);
+  if(!updated.rowCount){await client.query("COMMIT");return false;}
+  const amount=updated.rows[0].charge_minor;
+  const wallet=await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[amount,userId]);
+  if(wallet.rowCount!==1)throw new Error("Wallet account missing; refund transaction rolled back.");
+  await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,$4)",[userId,amount,orderId,note||"Automatic refund: SMMCoder rejected order"]);
+  await client.query("COMMIT");return true;
+ }catch(error){await client.query("ROLLBACK");console.error("SMMCoder refund failed:",error.message);throw error;}
+ finally{client.release();}
+}
+async function syncSmmCoderOrder(orderId,userId){
+ const found=await pool.query("SELECT o.provider_order_id,o.status,s.provider_service_id FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[orderId,userId]);
+ if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_service_id||"").startsWith("smmcoder:")||!found.rows[0].provider_order_id)return;
+ try{
+  const data=await smmCoderRequest("status",{order:found.rows[0].provider_order_id});
+  const status=String(data?.status||"").toLowerCase();
+  if(status==="completed")await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
+  else if(status==="canceled"||status==="cancelled")await pool.query("UPDATE orders SET status='canceled',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
+ }catch(error){console.warn("SMMCoder order status check failed:",{orderId,message:error.message});}
+}
 async function createOrder(req,res){
  const parsed=z.object({serviceId:z.string().uuid(),requestId:z.string().uuid().optional(),target:z.string().trim().max(500).optional().default(""),quantity:z.number().int().positive()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid order details."});
  const orderId=parsed.data.requestId||crypto.randomUUID();
- const client=await pool.connect();let committed=false;let orderRow=null;let ffContext=null;
+ const client=await pool.connect();let committed=false;let orderRow=null;let ffContext=null;let smmContext=null;
  try{
   await client.query("BEGIN");
   const prior=await client.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1 AND user_id=$2",[orderId,req.user.id]);
   if(prior.rowCount){await client.query("COMMIT");return res.status(200).json({order:prior.rows[0],message:"This order request was already received. It will not be submitted again.",duplicate:true});}
   const svc=await client.query("SELECT * FROM services WHERE id=$1 AND enabled=true FOR UPDATE",[parsed.data.serviceId]);
   if(!svc.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Service unavailable."});}
-  const s=svc.rows[0],q=parsed.data.quantity,isFF=s.category==="free_fire",providerId=String(s.provider_service_id||"");
+  const s=svc.rows[0],q=parsed.data.quantity,isFF=s.category==="free_fire",providerId=String(s.provider_service_id||""),isSmmCoder=!isFF&&providerId.startsWith("smmcoder:");
   if(!isFF&&parsed.data.target.trim().length<2){await client.query("ROLLBACK");return res.status(400).json({error:"Enter a valid target for this service."});}
   const isFFReseller=isFF&&providerId.startsWith("ffreseller:");
-    if(!isFF){await client.query("ROLLBACK");return res.status(503).json({error:"This service has no verified supplier route. No balance was deducted."});}
+    if(!isFF&&!isSmmCoder){await client.query("ROLLBACK");return res.status(503).json({error:"This service has no verified supplier route. No balance was deducted."});}
+  if(isSmmCoder&&!process.env.SMM_PROVIDER_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"SMMCoder API key is not configured. No balance was deducted."});}
 if(isFFReseller&&process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}
   if(isFFReseller&&!process.env.FF_RESELLER_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller API key is not configured. No balance was deducted."});}
-  if(!isFFReseller&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
+  if(!isFFReseller&&!isSmmCoder&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
   const isVoucher=isFFReseller&&providerId.startsWith("ffreseller:U");
   if(isFFReseller&&BigInt(s.price_per_1000_minor)<=BigInt(s.cost_per_1000_minor||0)){await client.query("ROLLBACK");return res.status(400).json({error:"Admin must set a customer selling price above the supplier cost before this package can be ordered. No balance was deducted."});}
   if(isVoucher){await client.query("ROLLBACK");return res.status(503).json({error:"UniPin voucher ordering is temporarily unavailable until supplier order tracking and secure code delivery are verified. No balance was deducted."});}
@@ -520,7 +551,23 @@ if(isFFReseller&&process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.q
   await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,entity_id,details) VALUES($1,$2,'order',$3,$4::jsonb)",[req.user.id,isFFReseller?"ff_reseller_order_queued":"order_submitted",orderId,JSON.stringify({provider:isFFReseller?"FF_RESELLER":null,tag:isFFReseller?providerId.slice("ffreseller:".length):null,isVoucher,requestId:orderId})]);
   await client.query("COMMIT");committed=true;orderRow=inserted.rows[0];
   if(isFFReseller)ffContext={tag:providerId.slice("ffreseller:".length),isVoucher,packageCount,target:parsed.data.target};
+  if(isSmmCoder)smmContext={serviceId:providerId.slice("smmcoder:".length),target:parsed.data.target,quantity:q};
  }catch(error){if(!committed)await client.query("ROLLBACK");throw error;}finally{client.release();}
+ if(smmContext){
+  let providerData;
+  try{
+   providerData=await smmCoderRequest("add",{service:smmContext.serviceId,link:smmContext.target,quantity:smmContext.quantity});
+   const providerOrderId=String(providerData?.order??"").trim();
+   if(!/^\d+$/.test(providerOrderId))throw Object.assign(new Error("SMMCoder did not return a valid order ID. Order is held for admin verification."),{uncertain:true});
+   await pool.query("UPDATE orders SET provider_order_id=$1,updated_at=NOW() WHERE id=$2 AND user_id=$3",[providerOrderId,orderId,req.user.id]);
+   orderRow=(await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId])).rows[0];
+   return res.status(201).json({order:orderRow,message:"Order accepted by SMMCoder and queued for delivery.",providerOrderId});
+  }catch(error){
+   if(error.providerRejected){await refundSmmCoderOrder(orderId,req.user.id,"Automatic refund: SMMCoder rejected order — "+error.message);const refunded=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);return res.status(502).json({order:refunded.rows[0],error:error.message,refunded:true});}
+   const refreshed=await pool.query("SELECT id,status,charge_minor,created_at FROM orders WHERE id=$1",[orderId]);
+   return res.status(201).json({order:refreshed.rows[0],message:"SMMCoder response was uncertain. Order is held for status checking; do not submit it again.",providerPending:true});
+  }
+ }
  if(ffContext){
   let providerData;
   try{
@@ -810,8 +857,45 @@ app.post("/api/admin/orders/:id/cancel-refund",requireAuth,requireAdmin,asyncRou
 }));
 
 
+app.get("/api/admin/smmcoder/status",requireAuth,requireAdmin,asyncRoute(async(_req,res)=>{
+ if(!process.env.SMM_PROVIDER_API_KEY)return res.json({configured:false,connected:false,message:"SMMCoder API key is missing."});
+ const [balance,services]=await Promise.all([smmCoderRequest("balance"),smmCoderRequest("services")]);
+ res.set("Cache-Control","no-store").json({configured:true,connected:true,balance:Number(balance.balance||0),currency:balance.currency||"USD",serviceCount:Array.isArray(services)?services.length:0,ordersEnabled:process.env.SMM_PROVIDER_ORDERS_ENABLED==="true"});
+}));
+app.post("/api/admin/smmcoder/sync",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ if(!process.env.SMM_PROVIDER_API_KEY)return res.status(503).json({error:"SMM_PROVIDER_API_KEY is not configured in Render."});
+ const fxResult=await pool.query("SELECT usd_to_bdt_rate FROM currency_settings WHERE id=TRUE");
+ const usdToBdt=Number(fxResult.rows[0]?.usd_to_bdt_rate||0);
+ if(!(usdToBdt>0))return res.status(400).json({error:"Set the current USD to BDT rate in Admin → System Settings before syncing provider prices."});
+ const raw=await smmCoderRequest("services");
+ if(!Array.isArray(raw))return res.status(502).json({error:"SMMCoder service list response is not a valid array."});
+ const client=await pool.connect();const imported=[],updated=[],skipped=[];
+ try{
+  await client.query("BEGIN");
+  for(const item of raw){
+   const providerId=String(item?.service??"").trim(),category=smmCoderCategory(item);
+   const name=String(item?.name||"").trim().slice(0,160),type=String(item?.type||"Default").trim().slice(0,80);
+   const rate=Number(item?.rate),min=Number(item?.min),max=Number(item?.max);
+   if(!/^\d+$/.test(providerId)||!category||!name||!Number.isFinite(rate)||rate<0||!Number.isSafeInteger(min)||!Number.isSafeInteger(max)||min<1||max<min){skipped.push({service:providerId||"unknown",reason:"Unsupported category or invalid provider data"});continue;}
+   const costMinor=Math.ceil(rate*usdToBdt*100),sellingMinor=Math.ceil(costMinor*1.07);
+   const refill=item.refill===true,cancel=item.cancel===true;
+   const description=[String(item.category||category),"Type: "+type,"Refill: "+(refill?"Available":"Not available"),"Cancel: "+(cancel?"Available":"Not available"),"Delivery time: Not provided by SMMCoder API"].join(" · ").slice(0,2000);
+   const existing=await client.query("SELECT id,enabled FROM services WHERE provider_service_id=$1 LIMIT 1",["smmcoder:"+providerId]);
+   if(existing.rowCount){
+    await client.query("UPDATE services SET category=$1,name=$2,description=$3,price_per_1000_minor=$4,cost_per_1000_minor=$5,supplier_rate_usd_per_1000=$6,min_quantity=$7,max_quantity=$8,provider_type=$9,provider_refill=$10,provider_cancel=$11,provider_delivery_time=NULL,updated_at=NOW() WHERE id=$12",[category,name,description,sellingMinor,costMinor,rate,min,max,type,refill,cancel,existing.rows[0].id]);
+    updated.push({id:existing.rows[0].id,providerServiceId:providerId,enabled:existing.rows[0].enabled});
+   }else{
+    const inserted=await client.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,supplier_rate_usd_per_1000,min_quantity,max_quantity,provider_service_id,provider_type,provider_refill,provider_cancel,provider_delivery_time,enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL,FALSE) RETURNING id",[category,name,description,sellingMinor,costMinor,rate,min,max,"smmcoder:"+providerId,type,refill,cancel]);
+    imported.push({id:inserted.rows[0].id,providerServiceId:providerId,enabled:false});
+   }
+  }
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'smmcoder_services_synced','provider',$2::jsonb)",[req.user.id,JSON.stringify({provider:"SMMCODER",imported:imported.length,updated:updated.length,skipped:skipped.length,markupPercent:7,usdToBdt})]);
+  await client.query("COMMIT");
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+ res.set("Cache-Control","no-store").json({ok:true,total:raw.length,importedCount:imported.length,updatedCount:updated.length,skippedCount:skipped.length,imported,updated,skipped,markupPercent:7,enabled:false,message:"Imported/updated SMMCoder services remain disabled. Review service details before enabling."});
+}));
 app.get("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
- const r=await pool.query("SELECT s.id,s.category,s.name,s.description,s.price_per_1000_minor,s.cost_per_1000_minor,s.supplier_rate_usd_per_1000,s.min_quantity,s.max_quantity,s.provider_service_id,s.enabled,s.created_at,s.updated_at,(SELECT COUNT(*) FROM orders o WHERE o.service_id=s.id)::int AS order_count FROM services s WHERE s.description NOT LIKE 'Archived legacy social service.%' ORDER BY s.category,s.name");
+ const r=await pool.query("SELECT s.id,s.category,s.name,s.description,s.price_per_1000_minor,s.cost_per_1000_minor,s.supplier_rate_usd_per_1000,s.min_quantity,s.max_quantity,s.provider_service_id,s.provider_type,s.provider_refill,s.provider_cancel,s.provider_delivery_time,s.enabled,s.created_at,s.updated_at,(SELECT COUNT(*) FROM orders o WHERE o.service_id=s.id)::int AS order_count FROM services s WHERE s.description NOT LIKE 'Archived legacy social service.%' ORDER BY s.category,s.name");
  res.json({services:r.rows});
 }));
 app.post("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
@@ -1132,7 +1216,11 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS data BYTEA"))
   .then(()=>pool.query("ALTER TABLE support_attachments ADD COLUMN IF NOT EXISTS mime_type VARCHAR(40)"))
   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS cost_per_1000_minor BIGINT NOT NULL DEFAULT 0 CHECK(cost_per_1000_minor >= 0)"))
-  .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS supplier_rate_usd_per_1000 NUMERIC(18,8) NOT NULL DEFAULT 0 CHECK(supplier_rate_usd_per_1000 >= 0)"))
+   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS supplier_rate_usd_per_1000 NUMERIC(18,8) NOT NULL DEFAULT 0 CHECK(supplier_rate_usd_per_1000 >= 0)"))
+   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS provider_type VARCHAR(80)"))
+   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS provider_refill BOOLEAN"))
+   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS provider_cancel BOOLEAN"))
+   .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS provider_delivery_time VARCHAR(160)"))
   .then(()=>pool.query("UPDATE services SET enabled=FALSE,provider_service_id=NULL,supplier_rate_usd_per_1000=0,description='Archived legacy social service. Supplier integration removed; this service is disabled.' WHERE description LIKE 'Imported from SMMEXO.%' OR (category IN ('facebook','instagram','tiktok','youtube','telegram') AND provider_service_id ~ '^[0-9]+$')"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS currency_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE),usd_to_bdt_rate NUMERIC(12,4) NOT NULL DEFAULT 0 CHECK(usd_to_bdt_rate>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_by UUID REFERENCES users(id) ON DELETE SET NULL)"))
   .then(()=>pool.query("INSERT INTO currency_settings(id,usd_to_bdt_rate) VALUES(TRUE,0) ON CONFLICT(id) DO NOTHING"))
