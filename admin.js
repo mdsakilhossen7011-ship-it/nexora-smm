@@ -2,6 +2,9 @@ const api="/api";
 async function request(path,options={}){const r=await fetch(api+path,{credentials:"include",...options});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||"Request failed");return data}
 const money=v=>"৳"+(Number(v||0)/100).toFixed(2);
 let adminUsdToBdtRate=0;
+let adminServicesCache=[];
+let adminServicesPage=1;
+const ADMIN_SERVICES_PAGE_SIZE=25;
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
 const titles={overview:["Overview","Your panel at a glance."],users:["Users","Manage customer accounts and wallet access."],orders:["Orders","Review and manage customer orders."],services:["Services","Manage gaming and social media services."],finance:["Finance","Review deposits, withdrawals and payment requests."],growth:["Growth & Referrals","Referral performance and commission controls."],support:["Support","Customer tickets and live support."],website:["Website Content","Manage website content and announcements."],notifications:["Notifications","Create and manage messages shown only in the notification bell."],settings:["Settings","General system configuration."],"system-settings":["System Settings","Payment, deposit, withdrawal and service quantity controls."],activity:["Activity Logs","Review administrative actions."]};
 function showPage(page){if(page==="support"){location.href="/support-admin";return}if(!titles[page])return;document.querySelectorAll(".admin-page").forEach(x=>x.classList.toggle("active",x.id==="page-"+page));document.querySelectorAll(".admin-nav").forEach(x=>x.classList.toggle("active",x.dataset.page===page));document.getElementById("pageTitle").textContent=titles[page][0];document.getElementById("pageSubtitle").textContent=titles[page][1];document.getElementById("adminSidebar").classList.remove("open");document.getElementById("sidebarScrim").classList.remove("show");document.getElementById("sidebarToggle").setAttribute("aria-expanded","false");document.getElementById("searchResults").hidden=true;if(page==="users")loadUsers();if(page==="orders"){loadOrders();loadRealAdsOrders();}if(page==="services")loadServices();if(page==="finance")loadFinance();if(page==="growth")loadGrowth();if(page==="website")loadAnnouncements();if(page==="notifications")loadNotifications();if(page==="settings"){loadSystem();}if(page==="system-settings"){loadPaymentSettings();loadCryptoPaymentSettings();loadMaintenanceSettings();loadCurrencySettings();loadMoneyLimits();}if(page==="activity")loadActivity()}
@@ -213,25 +216,45 @@ async function loadServices(){
  const status=document.getElementById("servicesStatus"),list=document.getElementById("servicesList");if(!status||!list)return;
  status.textContent="Loading services…";list.textContent="";
  try{
-  const [data,currency]=await Promise.all([request("/admin/services"),request("/admin/currency")]);adminUsdToBdtRate=Number(currency.usd_to_bdt_rate||0);const q=document.getElementById("serviceSearch").value.trim().toLowerCase(),cat=document.getElementById("serviceCategoryFilter").value;
-  const all=data.services||[],services=all.filter(s=>(!cat||s.category===cat)&&(!q||(s.name+" "+s.description+" "+s.category).toLowerCase().includes(q)));
-  status.textContent=services.length+" of "+all.length+" services";
-  if(!services.length){list.append(el("div","empty-admin","No matching services found."));return}
-  services.forEach(s=>{
-   const card=el("article","request-card service-card"),head=el("div","request-head"),identity=el("div","user-identity"),selectLabel=el("label","service-select-label"),selectBox=el("input");
-   selectBox.type="checkbox";selectBox.dataset.serviceId=s.id;selectBox.checked=selectedServiceIds.has(s.id);selectBox.setAttribute("aria-label","Select "+s.name+" for bulk pricing");selectBox.addEventListener("change",()=>{if(selectBox.checked)selectedServiceIds.add(s.id);else selectedServiceIds.delete(s.id);updateBulkPricingControls()});selectLabel.append(selectBox,document.createTextNode(" Select"));
-   identity.append(el("strong","",s.name),el("span","user-subline",(serviceCategories[s.category]||s.category)+" · "+(s.provider_service_id||"No supplier ID")));head.append(selectLabel);
-   head.append(identity,el("span","request-status user-state "+(s.enabled?"is-active":"is-blocked"),s.enabled?"ENABLED":"DISABLED"));card.append(head);
-   const price=Number(s.price_per_1000_minor)/100,manualCost=Number(s.cost_per_1000_minor)/100,supplierUsd=Number(s.supplier_rate_usd_per_1000||0),cost=supplierUsd>0&&adminUsdToBdtRate>0?supplierUsd*adminUsdToBdtRate:manualCost,meta=el("div","request-meta");
-   [["Selling / 1000","৳"+price.toFixed(2)],["Purchase / 1000","৳"+cost.toFixed(2)],["Profit / 1000","৳"+(price-cost).toFixed(2)],["Margin",price>0?(((price-cost)/price)*100).toFixed(1)+"%":"—"],["Quantity",s.min_quantity+" – "+s.max_quantity],["Orders used",String(s.order_count||0)]].forEach(([k,v])=>meta.append(el("span","",k+": "+v)));if(supplierUsd>0){meta.append(el("span","","Supplier cost / 1K: $"+supplierUsd.toFixed(4)+" USD"));meta.append(el("span","","Supplier cost in BDT / 1K: "+(adminUsdToBdtRate>0?"৳"+(supplierUsd*adminUsdToBdtRate).toFixed(2):"Set USD/BDT rate in Settings")));}card.append(meta);
-   if(s.description)card.append(el("p","users-footnote",s.description));
-   const actions=el("div","user-actions"),edit=el("button","user-action","Edit"),toggle=el("button",s.enabled?"user-action danger":"user-action success",s.enabled?"Disable":"Enable"),del=el("button","user-action danger","Delete");
-   edit.addEventListener("click",()=>fillServiceForm(s));
-   toggle.addEventListener("click",async()=>{if(s.enabled&&!confirm("Disable this service?"))return;if(!s.enabled&&!confirm("Enable this service? Confirm that its supplier mapping and fulfilment have been verified."))return;toggle.disabled=true;try{await request("/admin/services/"+encodeURIComponent(s.id)+"/status",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:!s.enabled})});await loadServices()}catch(e){alert(e.message);toggle.disabled=false}});
-   del.addEventListener("click",async()=>{if(!confirm("Permanently delete this service? Services already used by orders cannot be deleted; disable them instead."))return;del.disabled=true;try{await request("/admin/services/"+encodeURIComponent(s.id),{method:"DELETE"});await loadServices()}catch(e){alert(e.message);del.disabled=false}});
-   actions.append(edit,toggle,del);card.append(actions);list.append(card);
-  });
+  const [data,currency]=await Promise.all([request("/admin/services"),request("/admin/currency")]);
+  adminUsdToBdtRate=Number(currency.usd_to_bdt_rate||0);
+  adminServicesCache=data.services||[];
+  adminServicesPage=1;
+  renderServices();
  }catch(e){status.textContent="Could not load services";list.append(el("div","empty-admin admin-error",e.message))}
+}
+function renderServices(){
+ const status=document.getElementById("servicesStatus"),list=document.getElementById("servicesList");if(!status||!list)return;
+ const q=document.getElementById("serviceSearch").value.trim().toLowerCase(),cat=document.getElementById("serviceCategoryFilter").value;
+ const all=adminServicesCache,filtered=all.filter(s=>(!cat||s.category===cat)&&(!q||(s.name+" "+s.description+" "+s.category).toLowerCase().includes(q)));
+ const totalPages=Math.max(1,Math.ceil(filtered.length/ADMIN_SERVICES_PAGE_SIZE));
+ adminServicesPage=Math.min(Math.max(1,adminServicesPage),totalPages);
+ const start=(adminServicesPage-1)*ADMIN_SERVICES_PAGE_SIZE;
+ const services=filtered.slice(start,start+ADMIN_SERVICES_PAGE_SIZE);
+ status.textContent=filtered.length+" matching · "+all.length+" total services · Page "+adminServicesPage+"/"+totalPages;
+ list.textContent="";
+ if(!services.length){list.append(el("div","empty-admin","No matching services found."));return}
+ services.forEach(s=>{
+  const card=el("article","request-card service-card"),head=el("div","request-head"),identity=el("div","user-identity"),selectLabel=el("label","service-select-label"),selectBox=el("input");
+  selectBox.type="checkbox";selectBox.dataset.serviceId=s.id;selectBox.checked=selectedServiceIds.has(s.id);selectBox.setAttribute("aria-label","Select "+s.name+" for bulk pricing");selectBox.addEventListener("change",()=>{if(selectBox.checked)selectedServiceIds.add(s.id);else selectedServiceIds.delete(s.id);updateBulkPricingControls()});selectLabel.append(selectBox,document.createTextNode(" Select"));
+  identity.append(el("strong","",s.name),el("span","user-subline",(serviceCategories[s.category]||s.category)+" · "+(s.provider_service_id||"No supplier ID")));head.append(selectLabel);
+  head.append(identity,el("span","request-status user-state "+(s.enabled?"is-active":"is-blocked"),s.enabled?"ENABLED":"DISABLED"));card.append(head);
+  const price=Number(s.price_per_1000_minor)/100,manualCost=Number(s.cost_per_1000_minor)/100,supplierUsd=Number(s.supplier_rate_usd_per_1000||0),cost=supplierUsd>0&&adminUsdToBdtRate>0?supplierUsd*adminUsdToBdtRate:manualCost,meta=el("div","request-meta");
+  [["Selling / 1000","৳"+price.toFixed(2)],["Purchase / 1000","৳"+cost.toFixed(2)],["Profit / 1000","৳"+(price-cost).toFixed(2)],["Margin",price>0?(((price-cost)/price)*100).toFixed(1)+"%":"—"],["Quantity",s.min_quantity+" – "+s.max_quantity],["Orders used",String(s.order_count||0)]].forEach(([k,v])=>meta.append(el("span","",k+": "+v)));if(supplierUsd>0){meta.append(el("span","","Supplier cost / 1K: $"+supplierUsd.toFixed(4)+" USD"));meta.append(el("span","","Supplier cost in BDT / 1K: "+(adminUsdToBdtRate>0?"৳"+(supplierUsd*adminUsdToBdtRate).toFixed(2):"Set USD/BDT rate in Settings")));}card.append(meta);
+  if(s.description)card.append(el("p","users-footnote",s.description));
+  const actions=el("div","user-actions"),edit=el("button","user-action","Edit"),toggle=el("button",s.enabled?"user-action danger":"user-action success",s.enabled?"Disable":"Enable"),del=el("button","user-action danger","Delete");
+  edit.addEventListener("click",()=>fillServiceForm(s));
+  toggle.addEventListener("click",async()=>{if(s.enabled&&!confirm("Disable this service?"))return;if(!s.enabled&&!confirm("Enable this service? Confirm that its supplier mapping and fulfilment have been verified."))return;toggle.disabled=true;try{await request("/admin/services/"+encodeURIComponent(s.id)+"/status",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:!s.enabled})});await loadServices()}catch(e){alert(e.message);toggle.disabled=false}});
+  del.addEventListener("click",async()=>{if(!confirm("Permanently delete this service? Services already used by orders cannot be deleted; disable them instead."))return;del.disabled=true;try{await request("/admin/services/"+encodeURIComponent(s.id),{method:"DELETE"});await loadServices()}catch(e){alert(e.message);del.disabled=false}});
+  actions.append(edit,toggle,del);card.append(actions);list.append(card);
+ });
+ if(totalPages>1){
+  const pager=el("div","user-actions"),previous=el("button","user-action","Previous"),next=el("button","user-action","Next"),pageLabel=el("span","users-footnote","Page "+adminServicesPage+" of "+totalPages);
+  previous.disabled=adminServicesPage===1;next.disabled=adminServicesPage===totalPages;
+  previous.addEventListener("click",()=>{adminServicesPage--;renderServices()});
+  next.addEventListener("click",()=>{adminServicesPage++;renderServices()});
+  pager.append(previous,pageLabel,next);list.append(pager);
+ }
 }
 async function saveService(event){event.preventDefault();const id=document.getElementById("serviceId").value;const payload={category:document.getElementById("serviceCategory").value,name:document.getElementById("serviceName").value.trim(),description:document.getElementById("serviceDescription").value.trim(),price:Number(document.getElementById("servicePrice").value),cost:Number(document.getElementById("serviceCost").value),minQuantity:Number(document.getElementById("serviceMin").value),maxQuantity:Number(document.getElementById("serviceMax").value),providerServiceId:document.getElementById("serviceProviderId").value.trim()};if(!Number.isFinite(payload.price)||!Number.isFinite(payload.cost)||payload.maxQuantity<payload.minQuantity){alert("Check selling price, purchase cost and quantity limits.");return}const button=document.getElementById("saveService");button.disabled=true;try{await request("/admin/services"+(id?"/"+encodeURIComponent(id):""),{method:id?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});alert(id?"Service updated.":"Service created disabled by default.");resetServiceForm();await loadServices()}catch(e){alert(e.message)}finally{button.disabled=false}}
 
@@ -311,8 +334,8 @@ document.getElementById("refreshActivity").addEventListener("click",loadActivity
 document.getElementById("activitySearch").addEventListener("input",loadActivity);
 document.getElementById("activityAction").addEventListener("input",loadActivity);
 document.getElementById("referralSettingsForm").addEventListener("submit",saveReferralSettings);
-document.getElementById("serviceSearch").addEventListener("input",loadServices);
-document.getElementById("serviceCategoryFilter").addEventListener("change",loadServices);
+document.getElementById("serviceSearch").addEventListener("input",()=>{adminServicesPage=1;renderServices()});
+document.getElementById("serviceCategoryFilter").addEventListener("change",()=>{adminServicesPage=1;renderServices()});
 document.getElementById("serviceForm").addEventListener("submit",saveService);
 document.getElementById("bulkQuantityForm").addEventListener("submit",applyBulkEnabledServiceQuantities);
 async function applyBulkEnabledServiceQuantities(event){
