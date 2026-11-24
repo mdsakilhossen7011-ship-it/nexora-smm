@@ -10,6 +10,8 @@ const { Pool } = require("pg");
 const { z } = require("zod");
 const smmCoderRequest = require("./smmcoder").request;
 const smmCoderCategory = require("./smmcoder").categoryFor;
+const smmCoderServiceKind = require("./smmcoder").serviceKindFor;
+const smmCoderSelectBalanced = require("./smmcoder").selectBalancedServices;
 
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: true } : false });
@@ -904,35 +906,48 @@ app.get("/api/admin/smmcoder/status",requireAuth,requireAdmin,asyncRoute(async(_
 }));
 app.post("/api/admin/smmcoder/sync",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  if(!process.env.SMM_PROVIDER_API_KEY)return res.status(503).json({error:"SMM_PROVIDER_API_KEY is not configured in Render."});
- const fxResult=await pool.query("SELECT usd_to_bdt_rate FROM currency_settings WHERE id=TRUE");
- const usdToBdt=Number(fxResult.rows[0]?.usd_to_bdt_rate||0);
- if(!(usdToBdt>0))return res.status(400).json({error:"Set the current USD to BDT rate in Admin → System Settings before syncing provider prices."});
+ const usdToBdt=135;
  const raw=await smmCoderRequest("services");
  if(!Array.isArray(raw))return res.status(502).json({error:"SMMCoder service list response is not a valid array."});
- const client=await pool.connect();const imported=[],updated=[],skipped=[];
+ const client=await pool.connect();const imported=[],updated=[],skipped=[],valid=[];
+ const categories=["facebook","instagram","tiktok","youtube","telegram"];
  try{
   await client.query("BEGIN");
   for(const item of raw){
    const providerId=String(item?.service??"").trim(),category=smmCoderCategory(item);
-   const name=String(item?.name||"").trim().slice(0,160),type=String(item?.type||"Default").trim().slice(0,80);
+   const name=String(item?.name||"").trim().slice(0,160);
    const rate=Number(item?.rate),min=Number(item?.min),max=Number(item?.max);
-   if(!/^\d+$/.test(providerId)||!category||!name||!Number.isFinite(rate)||rate<0||!Number.isSafeInteger(min)||!Number.isSafeInteger(max)||min<1||max<min){skipped.push({service:providerId||"unknown",reason:"Unsupported category or invalid provider data"});continue;}
+   if(!/^\\d+$/.test(providerId)||!category||!name||!Number.isFinite(rate)||rate<=0||!Number.isSafeInteger(min)||!Number.isSafeInteger(max)||min<1||max<min){skipped.push({service:providerId||"unknown",reason:"Unsupported category or invalid/non-positive supplier rate or quantity"});continue;}
+   valid.push({...item,__providerId:providerId,__category:category,__kind:smmCoderServiceKind(item)});
+  }
+  const selected=smmCoderSelectBalanced(valid,100);
+  const counts={facebook:0,instagram:0,tiktok:0,youtube:0,telegram:0};
+  for(const category of categories){
+   const ids=selected.filter(item=>item.__category===category).map(item=>"smmcoder:"+item.__providerId);
+   if(valid.some(item=>item.__category===category)){
+    await client.query("UPDATE services SET enabled=FALSE,updated_at=NOW() WHERE provider_service_id LIKE 'smmcoder:%' AND category=$1 AND NOT (provider_service_id=ANY($2::text[]))",[category,ids]);
+   }
+  }
+  for(const item of selected){
+   const providerId=item.__providerId,category=item.__category,name=String(item.name||"").trim().slice(0,160),type=String(item.type||"Default").trim().slice(0,80);
+   const rate=Number(item.rate),min=Number(item.min),max=Number(item.max),kind=item.__kind;
    const costMinor=Math.ceil(rate*usdToBdt*100),sellingMinor=Math.ceil(costMinor*1.07);
    const refill=item.refill===true,cancel=item.cancel===true;
-   const description=[String(item.category||category),"Type: "+type,"Refill: "+(refill?"Available":"Not available"),"Cancel: "+(cancel?"Available":"Not available"),"Delivery time: Not provided by SMMCoder API"].join(" · ").slice(0,2000);
+   const description=[String(item.category||category),"Service group: "+kind,"Provider type: "+type,"Refill: "+(refill?"Available":"Not available"),"Cancel: "+(cancel?"Available":"Not available"),"Supplier rate: $"+rate+" USD per 1,000","USD conversion: ৳135 per USD","Delivery time: Not provided by SMMCoder API"].join(" · ").slice(0,2000);
    const existing=await client.query("SELECT id,enabled FROM services WHERE provider_service_id=$1 LIMIT 1",["smmcoder:"+providerId]);
    if(existing.rowCount){
     await client.query("UPDATE services SET category=$1,name=$2,description=$3,price_per_1000_minor=$4,cost_per_1000_minor=$5,supplier_rate_usd_per_1000=$6,min_quantity=$7,max_quantity=$8,provider_type=$9,provider_refill=$10,provider_cancel=$11,provider_delivery_time=NULL,updated_at=NOW() WHERE id=$12",[category,name,description,sellingMinor,costMinor,rate,min,max,type,refill,cancel,existing.rows[0].id]);
-    updated.push({id:existing.rows[0].id,providerServiceId:providerId,enabled:existing.rows[0].enabled});
+    updated.push({id:existing.rows[0].id,providerServiceId:providerId,enabled:existing.rows[0].enabled,kind});counts[category]++;
    }else{
     const inserted=await client.query("INSERT INTO services(category,name,description,price_per_1000_minor,cost_per_1000_minor,supplier_rate_usd_per_1000,min_quantity,max_quantity,provider_service_id,provider_type,provider_refill,provider_cancel,provider_delivery_time,enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL,FALSE) RETURNING id",[category,name,description,sellingMinor,costMinor,rate,min,max,"smmcoder:"+providerId,type,refill,cancel]);
-    imported.push({id:inserted.rows[0].id,providerServiceId:providerId,enabled:false});
+    imported.push({id:inserted.rows[0].id,providerServiceId:providerId,enabled:false,kind});counts[category]++;
    }
   }
-  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'smmcoder_services_synced','provider',$2::jsonb)",[req.user.id,JSON.stringify({provider:"SMMCODER",imported:imported.length,updated:updated.length,skipped:skipped.length,markupPercent:7,usdToBdt})]);
+  for(const item of valid){if(!selected.some(s=>s.__providerId===item.__providerId))skipped.push({service:item.__providerId,reason:"Outside the balanced 100-service limit for "+item.__category});}
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'smmcoder_services_synced','provider',$2::jsonb)",[req.user.id,JSON.stringify({provider:"SMMCODER",imported:imported.length,updated:updated.length,skipped:skipped.length,markupPercent:7,usdToBdt,perPlatformLimit:100,counts})]);
   await client.query("COMMIT");
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
- res.set("Cache-Control","no-store").json({ok:true,total:raw.length,importedCount:imported.length,updatedCount:updated.length,skippedCount:skipped.length,imported,updated,skipped,markupPercent:7,enabled:false,message:"Imported/updated SMMCoder services remain disabled. Review service details before enabling."});
+ res.set("Cache-Control","no-store").json({ok:true,total:raw.length,importedCount:imported.length,updatedCount:updated.length,skippedCount:skipped.length,imported,updated,skipped,counts,perPlatformLimit:100,markupPercent:7,usdToBdt,enabled:false,message:"Selected up to 100 balanced services per platform. Prices use the provider's rate per 1,000 × ৳135/USD, then add 7%. Newly imported services remain disabled."});
 }));
 app.get("/api/admin/services",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const r=await pool.query("SELECT s.id,s.category,s.name,s.description,s.price_per_1000_minor,s.cost_per_1000_minor,s.supplier_rate_usd_per_1000,s.min_quantity,s.max_quantity,s.provider_service_id,s.provider_type,s.provider_refill,s.provider_cancel,s.provider_delivery_time,s.enabled,s.created_at,s.updated_at,COALESCE(oc.order_count,0)::int AS order_count FROM services s LEFT JOIN (SELECT service_id,COUNT(*)::int AS order_count FROM orders GROUP BY service_id) oc ON oc.service_id=s.id WHERE s.description NOT LIKE 'Archived legacy social service.%' ORDER BY s.category,s.name");
