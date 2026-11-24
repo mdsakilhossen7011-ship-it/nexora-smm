@@ -4,7 +4,7 @@ const money=v=>"৳"+(Number(v||0)/100).toFixed(2);
 let adminUsdToBdtRate=0;
 let adminServicesCache=[];
 let adminServicesPage=1;
-const ADMIN_SERVICES_PAGE_SIZE=60;
+const ADMIN_SERVICES_PAGE_SIZE=100;
 let adminVisibleServices=[];
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
 const titles={overview:["Overview","Your panel at a glance."],users:["Users","Manage customer accounts and wallet access."],orders:["Orders","Review and manage customer orders."],services:["Services","Manage gaming and social media services."],finance:["Finance","Review deposits, withdrawals and payment requests."],growth:["Growth & Referrals","Referral performance and commission controls."],support:["Support","Customer tickets and live support."],website:["Website Content","Manage website content and announcements."],notifications:["Notifications","Create and manage messages shown only in the notification bell."],settings:["Settings","General system configuration."],"system-settings":["System Settings","Payment, deposit, withdrawal and service quantity controls."],activity:["Activity Logs","Review administrative actions."]};
@@ -197,18 +197,40 @@ async function applyBulkPricing(event){
   selectedServiceIds.clear();updateBulkPricingControls();await loadServices();alert("Updated prices for "+data.updatedCount+" services.");
  }catch(error){alert(error.message)}finally{updateBulkPricingControls()}
 }
+function adminServiceKind(service){
+ const text=(String(service.name||"")+" "+String(service.description||"")).toLowerCase();
+ if(/watch[ -]?time|watch hours?|hours? watch/.test(text))return "watchtime";
+ if(/subscriber|\bsubs?\b/.test(text))return "subscribers";
+ if(/follower|\bfollows?\b/.test(text))return "followers";
+ if(/comment|\breply\b/.test(text))return "comments";
+ if(/story[ -]?views?/.test(text))return "story_views";
+ if(/live[ -]?views?|live stream/.test(text))return "live_views";
+ if(/\bviews?\b/.test(text))return "views";
+ if(/\blikes?\b/.test(text))return "likes";
+ if(/\bmembers?\b|group joins?|channel joins?/.test(text))return "members";
+ if(/reaction/.test(text))return "reactions";
+ if(/shares?/.test(text))return "shares";
+ if(/saves?/.test(text))return "saves";
+ return "other";
+}
 async function selectAndEnableVisibleServices(){
  const category=document.getElementById("serviceCategoryFilter").value;
  const button=document.getElementById("selectEnableServices"),status=document.getElementById("selectEnableServicesStatus");
  if(!category){status.textContent="আগে একটি Category নির্বাচন করো।";alert("একটি নির্দিষ্ট Category নির্বাচন করো। All categories অবস্থায় bulk enable হবে না।");return;}
- const services=adminVisibleServices.slice(0,60);
- if(!services.length){status.textContent="এই Category-তে কোনো সার্ভিস নেই।";return;}
+ const candidates=adminServicesCache.filter(s=>s.category===category&&String(s.provider_service_id||"").startsWith("smmcoder:"));
+ const groups=new Map();
+ for(const service of candidates){const kind=adminServiceKind(service);if(!groups.has(kind))groups.set(kind,[]);groups.get(kind).push(service);}
+ const buckets=[...groups.values()];
+ for(const bucket of buckets)bucket.sort((a,b)=>Number(a.cost_per_1000_minor||0)-Number(b.cost_per_1000_minor||0)||String(a.name).localeCompare(String(b.name)));
+ const services=[];
+ for(let round=0;services.length<100;round++){let added=false;for(const bucket of buckets){if(bucket[round]&&services.length<100){services.push(bucket[round]);added=true;}}if(!added)break;}
+ if(!services.length){status.textContent="এই Category-তে SMMCoder-এর কোনো সার্ভিস নেই।";return;}
  const serviceIds=services.map(s=>s.id).filter(Boolean);
  if(!serviceIds.length){status.textContent="কোনো valid service ID পাওয়া যায়নি।";return;}
  const disabledCount=services.filter(s=>!s.enabled).length;
- if(!disabledCount){status.textContent="এই ৬০টি সার্ভিস আগেই Enable আছে।";return;}
+ if(!disabledCount){status.textContent="এই ১০০টি বা তার কম সার্ভিস আগেই Enable আছে।";return;}
  const categoryName=serviceCategories[category]||category;
- if(!confirm(categoryName+" Category-র সর্বনিম্ন দামের "+services.length+"টি সার্ভিসে Purchase Cost-এর উপর স্বয়ংক্রিয়ভাবে ৭% লাভ যোগ করে Selling Price সেট হবে এবং Enable হবে। Purchase Cost ঠিক আছে তো?"))return;
+ if(!confirm(categoryName+" Category-র "+services.length+"টি balanced service (লাইক, কমেন্ট, ফলোয়ার, ভিউ ইত্যাদি) এর supplier cost থেকে ৳135/USD ধরে ৭% লাভসহ Selling Price auto set করে Enable হবে। Purchase rates provider catalogue থেকে নেওয়া।"))return;
  button.disabled=true;status.textContent=services.length+"টি সার্ভিস Select ও Enable হচ্ছে…";
  serviceIds.forEach(id=>selectedServiceIds.add(id));
  document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=serviceIds.includes(box.dataset.serviceId)});
@@ -216,7 +238,7 @@ async function selectAndEnableVisibleServices(){
  try{
   const data=await request("/admin/services/bulk-enable",{method:"PATCH",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds})});
   selectedServiceIds.clear();updateBulkPricingControls();
-  status.textContent="সফল: "+data.enabledCount+"টি "+categoryName+" সার্ভিসে ৭% লাভসহ Selling Price auto set করে Enable হয়েছে।";
+  status.textContent="সফল: "+data.enabledCount+"টি "+categoryName+" সার্ভিসে ৳135/USD conversion ও ৭% লাভসহ Selling Price auto set করে Enable হয়েছে।";
   await loadServices();
  }catch(error){status.textContent="Enable করা যায়নি: "+error.message;}
  finally{button.disabled=false;}
@@ -233,7 +255,7 @@ async function syncSmmCoderServices(){
  const button=document.getElementById("syncSmmCoder"),status=document.getElementById("smmCoderStatus"),result=document.getElementById("smmCoderSyncResult");
  if(!confirm("Fetch SMMCoder's current service list and import supported Facebook, Instagram, TikTok, YouTube and Telegram services with a 7% markup? New services remain DISABLED; existing service enable/disable states are preserved."))return;
  button.disabled=true;status.textContent="Syncing…";result.textContent="Fetching provider catalogue and calculating prices…";
- try{const d=await request("/admin/smmcoder/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});status.textContent="Sync complete";result.textContent="Imported "+d.importedCount+" · Updated "+d.updatedCount+" · Skipped "+d.skippedCount+" · Markup 7%. All newly imported services remain disabled.";await loadServices();}
+ try{const d=await request("/admin/smmcoder/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});status.textContent="Sync complete";const c=d.counts||{};result.textContent="Imported "+d.importedCount+" · Updated "+d.updatedCount+" · Skipped "+d.skippedCount+" · Per platform: FB "+(c.facebook||0)+", IG "+(c.instagram||0)+", TikTok "+(c.tiktok||0)+", YouTube "+(c.youtube||0)+", Telegram "+(c.telegram||0)+" · ৳135/USD · +7%. New services remain disabled.";await loadServices();}
  catch(e){status.textContent="Sync failed";result.textContent=e.message;}
  finally{button.disabled=false;}
 }
@@ -265,8 +287,8 @@ function renderServices(){
   selectBox.type="checkbox";selectBox.dataset.serviceId=s.id;selectBox.checked=selectedServiceIds.has(s.id);selectBox.setAttribute("aria-label","Select "+s.name+" for bulk pricing");selectBox.addEventListener("change",()=>{if(selectBox.checked)selectedServiceIds.add(s.id);else selectedServiceIds.delete(s.id);updateBulkPricingControls()});selectLabel.append(selectBox,document.createTextNode(" Select"));
   identity.append(el("strong","",s.name),el("span","user-subline",(serviceCategories[s.category]||s.category)+" · "+(s.provider_service_id||"No supplier ID")));head.append(selectLabel);
   head.append(identity,el("span","request-status user-state "+(s.enabled?"is-active":"is-blocked"),s.enabled?"ENABLED":"DISABLED"));card.append(head);
-  const price=Number(s.price_per_1000_minor)/100,manualCost=Number(s.cost_per_1000_minor)/100,supplierUsd=Number(s.supplier_rate_usd_per_1000||0),cost=supplierUsd>0&&adminUsdToBdtRate>0?supplierUsd*adminUsdToBdtRate:manualCost,meta=el("div","request-meta");
-  [["Selling / 1000","৳"+price.toFixed(2)],["Purchase / 1000","৳"+cost.toFixed(2)],["Profit / 1000","৳"+(price-cost).toFixed(2)],["Margin",price>0?(((price-cost)/price)*100).toFixed(1)+"%":"—"],["Quantity",s.min_quantity+" – "+s.max_quantity],["Orders used",String(s.order_count||0)]].forEach(([k,v])=>meta.append(el("span","",k+": "+v)));if(supplierUsd>0){meta.append(el("span","","Supplier cost / 1K: $"+supplierUsd.toFixed(4)+" USD"));meta.append(el("span","","Supplier cost in BDT / 1K: "+(adminUsdToBdtRate>0?"৳"+(supplierUsd*adminUsdToBdtRate).toFixed(2):"Set USD/BDT rate in Settings")));}card.append(meta);
+  const price=Number(s.price_per_1000_minor)/100,manualCost=Number(s.cost_per_1000_minor)/100,supplierUsd=Number(s.supplier_rate_usd_per_1000||0),cost=manualCost,meta=el("div","request-meta");
+  [["Selling / 1000","৳"+price.toFixed(2)],["Purchase / 1000","৳"+cost.toFixed(2)],["Profit / 1000","৳"+(price-cost).toFixed(2)],["Margin",price>0?(((price-cost)/price)*100).toFixed(1)+"%":"—"],["Quantity",s.min_quantity+" – "+s.max_quantity],["Orders used",String(s.order_count||0)]].forEach(([k,v])=>meta.append(el("span","",k+": "+v)));if(supplierUsd>0){meta.append(el("span","","Supplier cost / 1K: $"+supplierUsd.toFixed(4)+" USD"));meta.append(el("span","","Supplier cost in BDT / 1K: "+"৳"+(supplierUsd*135).toFixed(2)));}card.append(meta);
   if(s.description)card.append(el("p","users-footnote",s.description));
   const actions=el("div","user-actions"),edit=el("button","user-action","Edit"),toggle=el("button",s.enabled?"user-action danger":"user-action success",s.enabled?"Disable":"Enable"),del=el("button","user-action danger","Delete");
   edit.addEventListener("click",()=>fillServiceForm(s));

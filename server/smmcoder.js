@@ -46,4 +46,57 @@ function categoryFor(service) {
   return null;
 }
 
-module.exports = { request, categoryFor };
+function serviceKindFor(service) {
+  const text = (String(service.category || "") + " " + String(service.name || "")).toLowerCase();
+  if (/watch[ -]?time|watch hours?|hours? watch/.test(text)) return "watchtime";
+  if (/subscriber|\bsubs?\b/.test(text)) return "subscribers";
+  if (/follower|\bfollows?\b/.test(text)) return "followers";
+  if (/comment|\breply\b/.test(text)) return "comments";
+  if (/story[ -]?views?/.test(text)) return "story_views";
+  if (/live[ -]?views?|live stream/.test(text)) return "live_views";
+  if (/\bviews?\b/.test(text)) return "views";
+  if (/\blikes?\b/.test(text)) return "likes";
+  if (/\bmembers?\b|group joins?|channel joins?/.test(text)) return "members";
+  if (/reaction/.test(text)) return "reactions";
+  if (/shares?/.test(text)) return "shares";
+  if (/saves?/.test(text)) return "saves";
+  return "other";
+}
+
+function selectBalancedServices(services, limit = 100) {
+  const categories = new Map();
+  for (const service of services) {
+    const category = service.__category;
+    if (!categories.has(category)) categories.set(category, new Map());
+    const groups = categories.get(category);
+    const kind = service.__kind;
+    if (!groups.has(kind)) groups.set(kind, []);
+    groups.get(kind).push(service);
+  }
+  const kindOrder = ["followers","subscribers","members","likes","comments","views","watchtime","reactions","shares","saves","story_views","live_views","other"];
+  const selected = [];
+  for (const groups of categories.values()) {
+    const buckets = [...groups.entries()]
+      .sort((a, b) => kindOrder.indexOf(a[0]) - kindOrder.indexOf(b[0]))
+      .map(([, bucket]) => bucket);
+    for (const bucket of buckets) {
+      bucket.sort((a, b) => Number(a.rate) - Number(b.rate) ||
+        Number(b.max) - Number(a.max) || String(a.service).localeCompare(String(b.service)));
+    }
+    let categoryCount = 0;
+    for (let round = 0; categoryCount < limit; round++) {
+      let added = false;
+      for (const bucket of buckets) {
+        if (bucket[round] && categoryCount < limit) {
+          selected.push(bucket[round]);
+          categoryCount++;
+          added = true;
+        }
+      }
+      if (!added) break;
+    }
+  }
+  return selected;
+}
+
+module.exports = { request, categoryFor, serviceKindFor, selectBalancedServices };
