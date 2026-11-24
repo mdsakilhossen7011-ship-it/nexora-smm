@@ -978,8 +978,8 @@ app.patch("/api/admin/services/bulk-pricing",requireAuth,requireAdmin,asyncRoute
 
 
 app.patch("/api/admin/services/bulk-enable",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
- const parsed=z.object({serviceIds:z.array(z.string().uuid()).min(1).max(60)}).safeParse(req.body);
- if(!parsed.success)return res.status(400).json({error:"Select 1–60 valid services from one category."});
+ const parsed=z.object({serviceIds:z.array(z.string().uuid()).min(1).max(100)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Select 1–100 valid services from one category."});
  const serviceIds=[...new Set(parsed.data.serviceIds)];
  if(serviceIds.length!==parsed.data.serviceIds.length)return res.status(400).json({error:"Duplicate service IDs are not allowed."});
  const client=await pool.connect();
