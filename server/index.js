@@ -456,7 +456,7 @@ app.get("/api/orders",requireAuth,asyncRoute(async(req,res)=>{
     if(String(route.rows[0]?.provider_service_id||"").startsWith("smmcoder:"))await syncSmmCoderOrder(item.id,req.user.id);
     else await syncFFResellerOrder(item.id,req.user.id);
   }
-  const result=await pool.query("SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,s.name AS service_name,s.category FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 100",[req.user.id]);
+  const result=await pool.query("SELECT o.id,o.target,o.quantity,o.charge_minor,o.status,o.created_at,o.provider_order_id,o.provider_remains,s.name AS service_name,s.category,s.provider_refill,s.provider_cancel FROM orders o JOIN services s ON s.id=o.service_id WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 100",[req.user.id]);
   res.json({orders:result.rows});
 }));
 async function ffResellerRequest(path,body){
@@ -509,9 +509,28 @@ async function syncSmmCoderOrder(orderId,userId){
  if(!found.rowCount||found.rows[0].status!=="processing"||!String(found.rows[0].provider_service_id||"").startsWith("smmcoder:")||!found.rows[0].provider_order_id)return;
  try{
   const data=await smmCoderRequest("status",{order:found.rows[0].provider_order_id});
-  const status=String(data?.status||"").toLowerCase();
-  if(status==="completed")await pool.query("UPDATE orders SET status='completed',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
-  else if(status==="canceled"||status==="cancelled")await pool.query("UPDATE orders SET status='canceled',updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
+  const status=String(data?.status||"").toLowerCase(),rawRemains=Number(data?.remains);
+  if(status==="completed"){
+   await pool.query("UPDATE orders SET status='completed',provider_remains=0,updated_at=NOW() WHERE id=$1 AND user_id=$2 AND status='processing'",[orderId,userId]);
+  }else if(status==="canceled"||status==="cancelled"||status==="partial"){
+   const client=await pool.connect();
+   try{
+    await client.query("BEGIN");
+    const order=await client.query("SELECT charge_minor,quantity FROM orders WHERE id=$1 AND user_id=$2 AND status='processing' FOR UPDATE",[orderId,userId]);
+    if(!order.rowCount){await client.query("COMMIT");return;}
+    const remains=Number.isSafeInteger(rawRemains)&&rawRemains>=0?Math.min(rawRemains,Number(order.rows[0].quantity)):0;
+    const refund=BigInt(Math.floor(Number(order.rows[0].charge_minor)*remains/Number(order.rows[0].quantity)));
+    await client.query("UPDATE orders SET status='canceled',provider_remains=$1,updated_at=NOW() WHERE id=$2",[remains,orderId]);
+    if(refund>0n){
+     const wallet=await client.query("UPDATE wallet_accounts SET balance_minor=balance_minor+$1,total_spent_minor=GREATEST(0,total_spent_minor-$1),updated_at=NOW() WHERE user_id=$2",[refund.toString(),userId]);
+     if(wallet.rowCount!==1)throw new Error("Wallet account missing; provider cancellation refund rolled back.");
+     await client.query("INSERT INTO wallet_ledger(user_id,amount_minor,entry_type,reference_id,note) VALUES($1,$2,'refund',$3,$4)",[userId,refund.toString(),orderId,"SMMCoder cancellation/partial-delivery refund"]);
+    }
+    await client.query("COMMIT");
+   }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+  }else if(Number.isSafeInteger(rawRemains)&&rawRemains>=0){
+   await pool.query("UPDATE orders SET provider_remains=$1,updated_at=NOW() WHERE id=$2 AND user_id=$3 AND status='processing'",[rawRemains,orderId,userId]);
+  }
  }catch(error){console.warn("SMMCoder order status check failed:",{orderId,message:error.message});}
 }
 async function createOrder(req,res){
@@ -595,6 +614,27 @@ if(isFFReseller&&process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.q
  return res.status(201).json({order:orderRow,message:"Order submitted."});
 }
 app.post("/api/orders",requireAuth,asyncRoute(createOrder));
+app.post("/api/orders/:id/refill",requireAuth,asyncRoute(async(req,res)=>{
+ const found=await pool.query("SELECT o.id,o.provider_order_id,o.status,s.provider_service_id,s.provider_refill FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[req.params.id,req.user.id]);
+ if(!found.rowCount)return res.status(404).json({error:"Order not found."});
+ const o=found.rows[0];
+ if(!String(o.provider_service_id||"").startsWith("smmcoder:")||!o.provider_order_id||o.provider_refill!==true)return res.status(400).json({error:"Refill is not available for this service."});
+ if(o.status!=="completed")return res.status(409).json({error:"Refill can only be requested after the order is completed."});
+ const result=await smmCoderRequest("refill",{order:o.provider_order_id});
+ if(!result?.refill)return res.status(502).json({error:"SMMCoder did not confirm the refill request."});
+ res.status(202).json({ok:true,refill:result.refill,message:"Refill request submitted to SMMCoder."});
+}));
+app.post("/api/orders/:id/cancel",requireAuth,asyncRoute(async(req,res)=>{
+ const found=await pool.query("SELECT o.id,o.provider_order_id,o.status,s.provider_service_id,s.provider_cancel FROM orders o JOIN services s ON s.id=o.service_id WHERE o.id=$1 AND o.user_id=$2",[req.params.id,req.user.id]);
+ if(!found.rowCount)return res.status(404).json({error:"Order not found."});
+ const o=found.rows[0];
+ if(!String(o.provider_service_id||"").startsWith("smmcoder:")||!o.provider_order_id||o.provider_cancel!==true)return res.status(400).json({error:"Cancellation is not available for this service."});
+ if(o.status!=="processing")return res.status(409).json({error:"Only an order in progress can be canceled."});
+ const result=await smmCoderRequest("cancel",{orders:o.provider_order_id});
+ const item=Array.isArray(result)?result.find(x=>String(x.order)===String(o.provider_order_id)):result;
+ if(!item||item.cancel===undefined||item.cancel?.error)return res.status(409).json({error:item?.cancel?.error||"SMMCoder did not accept the cancellation request."});
+ res.status(202).json({ok:true,message:"Cancellation requested. NEXORA will check the final delivered quantity and refund any undelivered amount automatically."});
+}));
 const publicApiLimiter=rateLimit({windowMs:60*1000,limit:60,standardHeaders:true,legacyHeaders:false,message:{error:"Rate limit exceeded. Try again shortly."}});
 app.post("/api/v2",publicApiLimiter,asyncRoute(async(req,res)=>{
  const apiKey=String(req.body?.key||req.headers["x-api-key"]||""),action=String(req.body?.action||"").trim().toLowerCase();
@@ -1221,6 +1261,7 @@ pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(32)
    .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS provider_refill BOOLEAN"))
    .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS provider_cancel BOOLEAN"))
    .then(()=>pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS provider_delivery_time VARCHAR(160)"))
+   .then(()=>pool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_remains INTEGER"))
   .then(()=>pool.query("UPDATE services SET enabled=FALSE,provider_service_id=NULL,supplier_rate_usd_per_1000=0,description='Archived legacy social service. Supplier integration removed; this service is disabled.' WHERE description LIKE 'Imported from SMMEXO.%' OR (category IN ('facebook','instagram','tiktok','youtube','telegram') AND provider_service_id ~ '^[0-9]+$')"))
   .then(()=>pool.query("CREATE TABLE IF NOT EXISTS currency_settings (id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(id=TRUE),usd_to_bdt_rate NUMERIC(12,4) NOT NULL DEFAULT 0 CHECK(usd_to_bdt_rate>=0),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_by UUID REFERENCES users(id) ON DELETE SET NULL)"))
   .then(()=>pool.query("INSERT INTO currency_settings(id,usd_to_bdt_rate) VALUES(TRUE,0) ON CONFLICT(id) DO NOTHING"))
