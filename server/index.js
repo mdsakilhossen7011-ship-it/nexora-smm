@@ -20,6 +20,8 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 // Permit only the external image hosts used by NEXORA's homepage and Free Fire banner.
 app.use(helmet({
+  // Google Identity Services popup must retain a working opener relationship.
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
