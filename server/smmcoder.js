@@ -31,7 +31,7 @@ async function request(action, params = {}) {
   try { data = raw ? JSON.parse(raw) : {}; } catch { throw new Error("SMMCoder returned an invalid JSON response."); }
   if (!response.ok || (data && !Array.isArray(data) && data.error)) {
     const message = String(data?.error || data?.message || ("SMMCoder HTTP " + response.status)).slice(0, 300);
-    throw Object.assign(new Error(message), { providerRejected: response.status >= 400 && response.status < 500 });
+    throw Object.assign(new Error(message), { providerRejected: true });
   }
   return data;
 }
