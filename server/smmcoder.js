@@ -49,14 +49,14 @@ function categoryFor(service) {
 function serviceKindFor(service) {
   const text = (String(service.category || "") + " " + String(service.name || "")).toLowerCase();
   if (/watch[ -]?time|watch hours?|hours? watch/.test(text)) return "watchtime";
-  if (/subscriber|\\bsubs?\\b/.test(text)) return "subscribers";
-  if (/follower|\\bfollows?\\b/.test(text)) return "followers";
-  if (/comment|\\breply\\b/.test(text)) return "comments";
+  if (/subscriber|\bsubs?\b/.test(text)) return "subscribers";
+  if (/follower|\bfollows?\b/.test(text)) return "followers";
+  if (/comment|\breply\b/.test(text)) return "comments";
   if (/story[ -]?views?/.test(text)) return "story_views";
   if (/live[ -]?views?|live stream/.test(text)) return "live_views";
-  if (/\\bviews?\\b/.test(text)) return "views";
-  if (/\\blikes?\\b/.test(text)) return "likes";
-  if (/\\bmembers?\\b|group joins?|channel joins?/.test(text)) return "members";
+  if (/\bviews?\b/.test(text)) return "views";
+  if (/\blikes?\b/.test(text)) return "likes";
+  if (/\bmembers?\b|group joins?|channel joins?/.test(text)) return "members";
   if (/reaction/.test(text)) return "reactions";
   if (/shares?/.test(text)) return "shares";
   if (/saves?/.test(text)) return "saves";
