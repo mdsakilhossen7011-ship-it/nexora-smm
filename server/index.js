@@ -970,13 +970,16 @@ app.patch("/api/admin/services/bulk-enable",requireAuth,requireAdmin,asyncRoute(
  const client=await pool.connect();
  try{
   await client.query("BEGIN");
-  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE id=ANY($1::uuid[]) RETURNING id,category",[serviceIds]);
-  if(updated.rowCount!==serviceIds.length){await client.query("ROLLBACK");return res.status(404).json({error:"Some selected services were not found. No services were enabled; refresh and try again."});}
+  const selected=await client.query("SELECT id,category,cost_per_1000_minor FROM services WHERE id=ANY($1::uuid[]) FOR UPDATE",[serviceIds]);
+  if(selected.rowCount!==serviceIds.length){await client.query("ROLLBACK");return res.status(404).json({error:"Some services were not found. No prices or service statuses were changed; refresh and try again."});}
+  const missingCost=selected.rows.filter(row=>Number(row.cost_per_1000_minor)<=0);
+  if(missingCost.length){await client.query("ROLLBACK");return res.status(400).json({error:missingCost.length+" selected service(s) have no valid purchase cost. Set/sync their supplier cost first. No services were enabled."});}
+  const updated=await client.query("UPDATE services SET price_per_1000_minor=CEIL(cost_per_1000_minor*1.07)::bigint,enabled=TRUE,updated_at=NOW() WHERE id=ANY($1::uuid[]) RETURNING id,category,price_per_1000_minor,cost_per_1000_minor",[serviceIds]);
   const counts={};
   for(const row of updated.rows)counts[row.category]=(counts[row.category]||0)+1;
-  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({service_ids:serviceIds,count:updated.rowCount,category_counts:counts})]);
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({service_ids:serviceIds,count:updated.rowCount,category_counts:counts,markup_percent:7,auto_pricing:true})]);
   await client.query("COMMIT");
-  res.json({ok:true,enabledCount:updated.rowCount,counts});
+  res.json({ok:true,enabledCount:updated.rowCount,counts,markupPercent:7,autoPricedCount:updated.rowCount});
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
 }));
 

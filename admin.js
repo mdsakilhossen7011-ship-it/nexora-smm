@@ -208,7 +208,7 @@ async function selectAndEnableVisibleServices(){
  const disabledCount=services.filter(s=>!s.enabled).length;
  if(!disabledCount){status.textContent="এই ৬০টি সার্ভিস আগেই Enable আছে।";return;}
  const categoryName=serviceCategories[category]||category;
- if(!confirm(categoryName+" Category-র সর্বনিম্ন দামের "+services.length+"টি সার্ভিস একসাথে Enable হবে। Supplier mapping ও order fulfilment যাচাই করা আছে তো?"))return;
+ if(!confirm(categoryName+" Category-র সর্বনিম্ন দামের "+services.length+"টি সার্ভিসে Purchase Cost-এর উপর স্বয়ংক্রিয়ভাবে ৭% লাভ যোগ করে Selling Price সেট হবে এবং Enable হবে। Purchase Cost ঠিক আছে তো?"))return;
  button.disabled=true;status.textContent=services.length+"টি সার্ভিস Select ও Enable হচ্ছে…";
  serviceIds.forEach(id=>selectedServiceIds.add(id));
  document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=serviceIds.includes(box.dataset.serviceId)});
@@ -216,7 +216,7 @@ async function selectAndEnableVisibleServices(){
  try{
   const data=await request("/admin/services/bulk-enable",{method:"PATCH",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds})});
   selectedServiceIds.clear();updateBulkPricingControls();
-  status.textContent="সফল: "+data.enabledCount+"টি "+categoryName+" সার্ভিস Enable হয়েছে।";
+  status.textContent="সফল: "+data.enabledCount+"টি "+categoryName+" সার্ভিসে ৭% লাভসহ Selling Price auto set করে Enable হয়েছে।";
   await loadServices();
  }catch(error){status.textContent="Enable করা যায়নি: "+error.message;}
  finally{button.disabled=false;}
