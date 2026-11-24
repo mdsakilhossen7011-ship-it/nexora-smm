@@ -10,9 +10,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+      - run: npm install
       - name: Check backend and admin JavaScript syntax
         run: |
           node --check server/index.js
+          node --check server/smmcoder.js
           node --check admin.js
