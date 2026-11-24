@@ -987,6 +987,24 @@ app.post("/api/admin/services/bulk-update-enabled-quantities",requireAuth,requir
  }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
 }));
 
+app.patch("/api/admin/services/bulk-enable",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
+ const parsed=z.object({serviceIds:z.array(z.string().uuid()).min(1).max(60)}).safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Select 1–60 valid services from one category."});
+ const serviceIds=[...new Set(parsed.data.serviceIds)];
+ if(serviceIds.length!==parsed.data.serviceIds.length)return res.status(400).json({error:"Duplicate service IDs are not allowed."});
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const updated=await client.query("UPDATE services SET enabled=TRUE,updated_at=NOW() WHERE id=ANY($1::uuid[]) RETURNING id,category",[serviceIds]);
+  if(updated.rowCount!==serviceIds.length){await client.query("ROLLBACK");return res.status(404).json({error:"Some selected services were not found. No services were enabled; refresh and try again."});}
+  const counts={};
+  for(const row of updated.rows)counts[row.category]=(counts[row.category]||0)+1;
+  await client.query("INSERT INTO audit_logs(actor_id,action,entity_type,details) VALUES($1,'services_bulk_enabled','service',$2::jsonb)",[req.user.id,JSON.stringify({service_ids:serviceIds,count:updated.rowCount,category_counts:counts})]);
+  await client.query("COMMIT");
+  res.json({ok:true,enabledCount:updated.rowCount,counts});
+ }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+}));
+
 app.patch("/api/admin/services/:id/status",requireAuth,requireAdmin,asyncRoute(async(req,res)=>{
  const parsed=z.object({enabled:z.boolean()}).safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid service status."});
