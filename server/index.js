@@ -47,7 +47,7 @@ app.use(async (req,res,next)=>{
   // Do not exempt the public homepage/customer pages just because the same browser is logged in as admin.
   if(isAdmin&&(
    req.path==="/admin.html"||req.path==="/admin.css"||req.path==="/admin.js"||
-   req.path==="/support-admin"||req.path==="/support-admin.css"||req.path==="/support-admin.js"||
+   req.path==="/support-admin"||req.path==="/support-admin.html"||req.path==="/support-admin.css"||req.path==="/support-admin.js"||
    req.path==="/styles.css"||req.path==="/ui-icons.css"||req.path==="/ui-icons.js"||
    req.path.startsWith("/api/admin/")||req.path.startsWith("/api/support/")
   ))return next();
@@ -1061,7 +1061,7 @@ app.patch("/api/admin/support/tickets/:id/status",requireAuth,requireAdmin,async
 }));
 
 // Serve only the public website files from the same origin as the API.
-const publicFiles = new Set(["card-facebook.svg","card-instagram.svg","card-freefire.svg","freefire-player.jpg","card-tiktok.svg","card-youtube.svg","card-telegram.svg","styles.css","app.js","real-ads-home.js","service-nav.js","drawer.css","drawer.js","ui-icons.css","ui-icons.js","facebook.html","facebook.css","facebook.js","instagram.html","instagram.css","instagram.js","tiktok.html","tiktok.css","tiktok.js","youtube.html","youtube.css","youtube.js","telegram.html","telegram.css","telegram.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js","support-admin.html","support-admin.css","support-admin.js","free-fire.html","free-fire.css","free-fire.js"]);
+const publicFiles = new Set(["card-facebook.svg","card-instagram.svg","card-freefire.svg","freefire-player.jpg","card-tiktok.svg","card-youtube.svg","card-telegram.svg","styles.css","app.js","real-ads-home.js","service-nav.js","drawer.css","drawer.js","ui-icons.css","ui-icons.js","facebook.html","facebook.css","facebook.js","instagram.html","instagram.css","instagram.js","tiktok.html","tiktok.css","tiktok.js","youtube.html","youtube.css","youtube.js","telegram.html","telegram.css","telegram.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js","support-admin.css","support-admin.js","free-fire.html","free-fire.css","free-fire.js"]);
 app.get("/", (_req,res) => res.sendFile(path.join(__dirname,"..","index.html")));
 // Keep administrator pages inaccessible unless the request has an active admin session.
 app.get("/admin.html",(req,res,next)=>{
@@ -1080,7 +1080,8 @@ app.get("/admin.html",(req,res,next)=>{
     requireAdmin(req,res,()=>res.sendFile(path.join(__dirname,"..","admin.html")));
   });
 });
-app.get("/support-admin",requireAuth,requireAdmin,(_req,res)=>res.sendFile(path.join(__dirname,"..","support-admin.html")));
+app.get("/support-admin",requireAuth,requireAdmin,(_req,res)=>res.set("Cache-Control","no-store").sendFile(path.join(__dirname,"..","support-admin.html")));
+app.get("/support-admin.html",requireAuth,requireAdmin,(_req,res)=>res.set("Cache-Control","no-store").sendFile(path.join(__dirname,"..","support-admin.html")));
 app.get("/:asset", (req,res,next) => {
   if (!publicFiles.has(req.params.asset)) return next();
   res.sendFile(path.join(__dirname,"..",req.params.asset));
