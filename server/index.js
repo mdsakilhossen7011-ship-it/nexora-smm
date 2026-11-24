@@ -917,7 +917,7 @@ app.post("/api/admin/smmcoder/sync",requireAuth,requireAdmin,asyncRoute(async(re
    const providerId=String(item?.service??"").trim(),category=smmCoderCategory(item);
    const name=String(item?.name||"").trim().slice(0,160);
    const rate=Number(item?.rate),min=Number(item?.min),max=Number(item?.max);
-   if(!/^\\d+$/.test(providerId)||!category||!name||!Number.isFinite(rate)||rate<=0||!Number.isSafeInteger(min)||!Number.isSafeInteger(max)||min<1||max<min){skipped.push({service:providerId||"unknown",reason:"Unsupported category or invalid/non-positive supplier rate or quantity"});continue;}
+   if(!/^\d+$/.test(providerId)||!category||!name||!Number.isFinite(rate)||rate<=0||!Number.isSafeInteger(min)||!Number.isSafeInteger(max)||min<1||max<min){skipped.push({service:providerId||"unknown",reason:"Unsupported category or invalid/non-positive supplier rate or quantity"});continue;}
    valid.push({...item,__providerId:providerId,__category:category,__kind:smmCoderServiceKind(item)});
   }
   const selected=smmCoderSelectBalanced(valid,100);
