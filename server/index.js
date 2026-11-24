@@ -23,6 +23,9 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "script-src": ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://fonts.googleapis.com"],
+      "frame-src": ["'self'", "https://accounts.google.com"],
+      "connect-src": ["'self'", "https://accounts.google.com"],
       "img-src": ["'self'", "data:", "https://images.unsplash.com", "https://dl.dir.freefiremobile.com"]
     }
   }
@@ -181,6 +184,82 @@ app.post("/api/admin/ff-reseller/import-catalogue",requireAuth,requireAdmin,asyn
 app.get("/api/health", asyncRoute(async (_req,res) => {
   await pool.query("SELECT 1");
   res.json({ status:"ok", database:"connected" });
+}));
+
+app.get("/api/auth/google-config", (_req,res) => {
+  res.set("Cache-Control", "no-store").json({ clientId: process.env.GOOGLE_CLIENT_ID || "" });
+});
+
+app.post("/api/auth/google", asyncRoute(async (req,res) => {
+  const parsed = z.object({ credential: z.string().min(100).max(10000) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Google sign-in credential is missing or invalid." });
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return res.status(503).json({ error: "Google sign-in is not configured yet." });
+
+  let identity;
+  try {
+    const verification = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(parsed.data.credential), {
+      headers: { "Accept": "application/json" },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!verification.ok) return res.status(401).json({ error: "Google could not verify this sign-in. Please try again." });
+    identity = await verification.json();
+  } catch (_error) {
+    return res.status(502).json({ error: "Google verification is temporarily unavailable. Please try again." });
+  }
+  const issuerOk = identity.iss === "https://accounts.google.com" || identity.iss === "accounts.google.com";
+  const expiryOk = Number(identity.exp) > Math.floor(Date.now() / 1000);
+  const emailOk = identity.email_verified === true || identity.email_verified === "true";
+  if (identity.aud !== clientId || !issuerOk || !expiryOk || !emailOk || !identity.sub || !identity.email) {
+    return res.status(401).json({ error: "Google account verification failed. Use a verified Google account." });
+  }
+
+  const email = String(identity.email).trim().toLowerCase();
+  const fullName = String(identity.name || identity.given_name || email.split("@")[0]).trim().slice(0, 120) || "NEXORA User";
+  const client = await pool.connect();
+  let user;
+  let created = false;
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query("SELECT id,full_name,username,email,phone,role,status,created_at FROM users WHERE lower(email)=lower($1) FOR UPDATE", [email]);
+    if (existing.rowCount) {
+      user = existing.rows[0];
+      if (user.status !== "active") {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ error: "This account is blocked. Contact support." });
+      }
+    } else {
+      const base = (email.split("@")[0].toLowerCase().replace(/[^a-z0-9_.]/g, "").replace(/^[._]+|[._]+$/g, "").slice(0, 20) || "googleuser");
+      let username = "";
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const suffix = crypto.randomBytes(3).toString("hex");
+        const candidate = (base.slice(0, 25) + "_" + suffix).slice(0, 32);
+        const taken = await client.query("SELECT 1 FROM users WHERE lower(username)=lower($1) LIMIT 1", [candidate]);
+        if (!taken.rowCount) { username = candidate; break; }
+      }
+      if (!username) throw new Error("Could not create a unique username for this Google account.");
+      const passwordHash = await bcrypt.hash(crypto.randomBytes(48).toString("base64url"), 12);
+      const referralCode = "NX" + crypto.randomBytes(5).toString("hex").toUpperCase();
+      const inserted = await client.query(
+        "INSERT INTO users(full_name,username,email,phone,password_hash,referral_code) VALUES($1,$2,$3,NULL,$4,$5) RETURNING id,full_name,username,email,phone,role,status,created_at",
+        [fullName,username,email,passwordHash,referralCode]
+      );
+      user = inserted.rows[0];
+      await client.query("INSERT INTO wallet_accounts(user_id) VALUES($1)", [user.id]);
+      await client.query("INSERT INTO commission_accounts(user_id) VALUES($1)", [user.id]);
+      created = true;
+    }
+    const raw = newToken();
+    await client.query("INSERT INTO sessions(user_id,token_hash,expires_at) VALUES($1,$2,NOW()+INTERVAL '7 days')", [user.id,hashToken(raw)]);
+    await client.query("COMMIT");
+    res.cookie("nexora_session",raw,cookieOptions).status(created ? 201 : 200).json({ ok:true, created, user:{id:user.id,full_name:user.full_name,username:user.username,email:user.email,role:user.role} });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error.code === "23505") return res.status(409).json({ error: "An account with this Google email or generated username already exists. Please retry Google sign-in." });
+    throw error;
+  } finally {
+    client.release();
+  }
 }));
 
 app.post("/api/auth/register", asyncRoute(async (req,res) => {
