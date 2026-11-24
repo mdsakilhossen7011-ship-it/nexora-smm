@@ -532,7 +532,7 @@ async function createOrder(req,res){
   if(isSmmCoder&&!process.env.SMM_PROVIDER_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"SMMCoder API key is not configured. No balance was deducted."});}
 if(isFFReseller&&process.env.FF_RESELLER_ORDERS_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller orders are not enabled yet. No balance was deducted."});}
   if(isFFReseller&&!process.env.FF_RESELLER_API_KEY){await client.query("ROLLBACK");return res.status(503).json({error:"FF Reseller API key is not configured. No balance was deducted."});}
-  if(!isFFReseller&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
+  if(!isFFReseller&&!isSmmCoder&&process.env.ORDER_FULFILMENT_ENABLED!=="true"){await client.query("ROLLBACK");return res.status(503).json({error:"Ordering is temporarily disabled until a verified supplier fulfilment workflow is configured. No balance was deducted."});}
   const isVoucher=isFFReseller&&providerId.startsWith("ffreseller:U");
   if(isFFReseller&&BigInt(s.price_per_1000_minor)<=BigInt(s.cost_per_1000_minor||0)){await client.query("ROLLBACK");return res.status(400).json({error:"Admin must set a customer selling price above the supplier cost before this package can be ordered. No balance was deducted."});}
   if(isVoucher){await client.query("ROLLBACK");return res.status(503).json({error:"UniPin voucher ordering is temporarily unavailable until supplier order tracking and secure code delivery are verified. No balance was deducted."});}
