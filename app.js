@@ -12,6 +12,15 @@ const publicNav = document.getElementById("publicNav");
 const accountNav = document.getElementById("accountNav");
 const requestedDestination = new URLSearchParams(window.location.search).get("next");
 
+// Never send a normal customer to an administrator-only page after authentication.
+function getPostAuthDestination() {
+  if (!requestedDestination || !requestedDestination.startsWith("/") || requestedDestination.startsWith("//")) return "/";
+  const normalized = requestedDestination.split(/[?#]/, 1)[0].replace(/\\+/g, "/");
+  if (/^\/(?:admin(?:\.html|\/|$)|support-admin(?:\.html|\/|$))/i.test(normalized)) return "/";
+  if (/^\/api\/(?:admin|support)(?:\/|$)/i.test(normalized)) return "/";
+  return requestedDestination;
+}
+
 function setSignedIn(signedIn) {
   publicNav.classList.toggle("hidden", signedIn);
   accountNav.classList.toggle("hidden", !signedIn);
@@ -122,7 +131,7 @@ authForm.addEventListener("submit", async (event) => {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || "Request failed.");
     authNotice.textContent = registering ? "Account created successfully." : "Login successful.";
-    window.location.href = requestedDestination && requestedDestination.startsWith("/") && !requestedDestination.startsWith("//") ? requestedDestination : "/";
+    window.location.href = getPostAuthDestination();
   } catch (error) {
     authNotice.textContent = error.message.includes("Failed to fetch")
       ? "The secure API is not deployed or configured yet. Your details were not saved."
@@ -200,7 +209,7 @@ window.handleNexoraGoogleCredential = async (googleResponse) => {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || "Google sign-in failed.");
     authNotice.textContent = result.created ? "Your NEXORA account was created." : "Google sign-in successful.";
-    window.location.href = requestedDestination && requestedDestination.startsWith("/") && !requestedDestination.startsWith("//") ? requestedDestination : "/";
+    window.location.href = getPostAuthDestination();
   } catch (error) {
     authNotice.textContent = error.message || "Google sign-in failed. Please try again.";
     if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
