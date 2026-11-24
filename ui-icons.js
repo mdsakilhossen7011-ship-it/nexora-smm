@@ -71,7 +71,7 @@ function start(){
 document.addEventListener("error",e=>{const el=e.target;if(el&&el.tagName==="IMG"&&el.classList.contains("service-card-art")){el.hidden=true;}},true);
 document.querySelectorAll("img.service-card-art").forEach(el=>{if(el.complete&&el.naturalWidth===0)el.hidden=true;});
 scan(document);
-const mo=new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1)scan(n);})));
+const mo=new MutationObserver(ms=>{const targets=new Set();ms.forEach(m=>{if(Array.from(m.addedNodes).some(n=>n.nodeType===1))targets.add(m.target);});targets.forEach(root=>scan(root));});
 mo.observe(document.body,{childList:true,subtree:true});
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();
