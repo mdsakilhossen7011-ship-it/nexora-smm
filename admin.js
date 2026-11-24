@@ -4,7 +4,8 @@ const money=v=>"৳"+(Number(v||0)/100).toFixed(2);
 let adminUsdToBdtRate=0;
 let adminServicesCache=[];
 let adminServicesPage=1;
-const ADMIN_SERVICES_PAGE_SIZE=25;
+const ADMIN_SERVICES_PAGE_SIZE=60;
+let adminVisibleServices=[];
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
 const titles={overview:["Overview","Your panel at a glance."],users:["Users","Manage customer accounts and wallet access."],orders:["Orders","Review and manage customer orders."],services:["Services","Manage gaming and social media services."],finance:["Finance","Review deposits, withdrawals and payment requests."],growth:["Growth & Referrals","Referral performance and commission controls."],support:["Support","Customer tickets and live support."],website:["Website Content","Manage website content and announcements."],notifications:["Notifications","Create and manage messages shown only in the notification bell."],settings:["Settings","General system configuration."],"system-settings":["System Settings","Payment, deposit, withdrawal and service quantity controls."],activity:["Activity Logs","Review administrative actions."]};
 function showPage(page){if(page==="support"){location.href="/support-admin";return}if(!titles[page])return;document.querySelectorAll(".admin-page").forEach(x=>x.classList.toggle("active",x.id==="page-"+page));document.querySelectorAll(".admin-nav").forEach(x=>x.classList.toggle("active",x.dataset.page===page));document.getElementById("pageTitle").textContent=titles[page][0];document.getElementById("pageSubtitle").textContent=titles[page][1];document.getElementById("adminSidebar").classList.remove("open");document.getElementById("sidebarScrim").classList.remove("show");document.getElementById("sidebarToggle").setAttribute("aria-expanded","false");document.getElementById("searchResults").hidden=true;if(page==="users")loadUsers();if(page==="orders"){loadOrders();loadRealAdsOrders();}if(page==="services")loadServices();if(page==="finance")loadFinance();if(page==="growth")loadGrowth();if(page==="website")loadAnnouncements();if(page==="notifications")loadNotifications();if(page==="settings"){loadSystem();}if(page==="system-settings"){loadPaymentSettings();loadCryptoPaymentSettings();loadMaintenanceSettings();loadCurrencySettings();loadMoneyLimits();}if(page==="activity")loadActivity()}
@@ -196,6 +197,30 @@ async function applyBulkPricing(event){
   selectedServiceIds.clear();updateBulkPricingControls();await loadServices();alert("Updated prices for "+data.updatedCount+" services.");
  }catch(error){alert(error.message)}finally{updateBulkPricingControls()}
 }
+async function selectAndEnableVisibleServices(){
+ const category=document.getElementById("serviceCategoryFilter").value;
+ const button=document.getElementById("selectEnableServices"),status=document.getElementById("selectEnableServicesStatus");
+ if(!category){status.textContent="আগে একটি Category নির্বাচন করো।";alert("একটি নির্দিষ্ট Category নির্বাচন করো। All categories অবস্থায় bulk enable হবে না।");return;}
+ const services=adminVisibleServices.slice(0,60);
+ if(!services.length){status.textContent="এই Category-তে কোনো সার্ভিস নেই।";return;}
+ const serviceIds=services.map(s=>s.id).filter(Boolean);
+ if(!serviceIds.length){status.textContent="কোনো valid service ID পাওয়া যায়নি।";return;}
+ const disabledCount=services.filter(s=>!s.enabled).length;
+ if(!disabledCount){status.textContent="এই ৬০টি সার্ভিস আগেই Enable আছে।";return;}
+ const categoryName=serviceCategories[category]||category;
+ if(!confirm(categoryName+" Category-র সর্বনিম্ন দামের "+services.length+"টি সার্ভিস একসাথে Enable হবে। Supplier mapping ও order fulfilment যাচাই করা আছে তো?"))return;
+ button.disabled=true;status.textContent="৬০টি সার্ভিস Select ও Enable হচ্ছে…";
+ serviceIds.forEach(id=>selectedServiceIds.add(id));
+ document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=serviceIds.includes(box.dataset.serviceId)});
+ updateBulkPricingControls();
+ try{
+  const data=await request("/admin/services/bulk-enable",{method:"PATCH",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({serviceIds})});
+  selectedServiceIds.clear();updateBulkPricingControls();
+  status.textContent="সফল: "+data.enabledCount+"টি "+categoryName+" সার্ভিস Enable হয়েছে।";
+  await loadServices();
+ }catch(error){status.textContent="Enable করা যায়নি: "+error.message;}
+ finally{button.disabled=false;}
+}
 async function checkSmmCoderConnection(){
  const status=document.getElementById("smmCoderStatus"),result=document.getElementById("smmCoderSyncResult"),button=document.getElementById("checkSmmCoder");
  if(!status||!result)return;
@@ -226,11 +251,12 @@ async function loadServices(){
 function renderServices(){
  const status=document.getElementById("servicesStatus"),list=document.getElementById("servicesList");if(!status||!list)return;
  const q=document.getElementById("serviceSearch").value.trim().toLowerCase(),cat=document.getElementById("serviceCategoryFilter").value;
- const all=adminServicesCache,filtered=all.filter(s=>(!cat||s.category===cat)&&(!q||(s.name+" "+s.description+" "+s.category).toLowerCase().includes(q)));
+ const all=adminServicesCache,filtered=all.filter(s=>(!cat||s.category===cat)&&(!q||(s.name+" "+s.description+" "+s.category).toLowerCase().includes(q))).sort((a,b)=>Number(a.price_per_1000_minor||0)-Number(b.price_per_1000_minor||0)||String(a.name).localeCompare(String(b.name)));
  const totalPages=Math.max(1,Math.ceil(filtered.length/ADMIN_SERVICES_PAGE_SIZE));
  adminServicesPage=Math.min(Math.max(1,adminServicesPage),totalPages);
  const start=(adminServicesPage-1)*ADMIN_SERVICES_PAGE_SIZE;
  const services=filtered.slice(start,start+ADMIN_SERVICES_PAGE_SIZE);
+ adminVisibleServices=services;
  status.textContent=filtered.length+" matching · "+all.length+" total services · Page "+adminServicesPage+"/"+totalPages;
  list.textContent="";
  if(!services.length){list.append(el("div","empty-admin","No matching services found."));return}
@@ -359,6 +385,7 @@ async function applyBulkEnabledServiceQuantities(event){
 }
 document.getElementById("bulkPricingForm").addEventListener("submit",applyBulkPricing);
 document.getElementById("selectAllServices").addEventListener("click",()=>{document.querySelectorAll("#servicesList .service-card input[type=checkbox]").forEach(box=>{box.checked=true;selectedServiceIds.add(box.dataset.serviceId)});updateBulkPricingControls()});
+document.getElementById("selectEnableServices").addEventListener("click",selectAndEnableVisibleServices);
 document.getElementById("resetServiceForm").addEventListener("click",resetServiceForm);
 document.getElementById("orderSearch").addEventListener("input",loadOrders);
 document.getElementById("orderStatusFilter").addEventListener("change",loadOrders);
