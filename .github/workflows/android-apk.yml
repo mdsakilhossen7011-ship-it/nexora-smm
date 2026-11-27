@@ -1,6 +1,10 @@
 name: Build NEXORA Android APK
 
 on:
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android-apk.yml"
   workflow_dispatch:
   push:
     paths:
