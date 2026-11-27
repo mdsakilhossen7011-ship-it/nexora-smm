@@ -35,8 +35,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.rgb(8, 9, 26)
-        window.navigationBarColor = Color.rgb(8, 9, 26)
+        // Match Android system bars to the NEXORA dark-neon theme.
+        window.statusBarColor = Color.rgb(10, 8, 30)
+        window.navigationBarColor = Color.rgb(10, 8, 30)
+        window.decorView.systemUiVisibility = 0 // Keep system status/navigation icons light on the dark bars.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+            window.isStatusBarContrastEnforced = false
+        }
         createLayout()
         requestNotificationPermission()
         if (prefs.getBoolean("biometric_enabled", false)) {
