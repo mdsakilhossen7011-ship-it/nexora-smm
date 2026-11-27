@@ -103,27 +103,6 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener { loadHome() }
             })
         }
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(18, 10, 12, 10)
-            setBackgroundColor(Color.rgb(12, 14, 35))
-            addView(TextView(this@MainActivity).apply {
-                text = "NEXORA SMM"
-                textSize = 16f
-                setTextColor(Color.rgb(190, 160, 255))
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
-            })
-            addView(Button(this@MainActivity).apply {
-                text = "⋮"
-                textSize = 22f
-                setTextColor(Color.WHITE)
-                setBackgroundColor(Color.TRANSPARENT)
-                setOnClickListener { showAppMenu(this) }
-            })
-        }
-        root.addView(header, LinearLayout.LayoutParams(-1, -2))
         root.addView(webView, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(offlineView, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
