@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="nexora_navy">#08091A</color>
-    <color name="nexora_purple">#8B5CF6</color>
     <style name="Theme.Nexora" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:colorAccent">@color/nexora_purple</item>
