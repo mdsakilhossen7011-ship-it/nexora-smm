@@ -78,3 +78,9 @@
 .nexora-notification-empty{margin:0;padding:28px 12px;text-align:center;color:#aaa6c6;font-size:13px}
 body.nexora-notification-lock{overflow:hidden!important}
 @media(max-width:700px){.nexora-notification-bell{width:38px;height:38px;flex-basis:38px;margin-right:7px;border-radius:11px}.nexora-notification-bell svg{width:19px;height:19px}.nexora-notification-dialog{max-height:82dvh}}
+
+/* Premium glass notification control; keep badge and tap target unchanged */
+@media(max-width:700px){
+ .nexora-notification-bell{border:1px solid rgba(196,157,255,.58)!important;border-radius:50%!important;background:linear-gradient(145deg,rgba(117,82,181,.34),rgba(23,29,68,.72))!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;box-shadow:inset 0 1px 2px rgba(255,255,255,.22),0 0 16px rgba(141,73,255,.3),0 5px 14px rgba(0,0,0,.25)!important;color:#e0baff!important;}
+ .nexora-notification-bell svg{filter:drop-shadow(0 0 5px rgba(192,130,255,.8));}
+}
