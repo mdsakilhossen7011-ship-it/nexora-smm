@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 520" role="img" aria-labelledby="title desc">
+<title id="title">NEXORA social growth dashboard illustration</title><desc id="desc">A glowing smartphone showing a social growth dashboard, surrounded by floating social platform cards and a service analytics panel.</desc>
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#17104a"/><stop offset=".55" stop-color="#101d50"/><stop offset="1" stop-color="#07152f"/></linearGradient>
+ <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d35cff"/><stop offset=".5" stop-color="#637bff"/><stop offset="1" stop-color="#36d8ff"/></linearGradient>
+ <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#202c68"/><stop offset="1" stop-color="#10132f"/></linearGradient>
+ <linearGradient id="green" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#65ffc0"/><stop offset="1" stop-color="#19b9ff"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="12"/></filter>
+ <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#020617" flood-opacity=".65"/></filter>
+</defs>
+<ellipse cx="324" cy="270" rx="245" ry="190" fill="#633bff" opacity=".2" filter="url(#glow)"/>
+<ellipse cx="324" cy="270" rx="250" ry="158" fill="none" stroke="#6d7dff" stroke-opacity=".45" stroke-width="1.5" transform="rotate(-17 324 270)"/>
+<ellipse cx="324" cy="270" rx="205" ry="235" fill="none" stroke="#b64dff" stroke-opacity=".32" stroke-width="1.5" transform="rotate(31 324 270)"/>
+<g filter="url(#shadow)" transform="translate(213 50) rotate(-8 112 205)">
+ <rect x="0" y="0" width="224" height="414" rx="38" fill="#070b20" stroke="url(#edge)" stroke-width="4"/>
+ <rect x="9" y="10" width="206" height="394" rx="30" fill="url(#screen)"/>
+ <rect x="78" y="16" width="68" height="8" rx="4" fill="#050817"/>
+ <circle cx="112" cy="83" r="34" fill="url(#edge)"/>
+ <path d="M112 55 91 91h14l-5 19 28-38h-16l8-17Z" fill="#fff"/>
+ <text x="112" y="145" fill="#fff" font-family="Arial,sans-serif" font-size="23" font-weight="900" text-anchor="middle" letter-spacing="2">NEXORA</text>
+ <text x="112" y="163" fill="#9eb9ff" font-family="Arial,sans-serif" font-size="8" text-anchor="middle" letter-spacing="3">SOCIAL GROWTH</text>
+ <rect x="25" y="185" width="174" height="86" rx="14" fill="#ffffff" fill-opacity=".08" stroke="#ffffff" stroke-opacity=".13"/>
+ <text x="40" y="208" fill="#aab8e8" font-family="Arial,sans-serif" font-size="9" font-weight="700">GROWTH OVERVIEW</text>
+ <path d="M40 246 65 235l22 7 26-22 23 5 28-26" fill="none" stroke="url(#green)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+ <circle cx="164" cy="199" r="4" fill="#65ffc0"/>
+ <rect x="25" y="286" width="80" height="70" rx="12" fill="#ffffff" fill-opacity=".08"/>
+ <rect x="119" y="286" width="80" height="70" rx="12" fill="#ffffff" fill-opacity=".08"/>
+ <text x="39" y="307" fill="#9eacd9" font-family="Arial,sans-serif" font-size="8">ORDERS</text>
+ <text x="39" y="335" fill="#fff" font-family="Arial,sans-serif" font-size="22" font-weight="800">24</text>
+ <text x="133" y="307" fill="#9eacd9" font-family="Arial,sans-serif" font-size="8">GROWTH</text>
+ <text x="133" y="335" fill="#65ffc0" font-family="Arial,sans-serif" font-size="20" font-weight="800">+82%</text>
+ <rect x="25" y="370" width="174" height="7" rx="3.5" fill="#ffffff" fill-opacity=".13"/>
+ <rect x="25" y="370" width="122" height="7" rx="3.5" fill="url(#edge)"/>
+</g>
+<g filter="url(#shadow)">
+ <rect x="28" y="125" width="112" height="82" rx="18" fill="#17265b" stroke="#668dff" stroke-opacity=".8"/>
+ <circle cx="63" cy="166" r="20" fill="#1877f2"/><path d="M66 151h9v-9h-9c-10 0-15 6-15 16v7h-8v10h8v18h11v-18h10l2-10H62v-6c0-5 1-8 4-8Z" fill="#fff" transform="translate(1 0) scale(.8) translate(14 34)"/>
+ <text x="92" y="160" fill="#fff" font-family="Arial,sans-serif" font-size="10" font-weight="700">SOCIAL</text><text x="92" y="174" fill="#a9c0ff" font-family="Arial,sans-serif" font-size="9">BOOST</text>
+ <rect x="465" y="100" width="135" height="96" rx="18" fill="#192052" stroke="#a25cff" stroke-opacity=".8"/>
+ <rect x="480" y="116" width="30" height="30" rx="10" fill="#e1306c"/><circle cx="495" cy="131" r="8" fill="none" stroke="#fff" stroke-width="2"/><circle cx="503" cy="123" r="2" fill="#fff"/>
+ <text x="519" y="128" fill="#fff" font-family="Arial,sans-serif" font-size="10" font-weight="700">REELS</text><text x="519" y="142" fill="#c6b2ff" font-family="Arial,sans-serif" font-size="9">ENGAGEMENT</text>
+ <rect x="470" y="333" width="137" height="91" rx="18" fill="#122d4d" stroke="#36d8ff" stroke-opacity=".75"/>
+ <circle cx="500" cy="365" r="16" fill="#159bd7"/><path d="m491 365 20-9-6 19-5-6-4 3 1-7Z" fill="#fff"/>
+ <text x="524" y="361" fill="#fff" font-family="Arial,sans-serif" font-size="10" font-weight="700">FAST</text><text x="524" y="375" fill="#9bdcff" font-family="Arial,sans-serif" font-size="9">DELIVERY</text>
+ <path d="M488 398h94" stroke="#36d8ff" stroke-opacity=".35" stroke-width="4" stroke-linecap="round"/>
+ <rect x="34" y="350" width="126" height="76" rx="17" fill="#18244d" stroke="#8e69ff" stroke-opacity=".8"/>
+ <circle cx="67" cy="387" r="18" fill="#f0273c"/><path d="M61 377v20l17-10Z" fill="#fff"/>
+ <text x="94" y="383" fill="#fff" font-family="Arial,sans-serif" font-size="10" font-weight="700">VIDEO</text><text x="94" y="397" fill="#c5b6ff" font-family="Arial,sans-serif" font-size="9">VIEWS</text>
+</g>
+<g fill="#8deaff"><circle cx="180" cy="78" r="4"/><circle cx="460" cy="260" r="5"/><circle cx="180" cy="282" r="3"/><circle cx="430" cy="455" r="4"/></g>
+<g fill="#d18bff"><path d="m557 245 5 11 11 5-11 5-5 11-5-11-11-5 11-5Z"/><path d="m130 265 4 8 8 4-8 4-4 8-4-8-8-4 8-4Z"/></g>
+</svg>
