@@ -103,6 +103,11 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener { loadHome() }
             })
         }
+        // Add a small breathing space below the Android status bar so the
+        // website header (NEXORA logo and three-dot menu) is not pressed
+        // against the very top edge of the app.
+        val headerTopGap = (8 * resources.displayMetrics.density).toInt()
+        root.addView(View(this), LinearLayout.LayoutParams(-1, headerTopGap))
         root.addView(webView, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(offlineView, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
