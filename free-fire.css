@@ -319,3 +319,24 @@ body.ff-modal-open{overflow:hidden}
 @keyframes ffModalIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:480px){.ff-confirm-card{padding:24px 18px 19px;border-radius:21px}.ff-confirm-card h2{font-size:22px}.ff-confirm-details{padding-inline:12px}.ff-confirm-details>div{padding:11px 0}.ff-confirm-actions button{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.ff-confirm-card,.ff-confirm-backdrop{animation:none}}
+
+
+/* NEXORA SMM banner wordmark */
+.ff-banner-copy small{
+ display:inline-flex;align-items:center;gap:7px;
+ padding:7px 12px;border:1px solid #c78aff99;border-radius:999px;
+ background:linear-gradient(100deg,#321052dd,#102c57dd);
+ color:#f0d8ff;font-size:10px;font-weight:900;letter-spacing:2px;
+ text-shadow:0 0 12px #b75cff;
+ box-shadow:0 0 16px #8e3dff66,inset 0 0 12px #a34cff22;
+}
+.ff-banner-copy small:before{
+ content:"N";display:inline-grid;place-items:center;width:18px;height:18px;
+ border-radius:6px;background:linear-gradient(135deg,#25baff,#a52dff);
+ color:#fff;font-size:12px;font-style:italic;letter-spacing:-1px;
+ box-shadow:0 0 10px #8f45ff99;
+}
+@media(max-width:760px){
+ .ff-banner-copy small{padding:5px 8px;font-size:8px;letter-spacing:1.4px}
+ .ff-banner-copy small:before{width:15px;height:15px;font-size:10px}
+}
