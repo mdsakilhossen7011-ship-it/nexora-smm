@@ -1326,3 +1326,97 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     padding: 9px !important;
   }
 }
+
+
+/* Second compact pass: reduce card height and remove excess whitespace in the six homepage tiles only. */
+#homePage > .services-section {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+}
+#homePage > .services-section .section-heading {
+  margin-bottom: 8px !important;
+}
+#homePage > .services-section .service-grid {
+  gap: 7px !important;
+  align-items: stretch !important;
+}
+#homePage > .services-section .service-card {
+  min-height: 160px !important;
+  padding: 12px !important;
+}
+#homePage > .services-section .service-card .service-symbol {
+  width: 42px !important;
+  height: 42px !important;
+}
+#homePage > .services-section .service-card h3 {
+  margin: 7px 0 2px !important;
+  line-height: 1.15 !important;
+}
+#homePage > .services-section .service-card p {
+  min-height: 0 !important;
+  margin: 0 0 6px !important;
+  line-height: 1.3 !important;
+}
+#homePage > .services-section .service-card-cta {
+  margin-top: 4px !important;
+}
+@media (max-width: 600px) {
+  #homePage > .services-section {
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+  #homePage > .services-section .section-heading {
+    margin-bottom: 6px !important;
+  }
+  #homePage > .services-section .service-grid {
+    gap: 6px !important;
+  }
+  #homePage > .services-section .service-card {
+    height: 112px !important;
+    min-height: 112px !important;
+    padding: 7px !important;
+    border-radius: 11px !important;
+    grid-template-columns: 24px minmax(0,1fr) !important;
+    grid-template-rows: 24px 1fr 20px !important;
+    column-gap: 5px !important;
+    row-gap: 1px !important;
+  }
+  #homePage > .services-section .service-card .service-symbol {
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 7px !important;
+    font-size: 15px !important;
+  }
+  #homePage > .services-section .service-card h3 {
+    font-size: 10px !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+  }
+  #homePage > .services-section .service-card p {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    align-self: start !important;
+    min-height: 0 !important;
+    margin: 2px 0 0 !important;
+    font-size: 7px !important;
+    line-height: 1.2 !important;
+    -webkit-line-clamp: 2 !important;
+  }
+  #homePage > .services-section .service-card-cta {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+    align-self: end !important;
+    height: 20px !important;
+    min-height: 20px !important;
+    margin: 0 !important;
+    padding: 2px 5px !important;
+    font-size: 8px !important;
+  }
+}
+@media (max-width: 360px) {
+  #homePage > .services-section .service-card {
+    height: 106px !important;
+    min-height: 106px !important;
+    padding: 6px !important;
+  }
+}
