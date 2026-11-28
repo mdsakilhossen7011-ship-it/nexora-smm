@@ -32,7 +32,7 @@ app.use(helmet({
       "script-src": ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://fonts.googleapis.com"],
       "frame-src": ["'self'", "https://accounts.google.com"],
       "connect-src": ["'self'", "https://accounts.google.com"],
-      "img-src": ["'self'", "data:", "https://images.unsplash.com", "https://dl.dir.freefiremobile.com","https://cdn.wildflamestudio.com"]
+      "img-src": ["'self'", "data:", "https://images.unsplash.com", "https://dl.dir.freefiremobile.com","https://cdn.wildflamestudio.com","https://is1-ssl.mzstatic.com"]
     }
   }
 }));
