@@ -1,19 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#08091A" android:pathData="M0,0h108v108h-108z"/>
-    <path android:strokeColor="#2D16B8FF" android:strokeWidth="2.5" android:fillColor="#00000000"
-        android:pathData="M9,55a45,45 0,1 0,90 0a45,45 0,1 0,-90 0"/>
-    <path android:strokeColor="#FF24D8FF" android:strokeWidth="3.2" android:strokeLineCap="round" android:fillColor="#00000000"
-        android:pathData="M8,68C23,87 82,28 100,43"/>
-    <path android:strokeColor="#FFB026FF" android:strokeWidth="2.4" android:strokeLineCap="round" android:fillColor="#00000000"
-        android:pathData="M8,68C23,87 82,28 100,43"/>
-    <path android:fillColor="#5D18D8" android:pathData="M25,77V31h10l38,35V31h10v46H73L35,42v35z"/>
-    <path android:fillColor="#D946EF" android:pathData="M25,77V31h10l38,35V31h10v46H73L35,42v35z"/>
-    <path android:fillColor="#06B6D4" android:pathData="M54,58l9,8v11l-9,-8z"/>
-    <path android:fillColor="#38BDF8" android:pathData="M73,31h10v46H73z"/>
-    <path android:fillColor="#C4B5FD" android:pathData="M31,27l5,-11 8,7 10,-15 10,15 8,-7 5,11z"/>
-    <path android:fillColor="#8B5CF6" android:pathData="M31,27h46l-3,5H34z"/>
-    <path android:fillColor="#22D3EE" android:pathData="M54,8l4,7h-8z"/>
-</vector>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/nexora_icon"
+    android:gravity="center"
+    android:filter="true" />
