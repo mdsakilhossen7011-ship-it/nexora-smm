@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         // Match Android system bars to the NEXORA dark-neon theme.
         window.statusBarColor = Color.rgb(10, 8, 30)
         window.navigationBarColor = Color.rgb(10, 8, 30)
-        window.decorView.systemUiVisibility = 0 // Keep system status/navigation icons light on the dark bars.
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_STABLE // Hide the phone status bar in the app.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
             window.isStatusBarContrastEnforced = false
