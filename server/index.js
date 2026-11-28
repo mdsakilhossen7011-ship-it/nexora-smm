@@ -32,7 +32,7 @@ app.use(helmet({
       "script-src": ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://fonts.googleapis.com"],
       "frame-src": ["'self'", "https://accounts.google.com"],
       "connect-src": ["'self'", "https://accounts.google.com"],
-      "img-src": ["'self'", "data:", "https://images.unsplash.com", "https://dl.dir.freefiremobile.com"]
+      "img-src": ["'self'", "data:", "https://images.unsplash.com", "https://dl.dir.freefiremobile.com","https://cdn.wildflamestudio.com"]
     }
   }
 }));
@@ -1222,7 +1222,7 @@ app.patch("/api/admin/support/tickets/:id/status",requireAuth,requireAdmin,async
 }));
 
 // Serve only the public website files from the same origin as the API.
-const publicFiles = new Set(["card-facebook.svg","card-instagram.svg","card-freefire.svg","freefire-player.jpg","card-tiktok.svg","card-youtube.svg","card-telegram.svg","styles.css","app.js","real-ads-home.js","service-nav.js","drawer.css","drawer.js","ui-icons.css","ui-icons.js","facebook.html","facebook.css","facebook.js","instagram.html","instagram.css","instagram.js","tiktok.html","tiktok.css","tiktok.js","youtube.html","youtube.css","youtube.js","telegram.html","telegram.css","telegram.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js","support-admin.css","support-admin.js","free-fire.html","free-fire.css","free-fire.js"]);
+const publicFiles = new Set(["card-facebook.svg","card-instagram.svg","card-freefire.svg","freefire-player.jpg","card-tiktok.svg","card-youtube.svg","card-telegram.svg","logo-facebook.svg","logo-instagram.svg","logo-tiktok.svg","logo-youtube.svg","logo-telegram.svg","styles.css","app.js","real-ads-home.js","service-nav.js","drawer.css","drawer.js","ui-icons.css","ui-icons.js","facebook.html","facebook.css","facebook.js","instagram.html","instagram.css","instagram.js","tiktok.html","tiktok.css","tiktok.js","youtube.html","youtube.css","youtube.js","telegram.html","telegram.css","telegram.js","dashboard.html","dashboard.css","dashboard.js","admin.html","admin.css","admin.js","support-admin.css","support-admin.js","free-fire.html","free-fire.css","free-fire.js"]);
 app.get("/", (_req,res) => res.sendFile(path.join(__dirname,"..","index.html")));
 // Keep administrator pages inaccessible unless the request has an active admin session.
 app.get("/admin.html",(req,res,next)=>{
