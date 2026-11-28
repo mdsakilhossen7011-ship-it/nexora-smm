@@ -1286,3 +1286,43 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 .google-signin-host.google-signin-loading{opacity:.55;pointer-events:none}
 .light-theme .auth-divider{color:#737895}
 .light-theme .auth-divider:before,.light-theme .auth-divider:after{background:#17182c24}
+
+
+/* Isolated size adjustment for the six homepage service cards only. */
+#homePage > .services-section .service-card {
+  min-height: 190px !important;
+  padding: 17px !important;
+}
+#homePage > .services-section .service-card .service-symbol {
+  width: 50px !important;
+  height: 50px !important;
+}
+@media (max-width: 600px) {
+  #homePage > .services-section .service-card {
+    height: 154px !important;
+    min-height: 154px !important;
+    padding: 10px !important;
+  }
+  #homePage > .services-section .service-card .service-symbol {
+    width: 38px !important;
+    height: 38px !important;
+    flex-basis: 38px !important;
+  }
+  #homePage > .services-section .service-card h3 {
+    font-size: 12px !important;
+    margin: 7px 0 2px !important;
+  }
+  #homePage > .services-section .service-card p {
+    font-size: 8px !important;
+    line-height: 1.35 !important;
+    min-height: 22px !important;
+    margin-bottom: 5px !important;
+  }
+}
+@media (max-width: 360px) {
+  #homePage > .services-section .service-card {
+    height: 148px !important;
+    min-height: 148px !important;
+    padding: 9px !important;
+  }
+}
