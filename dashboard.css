@@ -575,3 +575,12 @@
   .account-menu-wrap>.nexora-notification-bell{width:38px!important;height:38px!important;flex-basis:38px!important;margin:0 7px 0 0!important}
   .account-menu-wrap>.account-menu-toggle{flex:0 0 42px!important}
 }
+
+/* App header finish: align brand and notification/menu controls with the homepage */
+@media(max-width:700px){
+ .dash-topbar{height:70px!important;min-height:70px!important;padding-top:5px!important;padding-bottom:0!important;}
+ .dash-topbar>.brand,.account-menu-wrap>.nexora-notification-bell,.account-menu-wrap>.account-menu-toggle{transform:translateY(4px)!important;}
+ .dash-topbar>.brand{text-shadow:0 0 10px rgba(191,92,255,.72),0 0 24px rgba(142,67,255,.58),0 0 38px rgba(66,126,255,.24)!important;}
+ .dash-topbar>.brand .brand-mark{border:1px solid rgba(220,190,255,.8)!important;border-radius:50%!important;background:radial-gradient(circle at 28% 20%,#a8e5ff 0%,#45aaff 20%,#813dff 57%,#d52cff 100%)!important;box-shadow:inset 0 2px 5px rgba(255,255,255,.48),inset 0 -5px 9px rgba(20,8,75,.5),0 0 0 2px rgba(161,91,255,.18),0 0 22px rgba(148,65,255,.62)!important;}
+ .account-menu-wrap>.account-menu-toggle{border:1px solid rgba(196,157,255,.58)!important;border-radius:50%!important;background:linear-gradient(145deg,rgba(117,82,181,.34),rgba(23,29,68,.72))!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;box-shadow:inset 0 1px 2px rgba(255,255,255,.22),0 0 16px rgba(141,73,255,.3),0 5px 14px rgba(0,0,0,.25)!important;}
+}
