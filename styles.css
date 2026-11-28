@@ -1455,3 +1455,6 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     padding: 5px !important;
   }
 }
+
+/* Ensure official homepage platform logos render inside the existing icon frame. */
+#homePage > .services-section .service-card .service-symbol > .service-logo{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important;opacity:1!important;visibility:visible!important;}
