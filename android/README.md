@@ -32,3 +32,7 @@ Push code is included, but real delivery is not active until the owner creates a
 - External web links open in the Android browser.
 - File/content access, mixed content, cleartext traffic, and popup windows are disabled.
 - The website remains the source of truth; online website updates appear in the app.
+
+## Build delivery
+
+Every push that changes files under `android/` or this workflow runs the build. The debug APK is for testing; the signed release APK is the installable production package for same-app updates.
