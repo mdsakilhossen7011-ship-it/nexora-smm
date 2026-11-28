@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:src="@drawable/nexora_icon"
-    android:gravity="center"
-    android:filter="true" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#A78BFA"
+        android:pathData="M24,82 L24,26 L39,26 L69,65 L69,26 L84,26 L84,82 L69,82 L39,43 L39,82 Z" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M88,20 L88,14 L94,14 L94,20 Z" />
+</vector>
