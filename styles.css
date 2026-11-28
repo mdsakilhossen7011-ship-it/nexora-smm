@@ -1467,3 +1467,12 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
   background: radial-gradient(circle at center, #34251b 0%, #171522 72%) !important;
   opacity: .88 !important;
 }
+
+
+/* Free Fire card: fill the entire artwork area; keep the existing foreground logo intact. */
+#homePage > .services-section .gaming-card > .service-card-art {
+  object-fit: cover !important;
+  object-position: center center !important;
+  background: transparent !important;
+  opacity: 1 !important;
+}
