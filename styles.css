@@ -1420,3 +1420,38 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
     padding: 6px !important;
   }
 }
+
+
+/* Fine adjustment: a little more compact, preserving readable card content. */
+#homePage > .services-section .service-card {
+  min-height: 150px !important;
+  padding: 10px !important;
+}
+#homePage > .services-section .service-grid {
+  gap: 6px !important;
+}
+@media (max-width: 600px) {
+  #homePage > .services-section .service-card {
+    height: 106px !important;
+    min-height: 106px !important;
+    padding: 6px !important;
+    grid-template-rows: 22px 1fr 19px !important;
+  }
+  #homePage > .services-section .service-card .service-symbol {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 14px !important;
+  }
+  #homePage > .services-section .service-card-cta {
+    height: 19px !important;
+    min-height: 19px !important;
+    font-size: 7.5px !important;
+  }
+}
+@media (max-width: 360px) {
+  #homePage > .services-section .service-card {
+    height: 102px !important;
+    min-height: 102px !important;
+    padding: 5px !important;
+  }
+}
