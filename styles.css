@@ -1458,3 +1458,12 @@ main, header, footer, section, .section-wrap, .auth-page, .auth-card,
 
 /* Ensure official homepage platform logos render inside the existing icon frame. */
 #homePage > .services-section .service-card .service-symbol > .service-logo{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important;opacity:1!important;visibility:visible!important;}
+
+
+/* Free Fire card: show the complete official app icon, large and centered without cropping. */
+#homePage > .services-section .gaming-card > .service-card-art {
+  object-fit: contain !important;
+  object-position: center center !important;
+  background: radial-gradient(circle at center, #34251b 0%, #171522 72%) !important;
+  opacity: .88 !important;
+}
